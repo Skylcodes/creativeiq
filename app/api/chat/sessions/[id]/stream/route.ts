@@ -1,0 +1,110 @@
+import { NextResponse } from "next/server";
+import { createSseStream, streamClaudeText } from "@/lib/ai/stream";
+import { OPENING_MESSAGE_INSTRUCTION, CREATIVE_DIRECTOR_SYSTEM } from "@/lib/chat/prompts";
+import {
+  buildChatContextForSession,
+  getChatMessages,
+  insertChatMessage,
+} from "@/lib/chat/queries";
+import { createClient } from "@/lib/supabase/server";
+import type { CreativeDirectorChat } from "@/lib/types/chat";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 120;
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+type StreamBody = {
+  message?: string;
+  opening?: boolean;
+};
+
+export async function POST(request: Request, { params }: RouteContext) {
+  const { id: chatId } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as StreamBody;
+  const isOpening = Boolean(body.opening);
+  const userMessage = body.message?.trim() ?? "";
+
+  if (!isOpening && !userMessage) {
+    return NextResponse.json({ error: "Message required" }, { status: 400 });
+  }
+
+  const { data: chatRow, error: chatError } = await supabase
+    .from("creative_director_chats")
+    .select("*")
+    .eq("id", chatId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (chatError || !chatRow) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
+
+  const chat = chatRow as CreativeDirectorChat;
+
+  try {
+    const existingMessages = await getChatMessages(chatId, user.id);
+
+    if (isOpening && existingMessages.length > 0) {
+      return NextResponse.json({ error: "Opening already sent" }, { status: 400 });
+    }
+
+    if (!isOpening) {
+      await insertChatMessage(chatId, "user", userMessage);
+    }
+
+    const { contextBlock } = await buildChatContextForSession(chat, user.id);
+
+    const threadMessages = isOpening
+      ? []
+      : await getChatMessages(chatId, user.id);
+
+    const promptMessages = isOpening
+      ? [{ role: "user" as const, content: OPENING_MESSAGE_INSTRUCTION }]
+      : threadMessages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
+
+    let fullText = "";
+
+    const generator = (async function* () {
+      for await (const chunk of streamClaudeText({
+        system: CREATIVE_DIRECTOR_SYSTEM,
+        cachedContext: contextBlock,
+        messages: promptMessages,
+        maxTokens: 4096,
+        temperature: 0.8,
+      })) {
+        fullText += chunk;
+        yield chunk;
+      }
+
+      if (fullText.trim()) {
+        await insertChatMessage(chatId, "assistant", fullText.trim());
+      }
+    })();
+
+    const stream = createSseStream(generator);
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Stream failed.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
