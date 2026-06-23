@@ -27,10 +27,10 @@ export function WizardStepIndicator({ currentStep, steps = DEFAULT_STEPS }: Wiza
               <motion.div
                 animate={{
                   scale: isActive ? 1.05 : 1,
-                  backgroundColor: isComplete || isActive ? "#6e3aff" : "rgba(0,0,0,0.04)",
+                  backgroundColor: isComplete || isActive ? "#6947ff" : "rgba(0,0,0,0.04)",
                 }}
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                  isComplete || isActive ? "text-white shadow-[0_4px_12px_rgba(110,58,255,0.35)]" : "text-text-muted"
+                  isComplete || isActive ? "text-white shadow-[0_4px_12px_rgba(94, 80, 235,0.35)]" : "text-text-muted"
                 }`}
               >
                 {isComplete ? (

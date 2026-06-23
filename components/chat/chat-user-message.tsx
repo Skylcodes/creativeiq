@@ -1,12 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { CollapsibleMessageBody } from "./collapsible-message-body";
 
 type ChatUserMessageProps = {
   content: string;
+  defaultExpanded?: boolean;
 };
 
-export function ChatUserMessage({ content }: ChatUserMessageProps) {
+export function ChatUserMessage({
+  content,
+  defaultExpanded = true,
+}: ChatUserMessageProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -19,7 +24,15 @@ export function ChatUserMessage({ content }: ChatUserMessageProps) {
           Your question
         </p>
         <div className="chat-bubble-user rounded-2xl rounded-br-md px-4 py-3">
-          <p className="text-sm leading-relaxed text-text-primary">{content}</p>
+          <CollapsibleMessageBody
+            contentLength={content.length}
+            defaultExpanded={defaultExpanded}
+            fadeClassName="from-[#f3f0ff] via-[#f3f0ff]/90"
+          >
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-primary">
+              {content}
+            </p>
+          </CollapsibleMessageBody>
         </div>
       </div>
     </motion.div>

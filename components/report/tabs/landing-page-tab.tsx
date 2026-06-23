@@ -16,7 +16,7 @@ function CategoryCard({ cat }: { cat: ConversionCategory }) {
   const color = getReportScoreColor(pct);
 
   return (
-    <div className="rounded-2xl border border-black/[0.05] bg-white p-5 shadow-sm">
+    <div className="dashboard-panel p-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-text-primary">{cat.label}</h3>
         <span className="text-sm font-bold" style={{ color }}>
@@ -55,7 +55,7 @@ export function LandingPageTab({ report }: LandingPageTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col items-center gap-6 rounded-3xl border border-black/[0.05] bg-white p-8 shadow-sm md:flex-row md:justify-center md:gap-12">
+      <div className="flex flex-col items-center gap-6 dashboard-panel p-8 md:flex-row md:justify-center md:gap-12">
         <ScoreHero
           score={report.conversionScore?.total ?? 0}
           label="Conversion Score"
@@ -139,7 +139,7 @@ export function LandingPageTab({ report }: LandingPageTabProps) {
             {improvements.map((item, i) => (
               <div
                 key={i}
-                className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white p-5 shadow-sm sm:flex-row sm:items-center"
+                className="flex flex-col gap-3 dashboard-panel p-5 sm:flex-row sm:items-center"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 font-display text-sm font-bold text-accent">
                   {i + 1}

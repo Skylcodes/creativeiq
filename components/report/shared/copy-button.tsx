@@ -33,7 +33,7 @@ export function CopyButton({
       className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
         copied
           ? "bg-accent-secondary/10 text-accent-secondary ring-1 ring-accent-secondary/20"
-          : "bg-white text-text-secondary shadow-sm ring-1 ring-black/[0.06] hover:text-accent"
+          : "btn-surface px-3 py-1.5 text-xs text-text-secondary hover:text-accent"
       } ${className}`}
     >
       <AnimatePresence mode="wait" initial={false}>

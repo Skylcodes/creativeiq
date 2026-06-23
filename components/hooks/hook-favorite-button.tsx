@@ -38,7 +38,7 @@ export function HookFavoriteButton({
       className={`inline-flex ${dim} shrink-0 items-center justify-center rounded-lg transition-colors ${
         active
           ? "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/25"
-          : "bg-white text-text-muted ring-1 ring-black/[0.06] hover:text-amber-600"
+          : "dashboard-panel text-text-muted hover:text-amber-600"
       }`}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill={active ? "currentColor" : "none"} aria-hidden>

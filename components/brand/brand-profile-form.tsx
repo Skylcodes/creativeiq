@@ -23,7 +23,7 @@ function Section({
 }) {
   return (
     <PremiumCard padding="lg">
-      <div className="mb-6 border-b border-black/[0.05] pb-4">
+      <div className="mb-6 border-b border-[rgba(55,41,111,0.07)] pb-4">
         <h2 className="font-display text-lg font-semibold text-text-primary">
           {title}
         </h2>

@@ -21,7 +21,7 @@ export function ChatInputArea({
   onSend,
 }: ChatInputAreaProps) {
   return (
-    <div className="shrink-0 border-t border-black/[0.04] bg-white/60 px-4 py-4 backdrop-blur-xl md:px-5">
+    <div className="premium-card-glass shrink-0 border-t border-white/65 px-4 py-4 md:px-5">
       {showQuickActions && (
         <motion.div
           initial={{ opacity: 0, y: 6 }}
@@ -41,7 +41,7 @@ export function ChatInputArea({
         </motion.div>
       )}
 
-      <div className="premium-card rounded-2xl p-2 shadow-none focus-within:ring-2 focus-within:ring-accent/15">
+      <div className="premium-card premium-card-glass rounded-[22px] p-2 shadow-soft focus-within:border-accent/[0.22] focus-within:ring-4 focus-within:ring-accent/[0.12]">
         <textarea
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
@@ -58,19 +58,33 @@ export function ChatInputArea({
         />
         <div className="flex items-center justify-between px-2 pb-1 pt-0.5">
           <p className="text-[10px] text-text-muted">
-            <kbd className="rounded bg-black/[0.04] px-1 py-0.5 font-mono text-[9px]">↵</kbd>
-            {" "}to send
+            <kbd className="surface-inset px-1 py-0.5 font-mono text-[9px]">
+              ↵
+            </kbd>{" "}
+            to send
           </p>
           <button
             type="button"
             onClick={() => onSend()}
             disabled={disabled || !input.trim()}
-            className="btn-premium px-3.5 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+            className="dash-btn-primary px-3.5 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Send message"
           >
             Send
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-              <path d="M2 6H10M7 3L10 6L7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              aria-hidden
+            >
+              <path
+                d="M2 6H10M7 3L10 6L7 9"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </button>
         </div>

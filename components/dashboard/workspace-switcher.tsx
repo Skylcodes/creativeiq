@@ -4,11 +4,16 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 
-export function WorkspaceSwitcher() {
+type WorkspaceSwitcherProps = {
+  variant?: "light" | "dark";
+};
+
+export function WorkspaceSwitcher({ variant = "light" }: WorkspaceSwitcherProps) {
   const { workspaces, activeWorkspace, switching, switchWorkspace } =
     useWorkspace();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDark = variant === "dark";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -32,11 +37,19 @@ export function WorkspaceSwitcher() {
         type="button"
         onClick={() => setOpen(!open)}
         disabled={switching}
-        className="flex w-full items-center gap-2.5 rounded-xl bg-black/[0.03] px-3 py-2.5 text-left text-[13px] font-medium text-text-primary transition-all duration-200 hover:bg-black/[0.05] disabled:opacity-60"
+        className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold tracking-[-0.01em] transition-all duration-200 disabled:opacity-60 ${
+          isDark
+            ? "border border-white/10 bg-white/8 text-white hover:bg-white/12"
+            : "border border-black/6 bg-white/70 text-text-primary hover:border-[#6947ff]/20 hover:bg-white"
+        }`}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-accent to-[#9333ea] text-[10px] font-bold text-white">
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white ${
+            isDark ? "bg-[#6947ff]" : "bg-[#4c3d8f]"
+          }`}
+        >
           {activeWorkspace.name.charAt(0).toUpperCase()}
         </span>
         <span className="min-w-0 flex-1 truncate">{activeWorkspace.name}</span>
@@ -45,7 +58,9 @@ export function WorkspaceSwitcher() {
           height="14"
           viewBox="0 0 14 14"
           fill="none"
-          className={`shrink-0 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""} ${
+            isDark ? "text-white/50" : "text-text-muted"
+          }`}
           aria-hidden
         >
           <path
@@ -60,7 +75,7 @@ export function WorkspaceSwitcher() {
 
       {open && (
         <div
-          className="absolute left-0 top-full z-50 mt-1.5 w-full min-w-[240px] overflow-hidden rounded-2xl bg-white/95 p-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl"
+          className="dash-card absolute left-0 top-full z-50 mt-2 w-full min-w-[250px] overflow-hidden p-1.5"
           role="listbox"
         >
           <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
@@ -78,17 +93,17 @@ export function WorkspaceSwitcher() {
                     switchWorkspace(workspace.id);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-200 ${
                     workspace.id === activeWorkspace.id
-                      ? "bg-accent/8 text-accent"
-                      : "text-text-primary hover:bg-black/[0.04]"
+                      ? "bg-[#6947ff]/10 text-[#4c3d8f]"
+                      : "text-text-primary hover:bg-[#f6f7fb]"
                   }`}
                 >
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
                       workspace.id === activeWorkspace.id
-                        ? "bg-accent text-white"
-                        : "bg-black/[0.05] text-text-secondary"
+                        ? "bg-[#4c3d8f] text-white"
+                        : "bg-[#f0f1f6] text-text-secondary"
                     }`}
                   >
                     {workspace.name.charAt(0).toUpperCase()}
@@ -104,13 +119,13 @@ export function WorkspaceSwitcher() {
             ))}
           </ul>
 
-          <div className="mt-1 pt-1">
+          <div className="mt-1 border-t border-black/5 pt-1">
             <Link
               href="/onboarding?mode=new"
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/8"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#4c3d8f] transition-colors hover:bg-[#6947ff]/8"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#6947ff]/10 text-[#6947ff]">
                 +
               </span>
               New workspace

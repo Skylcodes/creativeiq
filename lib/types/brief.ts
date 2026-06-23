@@ -28,7 +28,7 @@ export type AngleMode = "user_idea" | "surprise_me";
 
 export type BriefWizardInput = {
   goal: BriefGoal;
-  platform: string;
+  platforms: string[];
   audienceTemperature: AudienceTemperature;
   audienceNotes?: string;
   angleMode: AngleMode;

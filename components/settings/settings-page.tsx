@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProfileSection, SecuritySection } from "@/components/settings/profile-section";
+import {
+  ProfileSection,
+  SecuritySection,
+} from "@/components/settings/profile-section";
 import { WorkspacesSection } from "@/components/settings/workspaces-section";
+import { BillingSection } from "@/components/settings/billing-section";
 import { PageShell, PageHeader } from "@/components/ui/page-shell";
 import type { AccountSettingsData } from "@/lib/types/workspace";
 
 const NAV_ITEMS = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
+  { id: "billing", label: "Billing" },
   { id: "workspaces", label: "Workspaces" },
 ] as const;
 
@@ -40,7 +45,7 @@ export function SettingsPage({
       {
         rootMargin: "-20% 0px -55% 0px",
         threshold: [0.1, 0.3, 0.6],
-      }
+      },
     );
 
     sections.forEach((id) => {
@@ -80,10 +85,10 @@ export function SettingsPage({
                   <button
                     type="button"
                     onClick={() => scrollToSection(item.id)}
-                    className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all ${
+                    className={`dropdown-item w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium ${
                       active
-                        ? "bg-accent/10 text-accent shadow-[inset_0_0_0_1px_rgba(110,58,255,0.12)]"
-                        : "text-text-secondary hover:bg-black/[0.03] hover:text-text-primary"
+                        ? "dropdown-item-active"
+                        : "text-text-secondary"
                     }`}
                   >
                     {item.label}
@@ -102,6 +107,7 @@ export function SettingsPage({
             onAvatarChange={setAvatarOverride}
           />
           <SecuritySection />
+          <BillingSection />
           <WorkspacesSection workspaces={workspaces} />
         </div>
       </div>

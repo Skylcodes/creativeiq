@@ -21,7 +21,7 @@ const EXAMPLE_URLS = ["glowskin.co", "peaknutrition.com", "velourskin.co"];
 
 export function StepCreateWorkspace({
   title = "Create your first workspace",
-  subtitle = "CreativeIQ will crawl your website to understand your product, positioning, and target customer.",
+  subtitle = "Advara will crawl your website to understand your product, positioning, and target customer.",
   submitLabel = "Create workspace",
   onSubmit,
   onSuccess,
@@ -54,7 +54,7 @@ export function StepCreateWorkspace({
     <motion.div
       key="create"
       {...stepTransition}
-      className="rounded-2xl border border-white/80 bg-white/90 p-8 shadow-[0_24px_64px_rgba(110,58,255,0.08),0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl"
+      className="premium-card noise-overlay rounded-2xl p-8"
     >
       <div className="mb-6 text-center">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">

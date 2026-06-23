@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { BRIEF_GOALS, BRIEF_PLATFORMS } from "@/lib/briefs/constants";
+import { BRIEF_GOALS, briefPlatformLabels } from "@/lib/briefs/constants";
 import { createClient } from "@/lib/supabase/server";
+import { assertActionAllowed, blockedActionResult } from "@/lib/billing/gate";
+import type { ActionBlocked } from "@/lib/billing/account-types";
 import type {
   BriefWizardInput,
   CreateBriefInput,
@@ -11,14 +13,12 @@ import type {
 
 export type BriefActionResult =
   | { success: true; brief: CreativeBrief }
-  | { success: false; error: string };
+  | { success: false; error: string; blocked?: ActionBlocked };
 
 function buildBriefTitle(input: BriefWizardInput): string {
   const goal =
     BRIEF_GOALS.find((g) => g.id === input.goal)?.label ?? input.goal;
-  const platform =
-    BRIEF_PLATFORMS.find((p) => p.id === input.platform)?.label ??
-    input.platform;
+  const platform = briefPlatformLabels(input) || "Multi-platform";
   return `${goal} · ${platform}`;
 }
 
@@ -31,6 +31,9 @@ export async function createBrief(
   } = await supabase.auth.getUser();
 
   if (!user) return { success: false, error: "You must be signed in." };
+
+  const gate = await assertActionAllowed(user.id, "creative_briefs");
+  if (!gate.allowed) return blockedActionResult(gate);
 
   const { data: workspace } = await supabase
     .from("workspaces")

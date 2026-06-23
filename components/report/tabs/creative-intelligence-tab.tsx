@@ -8,12 +8,15 @@ import { agentsForReport } from "@/lib/report/agents";
 import { getAgentDisplaySummary } from "@/lib/report/utils";
 import { AgentIcon } from "../shared/agent-icon";
 import { CopyButton } from "../shared/copy-button";
-import { HookRowActions, matchHookInLibrary } from "@/components/hooks/hook-row-actions";
+import { HookRowActions, matchHookInLibrary, type HookSaveContext } from "@/components/hooks/hook-row-actions";
 import { PremiumCard } from "@/components/ui/premium-card";
+import { CriteriaChecklist } from "../shared/criteria-checklist";
 
 type CreativeIntelligenceTabProps = {
   report: AnalysisReport;
   hookLookup?: Map<string, HookLibraryEntry>;
+  hookSaveBase?: HookSaveContext;
+  onHookSaved?: (hook: HookLibraryEntry) => void;
 };
 
 function IntelligenceSources({ report }: { report: AnalysisReport }) {
@@ -52,9 +55,9 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <circle cx="8" cy="8" r="5.5" stroke="#6e3aff" strokeWidth="1.2" />
-            <circle cx="8" cy="8" r="2" fill="#6e3aff" fillOpacity="0.4" stroke="#6e3aff" strokeWidth="1" />
-            <path d="M8 2V3.5M8 12.5V14M2 8H3.5M12.5 8H14" stroke="#6e3aff" strokeWidth="1.1" strokeLinecap="round" />
+            <circle cx="8" cy="8" r="5.5" stroke="#6947ff" strokeWidth="1.2" />
+            <circle cx="8" cy="8" r="2" fill="#6947ff" fillOpacity="0.4" stroke="#6947ff" strokeWidth="1" />
+            <path d="M8 2V3.5M8 12.5V14M2 8H3.5M12.5 8H14" stroke="#6947ff" strokeWidth="1.1" strokeLinecap="round" />
           </svg>
         </div>
         <div className="min-w-0 flex-1">
@@ -81,7 +84,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-black/[0.04] bg-[#fafaf9] px-5 py-4 space-y-4">
+            <div className="border-t border-[rgba(55,41,111,0.07)] bg-accent/[0.025] px-5 py-4 space-y-4">
               <div className="flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full bg-accent/10 px-2.5 py-1 font-medium text-accent">
                   {category}
@@ -110,7 +113,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
                   </p>
                   <div className="space-y-2">
                     {competitorAds.slice(0, 5).map((ad, i) => (
-                      <div key={i} className="rounded-xl border border-black/[0.04] bg-white px-3.5 py-3">
+                      <div key={i} className="dashboard-panel px-3.5 py-3 !shadow-none">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-xs font-semibold text-text-primary">{ad.advertiser}</p>
                           <div className="flex items-center gap-2 text-[10px] text-text-muted">
@@ -138,7 +141,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
               {(brief.audienceContent || brief.winningScriptPatterns || brief.nicheSophistication) && (
                 <div className="space-y-3">
                   {brief.audienceContent && (
-                    <div className="rounded-xl border border-black/[0.04] bg-white px-3.5 py-3">
+                    <div className="dashboard-panel px-3.5 py-3 !shadow-none">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                         Audience content behavior
                       </p>
@@ -148,7 +151,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
                     </div>
                   )}
                   {brief.winningScriptPatterns && (
-                    <div className="rounded-xl border border-black/[0.04] bg-white px-3.5 py-3">
+                    <div className="dashboard-panel px-3.5 py-3 !shadow-none">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                         Winning hooks & scripts in niche
                       </p>
@@ -158,7 +161,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
                     </div>
                   )}
                   {brief.nicheSophistication && (
-                    <div className="rounded-xl border border-black/[0.04] bg-white px-3.5 py-3">
+                    <div className="dashboard-panel px-3.5 py-3 !shadow-none">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                         Buyer psychology & market sophistication
                       </p>
@@ -181,7 +184,12 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
   );
 }
 
-export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntelligenceTabProps) {
+export function CreativeIntelligenceTab({
+  report,
+  hookLookup,
+  hookSaveBase,
+  onHookSaved,
+}: CreativeIntelligenceTabProps) {
   const [openAgent, setOpenAgent] = useState<string | null>(null);
 
   const angles = [...report.angleRecommendations].sort((a, b) => a.rank - b.rank);
@@ -192,6 +200,9 @@ export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntellig
   return (
     <div className="space-y-6">
       <IntelligenceSources report={report} />
+      {report.criteriaChecklist && report.criteriaChecklist.length > 0 && (
+        <CriteriaChecklist items={report.criteriaChecklist} />
+      )}
 
       <section>
         <h2 className="font-display text-xl font-semibold text-text-primary">
@@ -259,7 +270,7 @@ export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntellig
                 layout
                 padding="none"
                 variant={isFeatured ? "accent" : "default"}
-                className={`overflow-hidden ${isFeatured ? "shadow-[0_12px_40px_rgba(110,58,255,0.12)]" : ""}`}
+                className={`overflow-hidden ${isFeatured ? "shadow-[0_12px_40px_rgba(94, 80, 235,0.12)]" : ""}`}
               >
                 {hasExpandableContent ? (
                   <button
@@ -282,7 +293,7 @@ export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntellig
                       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                       className="overflow-hidden"
                     >
-                      <div className="border-t border-black/[0.05] px-5 pb-5 pt-4">
+                      <div className="border-t border-[rgba(55,41,111,0.07)] px-5 pb-5 pt-4">
                         {(finding?.keyFindings?.length ?? 0) > 0 && (
                           <ul className="mb-4 space-y-2">
                             {finding!.keyFindings.map((item, i) => (
@@ -294,7 +305,7 @@ export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntellig
                           </ul>
                         )}
                         {raw && !hidesRawTranscript && (
-                          <div className="rounded-xl bg-black/[0.02] p-4">
+                          <div className="surface-inset rounded-xl p-4">
                             <p className="whitespace-pre-wrap text-sm leading-[1.75] text-text-secondary">
                               {raw}
                             </p>
@@ -324,7 +335,7 @@ export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntellig
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {angles.slice(0, 3).map((angle, i) => (
               <PremiumCard key={angle.rank} padding="md">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent">
+                <span className="card-eyebrow font-bold tracking-[0.15em]">
                   Angle {angle.rank} — {rankLabels[i] ?? "Consider"}
                 </span>
                 <h3 className="mt-2 font-display text-lg font-semibold text-text-primary">
@@ -369,7 +380,21 @@ export function CreativeIntelligenceTab({ report, hookLookup }: CreativeIntellig
                     <p className="mt-2 text-sm text-text-secondary">{hook.rationale}</p>
                   )}
                 </div>
-                <HookRowActions hookText={hook.hook} hookEntry={entry} />
+                <HookRowActions
+                  hookText={hook.hook}
+                  hookEntry={entry}
+                  saveContext={
+                    hookSaveBase
+                      ? {
+                          ...hookSaveBase,
+                          angleTags: report.angleTags ?? [],
+                          notes: hook.rationale ?? null,
+                          captureKeySuffix: `variant-${hook.rank}`,
+                        }
+                      : undefined
+                  }
+                  onSaved={onHookSaved}
+                />
               </PremiumCard>
             );
             })}

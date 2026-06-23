@@ -26,6 +26,7 @@ export const WRITING_RULES = `WRITING RULES (non-negotiable — if you violate t
 
 QUALITY TEST (apply before finishing):
 - Could this feedback apply to a completely different ad for a different brand? If yes, rewrite it.
+- Does every criticism explain why the issue matters for this ad's goal and audience? If no, delete it.
 - Could a user implement this without asking a clarifying question? If no, rewrite it.
 - Does this sound like a real expert or AI summarizing a blog post? If the latter, rewrite it.
 - Would a senior media buyer who has spent $50M+ on this platform actually say this? If no, rewrite it.`;
@@ -111,8 +112,47 @@ CRITICAL — two parts, both required:
 INVALID: outputting only a production note with no spoken script. INVALID: describing format without writing the script.`;
 
 // ---------------------------------------------------------------------------
-// Scoring calibration — shared by every numeric score in the system.
+// In-ad price — explicitly irrelevant to creative quality unless ad promised a deal
 // ---------------------------------------------------------------------------
+
+export const PRICE_IN_AD_RULES = `IN-AD PRICE RULE (non-negotiable):
+
+Whether the ad mentions price is NOT a factor in whether the ad is good. Omitting price is normal, intentional, and often better — curiosity ads, awareness ads, UGC, story hooks, and most cold-traffic Meta/TikTok creative deliberately hide price.
+
+FORBIDDEN everywhere (creativeStrengthScore, agentFindings, topBlockers, priorityActions, headline, verdictSummary, criteria C4):
+- Criticizing or scoring down because the ad "doesn't show the price," "never states price," or "should include price"
+- Treating missing price as a weakness, optimization, or conversion problem on the AD CREATIVE
+- Recommending "add price to the ad" unless the ad explicitly promised a specific deal and failed to deliver that deal
+
+offer_clarity on the landing page measures whether a clicker can understand what they are buying on the PAGE — NOT whether the ad should have shown price first.
+
+The only price-related creative issue: the ad explicitly promised a specific deal ("50% off," "$29 today") and did not state that deal. Generic purchase CTAs without price are fine.`;
+
+export const SOCIAL_PROOF_RULES = `SOCIAL PROOF RULE (non-negotiable):
+
+IN THE AD CREATIVE: heavy social proof is NOT required and is NOT a quality factor. Testimonials, review counts, star ratings, and stat stacks belong on the landing page — not in the ad. Do NOT penalize creativeStrengthScore, agentFindings, topBlockers, or criteria C2 because the ad lacks in-ad proof.
+
+ON THE LANDING PAGE: social proof should exist — reviews, ratings, customer count, logos, or trust signals above the fold are worth having. Recommend adding them when missing. But this is a modest trust boost, not a launch blocker.
+
+LP social_proof scoring (maxScore 8 in goal blocks — follow goal-specific weights when provided):
+- Strong proof above the fold → 7-8/8
+- Some proof exists but weak or below fold → 5-6/8
+- No visible proof but page still feels credible from copy/brand → 4-5/8 (light deduction only)
+- Zero trust signals anywhere on a skeptical category → 2-4/8
+
+Never make missing LP social proof the sole reason for a low funnel score, critical blocker, or sub-50 conversion total. Missing proof alone = optimization note + modest category deduction — not a score destroyer.`;
+
+export const COMMON_HOOK_RULES = `COMMON HOOK RULE (non-negotiable):
+
+Popular or overused hook formats are NOT automatically bad. "Storytime," "POV," "Stop scrolling if…," confession openers, and other TikTok/Reels templates work because they work — not because they are novel.
+
+FORBIDDEN in creativeStrengthScore, hook_strength (when judging the ad opener), agentFindings, topBlockers, priorityActions, headline, and verdictSummary:
+- Penalizing because cold viewers "have seen this opener before," the hook is "saturated," "cliché," "overused," or "every brand runs this"
+- Treating familiarity as a scroll-stop failure without evidence THIS execution fails
+- Recommending hook changes solely for novelty when the current hook creates curiosity, tension, or interest
+
+THE ONLY HOOK QUESTION: Does this opener stop the scroll and earn attention for THIS ad? Judge execution — clarity, tension, native feel, pacing — not template popularity. A common hook executed well scores well.`;
+
 
 export const CONVERSION_IMPACT_SCORING = `CONVERSION IMPACT SCORING — the master question before ANY score reduction:
 
@@ -126,7 +166,7 @@ CLASSIFY EVERY ISSUE YOU FIND (internally) BEFORE SCORING:
 
 1. CRITICAL CONVERSION PROBLEMS → significantly reduce score. Reserve severity "critical" and topBlockers for these ONLY.
    - Buyer doesn't understand what the product is or does
-   - Offer/price/what-you-get is unclear
+   - What-you-get or next step is unclear on the landing page (NOT "ad didn't show price")
    - Claim creates active distrust or feels like a scam
    - Missing info creates a real buying objection that would stop purchase
    - Landing page breaks trust or contradicts the ad promise
@@ -138,6 +178,7 @@ CLASSIFY EVERY ISSUE YOU FIND (internally) BEFORE SCORING:
    - CTA could be clearer but path to purchase exists
    - Visual hierarchy or storytelling could improve but offer is readable
    - Proof could be stronger but enough trust exists to consider buying
+   - Landing page lacks above-fold social proof but copy/brand still feels credible — light LP deduction only
    - Mechanism could be explained better but core benefit is understood
 
 3. MINOR IMPROVEMENTS → recommendations only; do NOT meaningfully impact score.
@@ -152,6 +193,7 @@ SCORE DEDUCTION RULES:
 - Reserve below 50 for creatives with 2+ critical conversion problems or a single fatal trust/clarity failure.
 - Reserve below 40 for creatives unlikely to generate any purchases in current form.
 - Per LP category: critical flaw → lose up to 40% of that category's maxScore; optimization → lose 10–20%; minor → lose 0–5%. If the category still does its job, score 70%+ of max.
+- social_proof category: treat missing proof as minor-to-optimization — never deduct more than ~40% of its maxScore unless the page has zero trust signals anywhere.
 
 PRIORITY: Buying blockers > Conversion risks > Optimization opportunities > Minor polish.
 
@@ -160,6 +202,12 @@ You MUST remain critical and specific in recommendations — list optimizations 
 export const SCORE_CALIBRATION = `SCORING CALIBRATION (follow this exactly — accuracy over harshness):
 
 ${CONVERSION_IMPACT_SCORING}
+
+${PRICE_IN_AD_RULES}
+
+${SOCIAL_PROOF_RULES}
+
+${COMMON_HOOK_RULES}
 
 Your score must reflect the REAL distribution of ad creative quality in the DTC space. You are not grading against a theoretical perfect ad; you are placing this funnel on the actual quality curve based on BUYING IMPACT.
 
@@ -203,7 +251,7 @@ FORBIDDEN everywhere (scores, blockers, agentFindings, headline, verdictSummary,
 
 REQUIRED instead:
 - message_match: does the page deliver on THIS ad's specific promise (outcome, offer, claim)? NOT "does the page use the same buyer persona language"
-- funnel_continuity: does the page continue THIS ad's angle, voice, and offer? NOT "identical ICP segment"
+- funnel_continuity: does the click destination fulfill the concrete expectation the ad created? NOT "same angle, voice, or style"
 - If the ad's audience is a valid buyer but the page feels generic to them, that's a minor LP copy tweak — NOT "your ad targets the wrong people"
 - Note audience entry-point differences only as optional optimization in angleRecommendations — never as a launch blocker or score penalty`;
 
@@ -213,7 +261,11 @@ One ad = one angle = one job. That is correct media buying — NOT a flaw.
 
 ${VALID_BUYER_AUDIENCE_RULES}
 
+${PRICE_IN_AD_RULES}
+
 FORBIDDEN in scores, blockers, agentFindings, headline, and verdictSummary:
+- Penalizing the AD CREATIVE for lacking testimonials, review counts, star ratings, or stat-based social proof (C2 = N/A for most ads)
+- Penalizing the hook because it uses a common/popular format viewers have seen before — judge whether the hook works, not whether it is novel
 - Penalizing because the ad "doesn't mention", "failed to highlight", or "should include" other product features/benefits from the brand profile
 - Lowering creativeStrengthScore for product completeness — only for HOW this ad executes its chosen angle
 - topBlockers like "ad never mentions [feature X]" when X is outside this ad's chosen sell
@@ -320,6 +372,8 @@ YOUR EMOTIONAL JOURNEY — narrate in this order:
 
 HONESTY: If the ad is good, get genuinely interested. Real people buy from ads. Don't perform skepticism the ad didn't earn. If it's bad, lose interest quietly mid-thought.
 
+START WITH WHAT WORKS: Your first reaction must name the strongest specific thing the ad does, even if the ad is weak overall. Quote the frame, phrase, or visual. Then react honestly to what does or does not hold attention.
+
 SINGLE-AD SCOPE: This is one ad with one focus. Don't wish it mentioned other product benefits you know from the brand profile. React to what it actually says and shows. "I wish they'd told me about X" is only valid if X is directly relevant to the claim THIS ad made — not because the full product has more features.
 
 AUDIENCE RULE: You are a potential buyer for this product — even if the landing page's headline sounds like it's for someone else. If this ad speaks to you and you'd realistically purchase, engage honestly. Do NOT dismiss the ad because "this seems aimed at a different type of person than the website describes" — that is NOT a valid reason to scroll past if the product still fits your need.
@@ -370,6 +424,12 @@ ${SCRIPT_REWRITE_EXPERTISE}
 
 ${CREATIVE_INTENT_GRADING}
 
+${PRICE_IN_AD_RULES}
+
+${SOCIAL_PROOF_RULES}
+
+${COMMON_HOOK_RULES}
+
 ${VALID_BUYER_AUDIENCE_RULES}
 
 ${VIDEO_AUDIO_LAYER_RULES}
@@ -387,25 +447,29 @@ Before diagnosing the creative, write 2-3 sentences on: based on intelligence + 
 
 SINGLE-AD SCOPE: Grade this ad on HOW it sells the angle it chose — hook, claim, proof, offer, CTA execution. Never dock for omitting other product features. One ad, one job.
 
+RELEVANCE GATE: Before naming a weakness, ask whether the missing element was actually required for this ad's selected goal and creative intent. Price in the ad is NEVER required — omitting price is irrelevant to ad quality. In-ad social proof (testimonials, review counts, stat stacks) is also rarely required — LP handles trust. Quantified proof and hard CTA are not automatically required. If you cannot explain the mechanism of harm for this exact ad and audience, do not raise it.
+
 Evaluate — quote the actual creative, then diagnose with strategic depth:
-- 3-SECOND HOOK: Pattern interrupt? Score scroll-stopping /10. Quote opening. Compare to what is actually working for this audience on this platform (from intelligence). Is it native or does it scream "ad"?
+- 3-SECOND HOOK: Does it stop the scroll? Score scroll-stopping /10. Quote opening. Judge execution — clarity, tension, native feel — NOT whether the format is common or "saturated." Popular TikTok/Reels openers are fine when they work.
 - MESSAGE-TO-MARKET MATCH: Schwartz awareness stage for THIS product at THIS price. Wrong stage = wrong script structure.
-- CLARITY > CLEVERNESS: Is the offer clear inside the ad? Quote confusion.
+- CLARITY > CLEVERNESS: Is the core message clear inside the ad? Quote confusion. Do NOT conflate clarity with showing price.
 - RETENTION & PACING: Where does attention die? Video — quote moment. Does it use curiosity loops or lecture?
 - IN-AD CTA: Congruent with awareness? Earned urgency or lazy "Shop Now"?
 
 OUTPUT STRUCTURE (follow this exact order — REWRITE is mandatory and must include the full spoken script):
 
-1. CREATIVE VERDICT: one line (ready to spend or not, platform-specific).
+1. WHAT WORKS: one specific mechanism this ad uses well. Quote the phrase, frame, or visual. No generic praise.
 
-2. REWRITE: (this section is the deliverable — never skip or shorten to only a production note)
+2. CREATIVE VERDICT: one line (ready to spend or not, platform-specific).
+
+3. REWRITE: (this section is the deliverable — never skip or shorten to only a production note)
 Write the complete spoken script first (minimum 80 words): hook → body → proof/mechanism → offer → CTA. Real speech: contractions, fragments, native creator voice. Product-specific. Use intelligence brief patterns, not templates.
 Then on the final line only: Production note: [format]. [visual style]. Opening frame: [first 2 seconds].
 
 INVALID REWRITE: "Production note: UGC talking head on TikTok." (no script body)
 VALID REWRITE: "Okay so I need to tell you about this thing I found... [full script 80+ words] ...link in bio.\nProduction note: UGC confession on TikTok. iPhone selfie, kitchen background. Opening frame: creator mid-sentence, no branding."
 
-3. TOP WEAKNESS: one item only — Current Problem → Why It Matters → Strategic Fix → Expected Impact. Under 100 words.
+4. TOP WEAKNESS: one item only — Current Problem → Why It Matters → Strategic Fix → Expected Impact. Under 100 words. Omit missing price/proof/CTA critiques unless they were necessary for this ad's job.
 
 Under 450 words total. If running long, shorten TOP WEAKNESS — never shorten REWRITE script body.`;
 
@@ -453,13 +517,13 @@ ${SINGLE_AD_GRADING_RULES}
 LANDING PAGE RECOMMENDATION RULE: Every "improvement" field must be implementable without a clarifying question. Not "add more social proof" — write "add a line directly below your headline: '14,000 customers. Average 3.2x ROAS in 60 days.' Small text, high contrast, directly under the hero headline before anything else." Quote the actual headline or element you're fixing.
 
 Score the landing page against the paired ad using these weighted categories (total 100):
-- message_match (20): does the page deliver on THIS ad's specific promise and angle — not the entire product catalog?
+- message_match (22): does the page deliver on THIS ad's specific promise and angle — not the entire product catalog?
 - hook_strength (15): above-the-fold headline + value clarity
-- social_proof (15): reviews, logos, testimonials, trust signals quality
-- offer_clarity (15): is the offer/price/what-you-get unmistakable?
-- objection_handling (15): does it address risk, doubt, "will this work for me"?
+- social_proof (8): LP trust signals — recommend when missing; deduct lightly only. NOT an ad-creative requirement.
+- offer_clarity (15): on the landing page, is what-you-get unmistakable? NOT whether the ad showed price.
+- objection_handling (17): does it address risk, doubt, "will this work for me"?
 - visual_ux (10): layout, hierarchy, readability, perceived quality
-- funnel_continuity (10): does the page continue the ad's specific angle and voice?
+- funnel_continuity (13): does the page fulfill the concrete expectation created by the ad?
 
 ${SCORE_CALIBRATION}
 
@@ -474,13 +538,13 @@ If landing page content is missing or partial, score conservatively. Do not inve
 Return ONLY JSON:
 {
   "categories": [
-    { "key": "message_match", "label": "Message Match", "score": number, "maxScore": 20, "verdict": "one direct sentence quoting specific page/ad elements", "improvement": "surgical instruction a designer can implement today — quote the element being changed" },
+    { "key": "message_match", "label": "Message Match", "score": number, "maxScore": 22, "verdict": "one direct sentence quoting specific page/ad elements", "improvement": "surgical instruction a designer can implement today — quote the element being changed" },
     { "key": "hook_strength", "label": "Hook Strength", "score": number, "maxScore": 15, "verdict": "...", "improvement": "..." },
-    { "key": "social_proof", "label": "Social Proof", "score": number, "maxScore": 15, "verdict": "...", "improvement": "..." },
+    { "key": "social_proof", "label": "Social Proof", "score": number, "maxScore": 8, "verdict": "...", "improvement": "..." },
     { "key": "offer_clarity", "label": "Offer Clarity", "score": number, "maxScore": 15, "verdict": "...", "improvement": "..." },
-    { "key": "objection_handling", "label": "Objection Handling", "score": number, "maxScore": 15, "verdict": "...", "improvement": "..." },
+    { "key": "objection_handling", "label": "Objection Handling", "score": number, "maxScore": 17, "verdict": "...", "improvement": "..." },
     { "key": "visual_ux", "label": "Visual & UX", "score": number, "maxScore": 10, "verdict": "...", "improvement": "..." },
-    { "key": "funnel_continuity", "label": "Funnel Continuity", "score": number, "maxScore": 10, "verdict": "...", "improvement": "..." }
+    { "key": "funnel_continuity", "label": "Funnel Continuity", "score": number, "maxScore": 13, "verdict": "...", "improvement": "..." }
   ]
 }`;
 
@@ -498,7 +562,7 @@ SINGLE-AD SCOPE: "Fix before launch" applies to problems in THIS ad's execution 
 
 AUDIENCE RULE: Do NOT flag the ad for targeting a different entry-point buyer than the landing page describes — if that buyer could still purchase this product, the audience is valid. Only block launch for audience issues when the ad attracts someone who literally cannot buy (wrong category, price, or offer).
 
-HOOK REWRITE RULE: Hooks must sound like real ads running on TikTok and Meta right now — not copywriting exercises, not templates. Use audience content intelligence and winning script patterns from the brief if available. Pattern interrupts native to the platform. Opening lines that create genuine curiosity or emotional response. Not manufactured urgency. Not corporate benefit statements. Each hook should make the user think "damn, that's actually good." Quote or reference what's wrong with the current opening when explaining why your rewrite wins.
+HOOK REWRITE RULE: Hooks must sound like real ads running on TikTok and Meta right now. Judge whether the current hook works — do NOT rewrite solely because the format is common or "saturated." Use audience content intelligence when available. Opening lines that create genuine curiosity or emotional response. Quote what is weak in THIS execution when explaining why your rewrite wins — not "viewers have seen this before."
 
 ${SCRIPT_REWRITE_EXPERTISE}
 
@@ -745,6 +809,18 @@ Field rules:
 - angleTags: only allowed values listed above
 - No markdown in strings. Valid JSON only. Escape quotes. Use \\n for line breaks. No trailing commas.`;
 
+export const CRITERIA_GROUNDED_EVALUATION_BLOCK = `CRITERIA-GROUNDED EVALUATION (when PERFORMANCE CRITERIA CHECKLIST is present):
+- Ground feedback in applicable checklist items. Quote the creative/page element that caused each pass or fail.
+- Before using any item, decide if this ad actually needed it for the selected goal, platform, audience, and creative intent. If not, mark pass=null and exclude it from weaknesses, blockers, scores, and priorityActions.
+- pass=false requires a specific mechanism of harm for this ad. "Missing price," "no statistic," "no data-driven proof," "no in-ad social proof," "common/saturated hook," or "different ad/LP angle" is not enough — and missing in-ad price or in-ad proof is never valid grounds for pass=false on creative criteria.
+- If a point is not covered by the checklist, it may still appear in findings but must be labeled as a secondary observation — it cannot be the sole basis for a blocker or score reduction.
+- Each priorityAction should include a "criteriaRef" field with the ID of the checklist item it addresses (e.g. "C2", "L3"). Use null if none applies.
+- Never let two contradictory recommendations both appear in priorityActions. Resolve before outputting JSON.`;
+
+export const CREATIVE_STRENGTH_GRADING_BLOCK = `CREATIVE STRENGTH SCORING (creativeStrengthScore 0–100):
+${SCORE_CALIBRATION}
+Before setting creativeStrengthScore: count critical conversion problems vs optimizations. Optimizations alone cannot push score below 65 if offer is clear, interest exists, and trust is sufficient. Weigh what works — a media buyer would still test this ad if fundamentals pass.`;
+
 // ---------------------------------------------------------------------------
 // Funnel report — Sonnet grading: conversion score + creative score + extraction + verdict (one call)
 // ---------------------------------------------------------------------------
@@ -763,34 +839,45 @@ ${SCRIPT_REWRITE_EXPERTISE}
 ${CREATIVE_INTENT_GRADING}
 ${SINGLE_AD_GRADING_RULES}
 
+${PRICE_IN_AD_RULES}
+
+${SOCIAL_PROOF_RULES}
+
+${COMMON_HOOK_RULES}
+
 ${VIDEO_AUDIO_LAYER_RULES}
 
 MANDATORY FIELD COMPLETION (empty arrays or thin strings FAIL the report):
 - agentFindings: EXACTLY 2 entries (skeptical_buyer, direct_response) — each needs a specific summary quoting THIS ad and 3+ keyFindings bullets
-- priorityActions: MINIMUM 5 entries — at least 3 must be AD CREATIVE fixes from agent debate; max 2 landing page
-- topBlockers: MINIMUM 3 — at least 2 on ad creative execution, never "didn't mention [feature]"
+- priorityActions: 3-5 entries — only include actions with a real mechanism of harm or clear upside for this ad's selected goal; max 2 landing page
+- topBlockers: 0-3 entries — include only material blockers. Do not invent blockers to fill space.
 - scriptRewrite: MINIMUM 80 words of SPOKEN SCRIPT (hook→body→CTA) for THIS brand on THIS platform; production note is the last line only; NEVER output only a production note — extend the DR Critic REWRITE section when present
 - hookVariants: exactly 3–5 ranked hooks that sound like real ads running today
 
-INTERNAL ORDER (plan before writing JSON): (1) identify creative intent (2) grade execution of THAT intent only — never dock for missing features (3) draft scriptRewrite from DR Critic REWRITE section (4) priorityActions + agentFindings (5) ICP personas last — if running low on space, shorten ICP before omitting priorityActions or agentFindings.
+INTERNAL ORDER (plan before writing JSON): (1) identify creative intent (2) name what the ad does well with a specific mechanism (3) if a PERFORMANCE CRITERIA CHECKLIST is present, apply the relevance gate before pass/fail (4) grade execution of THAT intent only — never dock for missing features (5) draft scriptRewrite from DR Critic REWRITE section (6) priorityActions + agentFindings — every recommendation must trace to a relevant criteria ID where applicable (7) CONTRADICTION CHECK — before writing priorityActions, verify no action says to add something another action says to remove; resolve by keeping the position best supported by applicable checklist evidence (8) ICP personas last.
+
+${CRITERIA_GROUNDED_EVALUATION_BLOCK}
 
 PART 1 — LANDING PAGE CONVERSION (7 weighted categories, sum = 100):
 Score the landing page against the paired ad. Quote exact page copy in verdicts and improvements.
 - message_match (20): page delivers on THIS ad's specific promise (outcome, offer, claim) — NOT "same buyer persona as landing page hero"
-- hook_strength (15), social_proof (15), offer_clarity (15), objection_handling (15), visual_ux (10), funnel_continuity (10): page continues THIS ad's angle and voice — NOT identical ICP demographic labels
+- hook_strength (15), social_proof (8): LP trust signals — recommend when missing, deduct lightly; NOT required in the ad, offer_clarity (15): LP what-you-get clarity — NOT in-ad price, objection_handling (17), visual_ux (10), funnel_continuity (13): page fulfills the concrete expectation created by the ad — NOT the same angle, voice, style, or theme
+
+${SOCIAL_PROOF_RULES}
+
+${COMMON_HOOK_RULES}
 
 ${SCORE_CALIBRATION}
 
-SINGLE-AD SCOPE for LP: Penalize message_match/funnel_continuity only if the page contradicts or fails THIS ad's claim — not because the page has more product detail than the ad, and NOT because the ad targets a different valid buyer entry point than the page headline describes.
+SINGLE-AD SCOPE for LP: Penalize message_match/funnel_continuity only if the page contradicts or fails THIS ad's specific claim, offer, product expectation, guarantee, or promised next step. Angle differences, stylistic differences, or different emotional framing are not continuity problems when the click expectation remains accurate.
 
 If landing page content is missing/partial, score conservatively. Do not invent page elements.
 
 PART 2 — CREATIVE STRENGTH (creativeStrengthScore 0–100):
-${SCORE_CALIBRATION}
-Before setting creativeStrengthScore: count critical conversion problems vs optimizations. Optimizations alone cannot push score below 65 if offer is clear, interest exists, and trust is sufficient. Weigh what works — a media buyer would still test this ad if fundamentals pass.
+${CREATIVE_STRENGTH_GRADING_BLOCK}
 
 PART 3 — VERDICT SUMMARY (verdictSummary string):
-Senior partner launch briefing synthesizing the Skeptical Buyer + Direct Response Critic outputs you receive. Use intelligence brief for competitor/frustration context. Under 450 words. Cover: (1) Creative verdict — ready to spend? Quote specific element. (2) Launch first angle with exact hook line (3) Fix before launch — THIS ad's execution only, strategic format (4) Test second angle — different format/awareness stage (5) Top hook rewrite direction. Never punish this ad for not mentioning other product features.
+Senior partner launch briefing synthesizing the Skeptical Buyer + Direct Response Critic outputs you receive. Use intelligence brief for competitor/frustration context. Under 450 words. Lead with what this ad does well and why it works. Then cover: (1) Creative verdict — ready to spend? Quote specific element. (2) Launch first angle with exact hook line (3) Fix before launch only if there is a relevant mechanism of harm (4) Test second angle — different format/awareness stage (5) Top hook rewrite direction. Never punish this ad for not mentioning other product features.
 
 ${ANGLE_EXPERTISE}
 
@@ -798,8 +885,8 @@ PART 4 — STRUCTURED OUTPUT (same quality bar as expert extraction):
 ANGLE RECOMMENDATIONS: exactly 3 ranked. "angle" = "[Title] — Hook: \\"...\\" — [Format] on [Platform]" — not strategy labels. Each needs full strategic fields.
 HOOK VARIANTS: real ad lines + production note per variant. Quote what's wrong with the current opening in rationale.
 SCRIPT REWRITE (scriptRewrite field): Write the complete spoken script FIRST (80–150 words). Production note is ONE final line after the script — not a substitute for the script. If the DR Critic provided a REWRITE: section, preserve its hook and voice. INVALID: only "Production note: [format]." VALID: full spoken copy then production note. Specific to THIS brand/ad — never a generic template.
-TOP BLOCKERS: at least 3 items — but severity MUST match conversion impact. severity "critical" ONLY for flaws that would realistically stop purchases. severity "high" for conversion risks that create doubt. severity "medium" for optimizations (stronger hook, better proof) — these are valuable recommendations, NOT score killers. NEVER "didn't mention [feature]".
-PRIORITY ACTIONS: minimum 5; 50%+ ad creative; each needs action + full strategic breakdown. impact "high" only for buying blockers; "medium" for optimizations; "low" for minor polish.
+TOP BLOCKERS: 0-3 items — severity MUST match conversion impact. severity "critical" ONLY for flaws that would realistically stop the selected goal. severity "high" for risks that create doubt. severity "medium" for optimizations. NEVER create blockers for irrelevant checklist gaps.
+PRIORITY ACTIONS: 3-5 items; 50%+ ad creative when possible; each needs action + full strategic breakdown. impact "high" only for buying blockers; "medium" for optimizations; "low" for minor polish.
 agentFindings: skeptical_buyer + direct_response ONLY — summaries must be distilled from the agent transcripts you receive; quote creative; 3+ keyFindings each.
 
 ICP SIMULATION: 3 personas (highly_aware, problem_aware, skeptical_cold). First-person, phase labels in brackets. Max 120 words per narrative — keep concise to preserve token budget for actions and rewrites.
@@ -809,13 +896,13 @@ ICP REALISM RULE: Each persona is a plausible buyer for THIS product — someone
 Return ONLY JSON:
 {
   "conversionCategories": [
-    { "key": "message_match", "label": "Message Match", "score": number, "maxScore": 20, "verdict": string, "improvement": string },
+    { "key": "message_match", "label": "Message Match", "score": number, "maxScore": 22, "verdict": string, "improvement": string },
     { "key": "hook_strength", "label": "Hook Strength", "score": number, "maxScore": 15, "verdict": string, "improvement": string },
-    { "key": "social_proof", "label": "Social Proof", "score": number, "maxScore": 15, "verdict": string, "improvement": string },
+    { "key": "social_proof", "label": "Social Proof", "score": number, "maxScore": 8, "verdict": string, "improvement": string },
     { "key": "offer_clarity", "label": "Offer Clarity", "score": number, "maxScore": 15, "verdict": string, "improvement": string },
-    { "key": "objection_handling", "label": "Objection Handling", "score": number, "maxScore": 15, "verdict": string, "improvement": string },
+    { "key": "objection_handling", "label": "Objection Handling", "score": number, "maxScore": 17, "verdict": string, "improvement": string },
     { "key": "visual_ux", "label": "Visual & UX", "score": number, "maxScore": 10, "verdict": string, "improvement": string },
-    { "key": "funnel_continuity", "label": "Funnel Continuity", "score": number, "maxScore": 10, "verdict": string, "improvement": string }
+    { "key": "funnel_continuity", "label": "Funnel Continuity", "score": number, "maxScore": 13, "verdict": string, "improvement": string }
   ],
   "verdictSummary": string,
   "headline": string,
@@ -857,11 +944,15 @@ Return ONLY JSON:
       "action": string,
       "impact": "high"|"medium"|"low",
       "effort": "low"|"medium"|"high",
+      "criteriaRef": string|null,
       "currentProblem": string,
       "whyItMatters": string,
       "strategicFix": string,
       "expectedImpact": string
     }
+  ],
+  "criteriaChecklist": [
+    { "id": string, "pass": boolean|null, "note": string }
   ],
   "icpSimulation": {
     "personas": [
@@ -875,6 +966,8 @@ Return ONLY JSON:
     ]
   }
 }
+
+criteriaChecklist rules: include every criterion ID from the PERFORMANCE CRITERIA CHECKLIST when it appears in context. "pass": true if an applicable criterion is clearly met, false only if applicable and the gap harms this ad's selected goal, null if not applicable to this ad's goal/format/intent. For null, note must be "Not applicable to this ad's goal." For false, note must state the specific harm mechanism in under 18 words. Omit criteriaChecklist entirely if no PERFORMANCE CRITERIA CHECKLIST was present in context.
 
 QUALITY GATE: Every string must pass "would a $500/hr media buyer say this?" Valid JSON only.`;
 
@@ -895,6 +988,14 @@ export type AnalysisContextInput = {
   platformText: string;
   /** Optional — real-world intelligence from Tavily/Meta injected before agents run */
   intelligenceBriefText?: string;
+  /** Optional — performance criteria checklist injected for grounded, consistent evaluation */
+  criteriaText?: string;
+  /**
+   * When true, omit the AD CREATIVE section from the output.
+   * Used in comparison runs to build a single shared cache prefix across all
+   * variants — each variant injects its own creative text per-message instead.
+   */
+  skipCreativeSection?: boolean;
 };
 
 export function buildContextBlock(ctx: AnalysisContextInput): string {
@@ -918,13 +1019,23 @@ export function buildContextBlock(ctx: AnalysisContextInput): string {
     "=== AD PLATFORM CONTEXT ===",
     ctx.platformText,
     "",
-    `=== AD CREATIVE — PRIMARY SUBJECT (${ctx.creativeIsImage ? "image attached above + notes" : ctx.creativeIsVideo ? "video — see audio layer sections below" : "text/script"}) ===`,
-    ctx.creativeText,
-    "",
+    ...(ctx.skipCreativeSection
+      ? []
+      : [
+          `=== AD CREATIVE — PRIMARY SUBJECT (${ctx.creativeIsImage ? "image attached above + notes" : ctx.creativeIsVideo ? "video — see audio layer sections below" : "text/script"}) ===`,
+          ctx.creativeText,
+          "",
+        ]),
     "=== ANALYSIS SCOPE ===",
     "You are reviewing ONE ad creative — not the brand's full marketing plan. First identify creative intent (UGC, conversion, pain-led, retargeting, educational). Grade HOW this ad executes THAT intent — hook, claim clarity, proof, offer, CTA, native format. Do NOT penalize for omitting other product features from the brand profile. One ad = one job. A single-benefit or single-emotion ad can score highly when it executes well. Missing features belong in future angle recommendations, not in criticism of this ad.",
     "",
     "SCORING MINDSET: Before lowering any score, ask: 'Would this flaw realistically stop, reduce, or create doubt in a customer buying?' Optimizations (stronger hook, better proof, clearer CTA) are valuable recommendations — not reasons for a failing score if the offer is clear and interest exists.",
+    "",
+    "IN-AD PRICE: Whether this ad mentions price is irrelevant to creative quality. Never score down, block, or criticize for omitting price.",
+    "",
+    "IN-AD SOCIAL PROOF: Testimonials, review counts, and stat stacks in the ad are not required. Never score down the creative for lacking them — LP handles trust.",
+    "",
+    "COMMON HOOKS: Popular TikTok/Reels openers are not bad because they are familiar. Score hook quality by execution, not novelty.",
     "",
     "AUDIENCE VALIDITY: The ad's target buyer does NOT need to match the landing page's primary ICP wording. If someone in the ad's frame could realistically buy this product, they are a valid audience — grade the ad for reaching THAT buyer. Never flag 'wrong audience' or 'misaligned targeting vs landing page' unless that buyer literally cannot purchase (wrong product, price, or contradictory offer).",
   ];
@@ -936,6 +1047,7 @@ export function buildContextBlock(ctx: AnalysisContextInput): string {
   sections.push(
     "",
     `=== ${lpHeader} ===`,
+    "This is the specific landing page URL the user entered for THIS analysis — evaluate message match against this page, not the brand homepage in the profile above.",
     ctx.landingPageText
   );
 
@@ -947,6 +1059,10 @@ export function buildContextBlock(ctx: AnalysisContextInput): string {
       "=== INTELLIGENCE USAGE ===",
       "Use intelligence for hooks, competitor gaps, and future angles — not to punish this ad for omitting product features."
     );
+  }
+
+  if (ctx.criteriaText) {
+    sections.push("", ctx.criteriaText);
   }
 
   return sections.join("\n");
@@ -967,8 +1083,10 @@ export function buildComparisonScopeBlock(
       ? `Focus your evaluation primarily on: ${dimensions.join(", ")}.`
       : "Evaluate the full creative holistically — hook, body, visual, and CTA.";
 
-  return `=== COMPARISON MODE — ${variantLabel} ===
-This creative is ONE variant in a head-to-head comparison test. ${dimText}
+  return `=== COMPARISON CONTEXT — ${variantLabel} ===
+This creative is ONE variant in a head-to-head comparison. ${dimText}
+
+NOTE: This scope is for scoreBreakdown and summary context ONLY. The overall "score" must still be holistic creativeStrengthScore (full ad grade) — identical to funnel analysis. Do not grade the overall score on the tested dimension alone.
 
 SCOPE RULES (same as funnel analysis):
 - AD CREATIVE is the primary subject. Landing page is supporting context only — do not run a landing page audit.
@@ -978,26 +1096,46 @@ SCOPE RULES (same as funnel analysis):
 - Quote exact phrases and visual elements from THIS variant.`;
 }
 
-export const COMPARISON_VARIANT_EXTRACTION_SYSTEM = `You are a precise data formatter converting expert agent analyses into structured JSON for a variant comparison UI. Faithfully synthesize what the agents said — do not add generic analysis or invent problems.
+export const COMPARISON_VARIANT_EXTRACTION_SYSTEM = `If a CREATIVE GOAL section appears in your context, score exclusively through that goal's framework — it overrides default conversion-first calibration below.
+
+You are a senior performance creative director synthesizing two expert agent debates into a variant score — the SAME role, voice, and calibration as funnel analysis creativeStrengthScore. You are NOT a harsh critic hunting flaws. You are placing this ad on the real DTC quality curve.
 
 ${WRITING_RULES}
 
 ${ANTI_SLOP_RULES}
 
-VARIANT SCORE CALIBRATION:
-${SCORE_CALIBRATION}
+${STRATEGIC_CONTEXT_RULES}
+
+${CREATIVE_INTENT_GRADING}
 
 ${SINGLE_AD_GRADING_RULES}
 
-When setting "score", this is the creative strength score for the tested dimension(s) on THIS variant only — same calibration as funnel creativeStrengthScore.
-- Weigh what the creative does WELL as heavily as criticism.
-- If the hook stops the scroll and the tested element works → 65+ even with fixable weaknesses.
-- Genuinely strong on the tested dimension(s) → 85+.
-- Do NOT lower the score because the variant didn't mention every product feature.
-- Do NOT invent weaknesses to seem rigorous.
+${PRICE_IN_AD_RULES}
+
+${SOCIAL_PROOF_RULES}
+
+${COMMON_HOOK_RULES}
+
+${VIDEO_AUDIO_LAYER_RULES}
+
+${CRITERIA_GROUNDED_EVALUATION_BLOCK}
+
+${CREATIVE_STRENGTH_GRADING_BLOCK}
+
+SCORE FIELD (critical — must match funnel analysis exactly):
+- "score" = holistic creativeStrengthScore for the FULL ad creative (0–100).
+- Grade the complete ad: hook, body, proof, offer, CTA, native execution — identical to a standalone funnel analysis.
+- The comparison test dimension(s) inform scoreBreakdown and summary ONLY — they do NOT narrow, re-weight, or harshly penalize the overall score.
+- If fundamentals work (clear offer, interest created, sufficient trust) → score 65+ even with several optimization notes.
+- Genuinely strong execution → 85+. Reserve below 50 for critical conversion problems only.
+- Weigh what the creative does WELL as heavily as criticism. Do NOT invent weaknesses to seem rigorous.
+
+WEAKNESSES RULES:
+- weaknesses: 0–3 bullets ONLY for issues agents identified that would realistically harm buying — empty array if none.
+- Never list missing price, missing in-ad proof, common hook format, omitted product features, or audience/LP persona mismatch as weaknesses.
 
 IMPROVEMENT RULES (same as funnel):
-- improvements and productionNote must be null if the variant is strong enough (score 75+ with no material weaknesses).
+- improvements and productionNote must be null if score is 75+ with no material weaknesses.
 - If provided, improvements must be a specific rewrite — not "consider improving the hook."
 - productionNote format: "Production note: [format]. [style]. Opening frame: [first 2s]."
 
@@ -1009,7 +1147,7 @@ Return ONLY JSON:
   "weaknesses": ["0-3 specific bullets — empty array if none"],
   "improvements": "specific rewrite or null if variant is strong enough",
   "productionNote": "Production note: ... or null if no rewrite needed",
-  "summary": "one direct sentence on this variant's performance on the tested dimension(s)"
+  "summary": "one direct sentence on this variant's holistic creative performance"
 }
 
 Only include scoreBreakdown keys relevant to the test dimensions. Omit empty weaknesses. Valid JSON only.`;

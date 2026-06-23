@@ -133,6 +133,54 @@ export function getDurationOptions(platform: string) {
   return VIDEO_DURATIONS_TIKTOK;
 }
 
+/** Legacy briefs stored a single `platform` string — normalize to an array. */
+export function getBriefPlatforms(
+  input: { platforms?: string[]; platform?: string } | null | undefined
+): string[] {
+  if (!input) return [];
+  if (Array.isArray(input.platforms) && input.platforms.length > 0) {
+    return input.platforms;
+  }
+  if (typeof input.platform === "string" && input.platform) {
+    return [input.platform];
+  }
+  return [];
+}
+
+export function briefPlatformLabels(
+  input: { platforms?: string[]; platform?: string } | null | undefined
+): string {
+  return getBriefPlatforms(input)
+    .map((id) => BRIEF_PLATFORMS.find((p) => p.id === id)?.label ?? id)
+    .join(", ");
+}
+
+export function getDurationOptionsForPlatforms(platforms: string[]) {
+  if (platforms.length === 0) return VIDEO_DURATIONS_TIKTOK;
+
+  const hasMetaStyle = platforms.some(
+    (p) => p === "meta_feed" || p === "organic"
+  );
+  const hasShortForm = platforms.some(
+    (p) => p !== "meta_feed" && p !== "organic"
+  );
+
+  const byId = new Map<string, { id: string; label: string }>();
+
+  if (hasMetaStyle) {
+    for (const option of [...VIDEO_DURATIONS_META, ...STATIC_DURATIONS]) {
+      byId.set(option.id, option);
+    }
+  }
+  if (hasShortForm) {
+    for (const option of VIDEO_DURATIONS_TIKTOK) {
+      byId.set(option.id, option);
+    }
+  }
+
+  return [...byId.values()];
+}
+
 export function isStaticCreative(duration: string): boolean {
   return duration === "single_image" || duration === "carousel";
 }

@@ -69,13 +69,13 @@ export function WorkspacesSection({ workspaces }: WorkspacesSectionProps) {
             Workspaces
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
-            Manage the brands you analyze with CreativeIQ.
+            Manage the brands you analyze with Advara.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-text-primary ring-1 ring-black/[0.08] transition-colors hover:bg-black/[0.02]"
+          className="btn-surface gap-2 text-sm font-semibold"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
             <path d="M7 2V12M2 7H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -88,7 +88,7 @@ export function WorkspacesSection({ workspaces }: WorkspacesSectionProps) {
         {workspaces.map((workspace) => (
           <div
             key={workspace.id}
-            className="rounded-2xl bg-white/80 p-5 ring-1 ring-black/[0.04]"
+            className="dashboard-panel p-5"
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
@@ -112,7 +112,7 @@ export function WorkspacesSection({ workspaces }: WorkspacesSectionProps) {
                   type="button"
                   onClick={() => handleEdit(workspace.id)}
                   disabled={switchingId === workspace.id}
-                  className="rounded-xl bg-black/[0.03] px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-accent/8 hover:text-accent disabled:opacity-60"
+                  className="btn-surface rounded-xl disabled:opacity-60"
                 >
                   {switchingId === workspace.id ? "Opening…" : "Edit"}
                 </button>

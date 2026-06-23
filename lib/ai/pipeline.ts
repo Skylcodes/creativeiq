@@ -1,50 +1,27 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ANALYSIS_PLATFORMS } from "@/lib/analyses/constants";
-import { callClaude, callClaudeJSON, type ImageInput } from "@/lib/ai/client";
-import {
-  formatBrandProfileForPrompt,
-  truncateLandingPageForAgents,
-} from "@/lib/ai/brand-profile-prompt";
+import { type ImageInput } from "@/lib/ai/client";
+import { formatBrandProfileForPrompt } from "@/lib/ai/brand-profile-prompt";
+import { buildFunnelAnalysisReport } from "@/lib/ai/build-funnel-analysis-report";
+import { runFunnelGrading } from "@/lib/ai/funnel-grading";
 import { getOrGenerateBrandProfile } from "@/lib/ai/brand-profile";
 import {
   buildImageCreativeBrief,
   describeImageCreative,
 } from "@/lib/ai/image-creative";
-import { scrapePage } from "@/lib/ai/scrape";
+import { isScrapeContentSufficient, scrapePage } from "@/lib/ai/scrape";
 import { processVideoCreative, buildVideoBrief } from "@/lib/ai/video";
 import type { VideoCreativeContext } from "@/lib/ai/video";
 import { buildIntelligenceBrief, formatIntelligenceForPrompt } from "@/lib/ai/intelligence";
-import { captureHooksFromAnalysis } from "@/lib/hooks/capture";
-import { hydrateFunnelReportFields } from "@/lib/report/enrich-report";
-import { extractDrRewriteSeed } from "@/lib/report/script-rewrite";
-import { ensureScriptRewrite } from "@/lib/ai/script-rewrite-fallback";
 import {
-  getCreativeGoalScoringBlock,
+  getCreativeGoalLabel,
   normalizeCreativeGoal,
 } from "@/lib/analyses/creative-goals";
-import {
-  buildContextBlock,
-  DR_CRITIC_SYSTEM,
-  FUNNEL_REPORT_SYSTEM,
-  SKEPTICAL_BUYER_SYSTEM,
-} from "@/lib/ai/prompts";
+import { getOrBuildCriteria, formatCriteriaForContext } from "@/lib/ai/criteria";
 import type { Analysis } from "@/lib/types/analysis";
-import type {
-  AnalysisReport,
-  ConversionCategory,
-  ConversionScore,
-  IcpSimulation,
-  IntelligenceBrief,
-} from "@/lib/types/report";
+import type { IntelligenceBrief } from "@/lib/types/report";
 import type { Workspace } from "@/lib/types/workspace";
-
-const AGENT_SUFFIX =
-  "Give your analysis now, fully in character.";
-
-function clamp(n: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Math.round(n)));
-}
 
 function platformText(analysis: Analysis): string {
   const labels = analysis.platforms.map((id) => {
@@ -121,34 +98,6 @@ async function buildCreative(
   }
 }
 
-function normalizeConversion(categories: ConversionCategory[]): ConversionScore {
-  const normalized = categories.map((c) => ({
-    ...c,
-    score: clamp(c.score ?? 0, 0, c.maxScore ?? 0),
-  }));
-  const total = clamp(
-    normalized.reduce((sum, c) => sum + c.score, 0),
-    0,
-    100
-  );
-  return { total, categories: normalized };
-}
-
-type FunnelReportResult = {
-  conversionCategories: ConversionCategory[];
-  verdictSummary: string;
-  headline: string;
-  creativeStrengthScore: number;
-  angleTags: AnalysisReport["angleTags"];
-  agentFindings: AnalysisReport["agentFindings"];
-  angleRecommendations: AnalysisReport["angleRecommendations"];
-  topBlockers: AnalysisReport["topBlockers"];
-  hookVariants: AnalysisReport["hookVariants"];
-  scriptRewrite: string;
-  priorityActions: AnalysisReport["priorityActions"];
-  icpSimulation?: IcpSimulation;
-};
-
 /**
  * Runs the full AI analysis pipeline for an analysis row and persists the
  * structured report. Throws on unrecoverable failure (caller marks "failed").
@@ -178,37 +127,39 @@ export async function runAnalysisPipeline(
       : Promise.resolve(null),
   ]);
 
+  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
+
+  // Fetch or build the performance criteria checklist (cached 7 days in workspaces table).
+  // The Haiku distillation call only fires on cache miss — effectively zero cost per analysis.
+  const criteriaList = await getOrBuildCriteria(
+    supabase,
+    workspace.id,
+    intelligenceBrief
+  ).catch(() => []);
+  const criteriaText = criteriaList.length > 0
+    ? formatCriteriaForContext(criteriaList, getCreativeGoalLabel(creativeGoal))
+    : undefined;
+
   const landingPageStatus: "ok" | "partial" | "failed" = !lp
     ? "failed"
     : lp.ok
-      ? lp.bodyText.length > 200
+      ? isScrapeContentSufficient(lp)
         ? "ok"
         : "partial"
       : "failed";
   const landingPageText =
     lp?.asPromptText ?? "(No landing page URL was provided.)";
-  const agentLandingPageText = truncateLandingPageForAgents(landingPageText);
 
   const intelligenceBriefText = intelligenceBrief
     ? formatIntelligenceForPrompt(intelligenceBrief)
     : undefined;
 
-  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
-  const goalScoringBlock = getCreativeGoalScoringBlock(creativeGoal);
-
-  const agentContext = buildContextBlock({
-    brandProfileText,
-    creativeText: creative.text,
-    creativeIsImage: creative.kind === "image",
-    creativeIsVideo: creative.kind === "video",
-    creativeGoal,
-    landingPageText: agentLandingPageText,
-    landingPageStatus,
-    platformText: platformText(analysis),
-    intelligenceBriefText,
-  });
-
-  const gradingContext = buildContextBlock({
+  const {
+    report: reportRaw,
+    buyer,
+    drCritic,
+    drRewriteSeed,
+  } = await runFunnelGrading({
     brandProfileText,
     creativeText: creative.text,
     creativeIsImage: creative.kind === "image",
@@ -218,169 +169,41 @@ export async function runAnalysisPipeline(
     landingPageStatus,
     platformText: platformText(analysis),
     intelligenceBriefText,
+    criteriaText,
+    visionImage: creative.visionImage,
   });
 
-  const [buyer, drCritic] = await Promise.all([
-    callClaude({
-      system: SKEPTICAL_BUYER_SYSTEM,
-      cachedContext: agentContext,
-      prompt: AGENT_SUFFIX,
-      maxTokens: 1100,
-      temperature: 0.8,
-    }),
-    callClaude({
-      system: DR_CRITIC_SYSTEM,
-      cachedContext: agentContext,
-      prompt: AGENT_SUFFIX,
-      image: creative.visionImage,
-      maxTokens: 1700,
-      temperature: 0.8,
-    }),
-  ]);
-
-  const drRewriteSeed = extractDrRewriteSeed(drCritic);
-
-  const reportRaw = await callClaudeJSON<FunnelReportResult>({
-    system: FUNNEL_REPORT_SYSTEM,
-    cachedContext: gradingContext,
-    prompt: [
-      "=== AGENT — THE SKEPTICAL BUYER ===",
-      buyer,
-      "",
-      "=== AGENT — THE DIRECT RESPONSE CRITIC ===",
-      drCritic,
-      "",
-      ...(drRewriteSeed
-        ? [
-            "=== DR CRITIC SCRIPT SEED (extend this — do NOT replace with generic copy) ===",
-            drRewriteSeed.slice(0, 1200),
-            "",
-          ]
-        : []),
-      "GOAL-SPECIFIC SCORING (conversionCategories + creativeStrengthScore):",
-      goalScoringBlock,
-      "",
-      "SYNTHESIS INSTRUCTIONS:",
-      "1. Grade creative strength through the CREATIVE GOAL lens in context — not generic conversion-first unless goal is drive_purchases.",
-      "2. scriptRewrite MUST be a complete spoken script (80+ words): hook → body → proof → offer → CTA, THEN a final line starting with 'Production note:'. NEVER output only a production note — that field is INVALID without the full script above it. Extend the DR Critic REWRITE section when present.",
-      "3. agentFindings: EXACTLY 2 entries (skeptical_buyer, direct_response) — quote THIS ad; 3+ keyFindings each.",
-      "4. priorityActions: MINIMUM 5 — mostly ad creative fixes from agent debate; full strategic breakdown on every item.",
-      "5. SCORING: Ask 'would this flaw stop or create doubt in a buyer?' before reducing scores. Optimizations (weaker hook, more proof, better visuals) belong in recommendations — only critical conversion problems should significantly lower scores. Multiple small improvements must NOT produce a failing score.",
-      "6. Never lower scores because this ad omitted product features outside its chosen angle.",
-      "7. AUDIENCE: If the ad targets a valid buyer who could purchase this product — even when the landing page hero copy describes a different entry-point persona — do NOT penalize, block, or call it 'wrong audience'. Different ad/LP entry points are normal DTC strategy.",
-      "8. ICP personas: simulate plausible product buyers reacting honestly — not landing-page demographic clones.",
-      "9. VIDEO: If creative is video, analyze ONLY primary ad messaging + on-screen text — never song lyrics or background audio as brand copy.",
-      "",
-      "Produce the complete funnel report JSON now.",
-    ].join("\n"),
-    image: creative.visionImage,
-    maxTokens: 6144,
-    temperature: 0.35,
-    grading: true,
-  });
-
-  const hydrated = hydrateFunnelReportFields(
-    {
-      agentFindings: reportRaw.agentFindings ?? [],
-      priorityActions: reportRaw.priorityActions ?? [],
-      topBlockers: reportRaw.topBlockers ?? [],
-      conversionScore: {
-        total: 0,
-        categories: reportRaw.conversionCategories ?? [],
-      },
-      angleRecommendations: reportRaw.angleRecommendations ?? [],
-    },
-    {
-      skeptical_buyer: buyer,
-      direct_response: drCritic,
-      verdict: reportRaw.verdictSummary ?? "",
-    }
-  );
-
-  const conversionScore = normalizeConversion(reportRaw.conversionCategories ?? []);
-  const creativeStrengthScore = clamp(reportRaw.creativeStrengthScore ?? 0, 0, 100);
-  const overallFunnelScore = clamp(
-    (conversionScore.total + creativeStrengthScore) / 2,
-    0,
-    100
-  );
-
-  const flagsNotes: string[] = [];
-  if (landingPageStatus !== "ok") {
-    flagsNotes.push(
-      landingPageStatus === "failed"
-        ? `Landing page could not be fully analyzed${lp?.error ? ` (${lp.error})` : ""}.`
-        : "Landing page returned limited content; some scoring is conservative."
-    );
-  }
-  if (creative.kind === "video-placeholder") {
-    flagsNotes.push("Video was not transcribed; creative judged from context only.");
-  }
-  if (brandProfile.partial) {
-    flagsNotes.push("Brand profile was derived from limited data.");
-  }
-
-  const icpSimulation: IcpSimulation | undefined =
-    Array.isArray(reportRaw.icpSimulation?.personas) &&
-    reportRaw.icpSimulation.personas.length > 0
-      ? { personas: reportRaw.icpSimulation.personas }
-      : undefined;
-
-  const scriptRewrite = await ensureScriptRewrite({
-    synthesis: reportRaw.scriptRewrite,
+  const report = await buildFunnelAnalysisReport({
+    reportRaw,
+    buyer,
     drCritic,
     drRewriteSeed,
-    hookVariants: reportRaw.hookVariants ?? [],
-    creativeContext: creative.text,
-    platformText: platformText(analysis),
     brandProfileText,
+    creativeText: creative.text,
+    platformText: platformText(analysis),
+    landingPageStatus,
+    lpError: lp?.error,
+    creativeKind: creative.kind,
+    criteriaList,
+    intelligenceBrief,
+    brandProfilePartial: brandProfile.partial,
+    videoContext: creative.videoContext
+      ? {
+          transcript: creative.videoContext.transcript,
+          primaryMessaging: creative.videoContext.primaryMessaging,
+          backgroundAudioNote: creative.videoContext.backgroundAudioNote,
+          onScreenText: creative.videoContext.onScreenText,
+          transcriptAvailable: creative.videoContext.transcriptAvailable,
+          visualDescription: creative.videoContext.visualDescription,
+          frameCount: creative.videoContext.frameCount,
+          processingNotes: creative.videoContext.processingNotes,
+        }
+      : undefined,
   });
 
-  const report: AnalysisReport = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    overallFunnelScore,
-    creativeStrengthScore,
-    conversionScore,
-    headline: reportRaw.headline ?? "",
-    angleTags: reportRaw.angleTags ?? [],
-    agentFindings: hydrated.agentFindings,
-    angleRecommendations: reportRaw.angleRecommendations ?? [],
-    topBlockers: (reportRaw.topBlockers ?? []).slice(0, 5),
-    hookVariants: reportRaw.hookVariants ?? [],
-    scriptRewrite,
-    priorityActions: hydrated.priorityActions,
-    ...(icpSimulation ? { icpSimulation } : {}),
-    ...(intelligenceBrief ? { intelligenceBrief } : {}),
-    flags: {
-      landingPagePartial: landingPageStatus === "partial",
-      landingPageFailed: landingPageStatus === "failed",
-      creativeKind: creative.kind,
-      notes: flagsNotes,
-    },
-    ...(creative.videoContext
-      ? {
-          videoContext: {
-            transcript: creative.videoContext.transcript,
-            primaryMessaging: creative.videoContext.primaryMessaging,
-            backgroundAudioNote: creative.videoContext.backgroundAudioNote,
-            onScreenText: creative.videoContext.onScreenText,
-            transcriptAvailable: creative.videoContext.transcriptAvailable,
-            visualDescription: creative.videoContext.visualDescription,
-            frameCount: creative.videoContext.frameCount,
-            processingNotes: creative.videoContext.processingNotes,
-          },
-        }
-      : {}),
-    rawAgents: {
-      skeptical_buyer: buyer,
-      direct_response: drCritic,
-      verdict:
-        reportRaw.verdictSummary?.trim() ||
-        hydrated.verdictFallback ||
-        "",
-    },
-  };
+  const conversionScore = report.conversionScore;
+  const creativeStrengthScore = report.creativeStrengthScore;
+  const overallFunnelScore = report.overallFunnelScore;
 
   const { error } = await supabase
     .from("analyses")
@@ -399,6 +222,4 @@ export async function runAnalysisPipeline(
   if (error) {
     throw new Error(`Failed to save report: ${error.message}`);
   }
-
-  await captureHooksFromAnalysis(supabase, analysis, report, workspace.user_id);
 }

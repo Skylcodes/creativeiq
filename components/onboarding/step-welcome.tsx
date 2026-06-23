@@ -13,14 +13,14 @@ export function StepWelcome({ userName, onContinue }: StepWelcomeProps) {
     <motion.div
       key="welcome"
       {...stepTransition}
-      className="rounded-2xl border border-white/80 bg-white/90 p-8 text-center shadow-[0_24px_64px_rgba(110,58,255,0.08),0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl md:p-10"
+      className="premium-card noise-overlay rounded-2xl p-8 text-center md:p-10"
     >
-      <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-light">
+      <div className="icon-badge mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-light">
         <span className="text-2xl">👋</span>
       </div>
 
       <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
-        Hey {userName}, welcome to CreativeIQ
+        Hey {userName}, welcome to Advara
       </h1>
 
       <p className="mt-4 text-base leading-relaxed text-text-secondary">
@@ -34,7 +34,7 @@ export function StepWelcome({ userName, onContinue }: StepWelcomeProps) {
       <button
         type="button"
         onClick={onContinue}
-        className="btn-primary mt-8 w-full"
+        className="btn-premium mt-8 w-full"
       >
         Let&apos;s go
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>

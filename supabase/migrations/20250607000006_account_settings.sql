@@ -1,4 +1,4 @@
--- CreativeIQ: Account settings — avatar on profiles + avatars storage bucket
+-- Advara: Account settings — avatar on profiles + avatars storage bucket
 
 alter table public.profiles
   add column if not exists avatar_url text;

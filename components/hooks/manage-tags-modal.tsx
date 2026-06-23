@@ -30,9 +30,9 @@ export function ManageTagsModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+    <div className="modal-overlay p-4">
+      <button type="button" aria-label="Close" className="absolute inset-0" onClick={onClose} />
+      <div className="modal-panel relative z-10 w-full max-w-md p-6">
         <h2 className="font-display text-lg font-semibold">Manage tags</h2>
         <p className="mt-1 text-sm text-text-secondary">Workspace-specific tags for organizing hooks.</p>
 
@@ -41,7 +41,7 @@ export function ManageTagsModal({
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
             placeholder="New tag name"
-            className="flex-1 rounded-xl border border-black/[0.08] px-3 py-2 text-sm"
+            className="input-field flex-1"
           />
           <button
             type="button"
@@ -53,7 +53,7 @@ export function ManageTagsModal({
                 onChanged();
               })
             }
-            className="btn-primary text-sm"
+            className="btn-premium text-sm"
           >
             Add
           </button>
@@ -64,13 +64,13 @@ export function ManageTagsModal({
             <li className="text-sm text-text-muted">No custom tags yet.</li>
           )}
           {tags.map((tag) => (
-            <li key={tag} className="flex items-center gap-2 rounded-xl bg-black/[0.02] px-3 py-2">
+            <li key={tag} className="dashboard-list-row flex items-center gap-2 px-3 py-2">
               {editing === tag ? (
                 <>
                   <input
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="flex-1 rounded-lg border px-2 py-1 text-sm"
+                    className="input-field flex-1 py-1"
                   />
                   <button
                     type="button"
@@ -117,7 +117,7 @@ export function ManageTagsModal({
           ))}
         </ul>
 
-        <button type="button" onClick={onClose} className="mt-4 w-full btn-secondary text-sm">
+        <button type="button" onClick={onClose} className="btn-outline mt-4 w-full text-sm">
           Done
         </button>
       </div>

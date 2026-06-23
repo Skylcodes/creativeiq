@@ -128,7 +128,7 @@ export function OnboardingFlow({ mode = "full" }: OnboardingFlowProps) {
               ? "Add a new workspace"
               : "Create your first workspace"
           }
-          subtitle="CreativeIQ will crawl your website to understand your product, positioning, and target customer."
+          subtitle="Advara will crawl your website to understand your product, positioning, and target customer."
           submitLabel={mode === "new" ? "Add workspace" : "Create workspace"}
           onSubmit={handleCreateSubmit}
           onSuccess={handleCreateSuccess}

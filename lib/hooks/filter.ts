@@ -6,7 +6,7 @@ export type HookFilters = {
   platform: string | null;
   angleTag: string | null;
   customTag: string | null;
-  sourceType: "all" | "creativeiq_generated" | "manual";
+  sourceType: "all" | "advara_generated" | "manual";
   favorited: "all" | "yes" | "no";
   testQueue: boolean;
   sort: HookSortId;

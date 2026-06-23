@@ -47,7 +47,7 @@ function DropZone({
     (file: File) => {
       onFile(file);
     },
-    [onFile]
+    [onFile],
   );
 
   return (
@@ -73,7 +73,7 @@ function DropZone({
         className={`relative flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-300 ${
           dragging
             ? "border-accent bg-accent/[0.04] scale-[1.01]"
-            : "border-black/[0.08] bg-white/60 hover:border-accent/30 hover:bg-accent/[0.02]"
+            : "surface-inset hover:border-accent/30 hover:bg-accent/[0.02]"
         }`}
       >
         <input
@@ -89,9 +89,20 @@ function DropZone({
         />
         {children ?? (
           <>
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/8">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M12 5V19M5 12H19" stroke="#6e3aff" strokeWidth="2" strokeLinecap="round" />
+            <div className="icon-badge mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/8">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M12 5V19M5 12H19"
+                  stroke="#6947ff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
             </div>
             <p className="text-sm font-medium text-text-primary">
@@ -164,7 +175,7 @@ export function StepCreative({
         visuals, and copy against your landing page.
       </p>
 
-      <div className="mt-8 flex gap-1 rounded-xl bg-black/[0.03] p-1">
+      <div className="premium-tabs mt-8">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -173,13 +184,14 @@ export function StepCreative({
               setFileError(null);
               onTabChange(tab.id);
             }}
-            className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-              activeTab === tab.id
-                ? "bg-white text-text-primary shadow-sm"
-                : "text-text-muted hover:text-text-secondary"
+            className={`premium-tab relative flex-1 ${
+              activeTab === tab.id ? "premium-tab-active" : ""
             }`}
           >
-            {tab.label}
+            {activeTab === tab.id && (
+              <div className="premium-tab-indicator" />
+            )}
+            <span className="relative">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -195,14 +207,14 @@ export function StepCreative({
               transition={{ duration: 0.25 }}
             >
               {creative.imagePreview ? (
-                <div className="overflow-hidden rounded-2xl ring-1 ring-black/[0.06]">
+                <div className="premium-card overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={creative.imagePreview}
                     alt="Uploaded creative preview"
                     className="max-h-[320px] w-full object-contain bg-black/[0.02]"
                   />
-                  <div className="flex items-center justify-between border-t border-black/[0.04] bg-white/80 px-4 py-3">
+                  <div className="surface-inset flex items-center justify-between border-t-0 px-4 py-3">
                     <span className="truncate text-sm text-text-secondary">
                       {creative.imageFile?.name}
                     </span>
@@ -241,7 +253,7 @@ export function StepCreative({
               transition={{ duration: 0.25 }}
             >
               {creative.videoFile ? (
-                <div className="overflow-hidden rounded-2xl ring-1 ring-black/[0.06]">
+                <div className="premium-card overflow-hidden">
                   <div className="flex gap-4 bg-black/[0.02] p-4">
                     <div className="h-24 w-40 shrink-0 overflow-hidden rounded-xl bg-[#1a1a2e]">
                       {creative.videoThumbnail ? (
@@ -253,7 +265,14 @@ export function StepCreative({
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="white" fillOpacity="0.7" aria-hidden>
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="white"
+                            fillOpacity="0.7"
+                            aria-hidden
+                          >
                             <path d="M8 5V19L19 12L8 5Z" />
                           </svg>
                         </div>
@@ -264,7 +283,8 @@ export function StepCreative({
                         {creative.videoFile.name}
                       </p>
                       <p className="mt-1 text-xs text-text-muted">
-                        {(creative.videoFile.size / (1024 * 1024)).toFixed(1)} MB · MP4
+                        {(creative.videoFile.size / (1024 * 1024)).toFixed(1)}{" "}
+                        MB · MP4
                       </p>
                       <button
                         type="button"
@@ -312,7 +332,7 @@ export function StepCreative({
                 }
                 placeholder="Paste your ad script, voiceover copy, or primary ad text here..."
                 rows={10}
-                className="w-full resize-none rounded-2xl border border-black/[0.08] bg-white px-5 py-4 text-sm leading-relaxed text-text-primary outline-none transition-all placeholder:text-text-muted focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
+                className="input-field w-full resize-none px-4 py-3 text-sm leading-relaxed"
               />
               {libraryHooks.length > 0 && (
                 <button
@@ -345,13 +365,16 @@ export function StepCreative({
                       : "text-text-muted"
                   }
                 >
-                  {validateScriptContent(creative.scriptContent) && scriptLength > 0
+                  {validateScriptContent(creative.scriptContent) &&
+                  scriptLength > 0
                     ? `Minimum ${MIN_SCRIPT_LENGTH} characters required`
                     : "Include hook, body, and CTA for best results"}
                 </span>
                 <span
                   className={`font-medium ${
-                    scriptLength >= MIN_SCRIPT_LENGTH ? "text-accent-secondary" : "text-text-muted"
+                    scriptLength >= MIN_SCRIPT_LENGTH
+                      ? "text-accent-secondary"
+                      : "text-text-muted"
                   }`}
                 >
                   {scriptLength} characters
@@ -367,7 +390,7 @@ export function StepCreative({
 
 export function isCreativeStepValid(
   tab: CreativeTab,
-  creative: WizardCreativeState
+  creative: WizardCreativeState,
 ): boolean {
   if (tab === "image") return creative.imageFile !== null;
   if (tab === "video") return creative.videoFile !== null;

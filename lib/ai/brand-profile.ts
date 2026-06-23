@@ -1,16 +1,13 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON } from "@/lib/ai/client";
-import { scrapePage } from "@/lib/ai/scrape";
+import { isScrapeContentSufficient, scrapePage } from "@/lib/ai/scrape";
 import { normalizeLegacyProfile } from "@/lib/brand-profile/normalize";
 import type {
   BrandProfile,
   BrandProfileProgress,
 } from "@/lib/types/report";
 import type { Workspace } from "@/lib/types/workspace";
-
-/** Minimum scraped body length to consider the site "readable". */
-const MIN_SCRAPE_CHARS = 200;
 
 export const BRAND_PROGRESS_STEPS = {
   scrape: { message: "Crawling your website…", percent: 20 },
@@ -74,8 +71,7 @@ type RawBrandFields = Omit<
 >;
 
 function isScrapeInsufficient(scrape: Awaited<ReturnType<typeof scrapePage>>): boolean {
-  if (!scrape.ok) return true;
-  return scrape.bodyText.trim().length < MIN_SCRAPE_CHARS;
+  return !isScrapeContentSufficient(scrape);
 }
 
 async function setProgress(

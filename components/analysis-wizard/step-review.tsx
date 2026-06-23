@@ -53,8 +53,8 @@ export function StepReview({
       value: getCreativeGoalLabel(creativeGoal),
       icon: (
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-          <circle cx="9" cy="9" r="6.5" stroke="#6e3aff" strokeWidth="1.3" />
-          <path d="M9 5V9L11.5 11.5" stroke="#6e3aff" strokeWidth="1.3" strokeLinecap="round" />
+          <circle cx="9" cy="9" r="6.5" stroke="#6947ff" strokeWidth="1.3" />
+          <path d="M9 5V9L11.5 11.5" stroke="#6947ff" strokeWidth="1.3" strokeLinecap="round" />
         </svg>
       ),
     },
@@ -63,8 +63,8 @@ export function StepReview({
       value: formatPlatforms(platforms, platformOther),
       icon: (
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-          <rect x="2" y="3" width="14" height="12" rx="2" stroke="#6e3aff" strokeWidth="1.3" />
-          <path d="M2 7H16" stroke="#6e3aff" strokeWidth="1.3" />
+          <rect x="2" y="3" width="14" height="12" rx="2" stroke="#6947ff" strokeWidth="1.3" />
+          <path d="M2 7H16" stroke="#6947ff" strokeWidth="1.3" />
         </svg>
       ),
     },
@@ -73,8 +73,8 @@ export function StepReview({
       value: formatCreativeType(creativeTab),
       icon: (
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-          <rect x="3" y="4" width="12" height="10" rx="1.5" stroke="#6e3aff" strokeWidth="1.3" />
-          <path d="M7 8L10 9.5L7 11V8Z" fill="#6e3aff" fillOpacity="0.3" stroke="#6e3aff" strokeWidth="1" />
+          <rect x="3" y="4" width="12" height="10" rx="1.5" stroke="#6947ff" strokeWidth="1.3" />
+          <path d="M7 8L10 9.5L7 11V8Z" fill="#6947ff" fillOpacity="0.3" stroke="#6947ff" strokeWidth="1" />
         </svg>
       ),
     },
@@ -83,7 +83,7 @@ export function StepReview({
       value: formatCreativeDetail(creativeTab, creative),
       icon: (
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-          <path d="M4 14L7 8L10 11L14 5" stroke="#6e3aff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 14L7 8L10 11L14 5" stroke="#6947ff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ),
     },
@@ -92,8 +92,8 @@ export function StepReview({
       value: landingPageUrl,
       icon: (
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-          <circle cx="9" cy="9" r="6.5" stroke="#6e3aff" strokeWidth="1.3" />
-          <path d="M6 9H12M9 6V12" stroke="#6e3aff" strokeWidth="1.3" strokeLinecap="round" />
+          <circle cx="9" cy="9" r="6.5" stroke="#6947ff" strokeWidth="1.3" />
+          <path d="M6 9H12M9 6V12" stroke="#6947ff" strokeWidth="1.3" strokeLinecap="round" />
         </svg>
       ),
     },
@@ -105,7 +105,7 @@ export function StepReview({
         Review and launch
       </h2>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">
-        Everything looks good? Launch your funnel intelligence analysis — 5 AI
+        Everything looks good? Launch your funnel intelligence analysis — multiple AI
         agents will stress-test your full funnel end to end.
       </p>
 
@@ -113,9 +113,9 @@ export function StepReview({
         {rows.map((row) => (
           <div
             key={row.label}
-            className="flex items-start gap-4 rounded-2xl bg-white/80 px-5 py-4 ring-1 ring-black/[0.04]"
+            className="flex items-start gap-4 dashboard-panel px-5 py-4"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/8">
+            <div className="icon-badge flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/8">
               {row.icon}
             </div>
             <div className="min-w-0 flex-1">
@@ -132,7 +132,7 @@ export function StepReview({
 
       {(creativeTab === "image" && creative.imagePreview) ||
       (creativeTab === "video" && creative.videoThumbnail) ? (
-        <div className="mt-4 overflow-hidden rounded-2xl ring-1 ring-black/[0.04]">
+        <div className="premium-card mt-4 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={

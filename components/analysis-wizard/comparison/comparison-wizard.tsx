@@ -7,8 +7,15 @@ import {
   createComparisonAnalysis,
   resetAnalysisForRetry,
 } from "@/lib/analyses/actions";
-import { uploadCreativeFile, uploadVideoThumbnail } from "@/lib/analyses/upload";
-import { validateLandingPageUrl, validateScriptContent } from "@/lib/analyses/validation";
+import { useBilling } from "@/components/billing/billing-provider";
+import {
+  uploadCreativeFile,
+  uploadVideoThumbnail,
+} from "@/lib/analyses/upload";
+import {
+  validateLandingPageUrl,
+  validateScriptContent,
+} from "@/lib/analyses/validation";
 import type { ComparisonVariantInput } from "@/lib/types/comparison";
 import type { ComparisonTestDimension } from "@/lib/types/comparison";
 import type { Workspace } from "@/lib/types/workspace";
@@ -45,7 +52,7 @@ const stepVariants = {
 
 async function uploadVariantSlot(
   slot: VariantSlotState,
-  index: number
+  index: number,
 ): Promise<ComparisonVariantInput | { error: string }> {
   const label = slot.label.trim() || `Variant ${index + 1}`;
   const creativeType = slot.creativeTab;
@@ -94,7 +101,7 @@ async function uploadVariantSlot(
 export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
   const router = useRouter();
   const [state, setState] = useState<ComparisonWizardState>(() =>
-    createInitialComparisonState(workspace.brand_url)
+    createInitialComparisonState(workspace.brand_url),
   );
   const [phase, setPhase] = useState<WizardPhase>("wizard");
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -102,6 +109,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const { ensureCanAct, showBlocked } = useBilling();
 
   const toggleDimension = (id: ComparisonTestDimension) => {
     setState((prev) => {
@@ -169,6 +177,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
   };
 
   const handleRunComparison = async () => {
+    if (!ensureCanAct("variant_comparisons")) return;
     setSubmitError(null);
     setIsSubmitting(true);
 
@@ -224,6 +233,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
       });
 
       if (!result.success) {
+        if (result.blocked) showBlocked(result.blocked);
         setSubmitError(result.error);
         setIsSubmitting(false);
         return;
@@ -251,7 +261,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
 
   const creativeType = getLockedCreativeType(state.variants) ?? "image";
   const variantLabels = state.variants.map(
-    (v, i) => v.label.trim() || `Variant ${i + 1}`
+    (v, i) => v.label.trim() || `Variant ${i + 1}`,
   );
 
   if (phase === "progress" && analysisId) {
@@ -272,7 +282,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
     <>
       <div className="relative flex min-h-full flex-col">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 mesh-gradient opacity-40" />
+          <div className="absolute inset-0 ambient-bg opacity-20" />
           <div className="absolute inset-0 grid-pattern opacity-25" />
         </div>
 
@@ -284,8 +294,20 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
                 onClick={goBack}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-black/[0.04] hover:text-text-primary"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                  <path d="M9 3L4 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M9 3L4 7L9 11"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Back
               </button>
@@ -304,8 +326,19 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
               className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-black/[0.04] hover:text-text-primary"
               aria-label="Cancel comparison"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M4 4L12 12M12 4L4 12"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
@@ -338,7 +371,9 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
               {state.step === 3 && (
                 <StepVariants
                   variants={state.variants}
-                  onChange={(variants) => setState((prev) => ({ ...prev, variants }))}
+                  onChange={(variants) =>
+                    setState((prev) => ({ ...prev, variants }))
+                  }
                 />
               )}
               {state.step === 4 && (
@@ -374,7 +409,10 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
 
           <div className="mt-10">
             {submitError && (
-              <p className="mb-4 text-center text-sm text-[#ef4444]" role="alert">
+              <p
+                className="mb-4 text-center text-sm text-[#ef4444]"
+                role="alert"
+              >
                 {submitError}
               </p>
             )}
@@ -385,11 +423,23 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
                   type="button"
                   onClick={goNext}
                   disabled={!canContinue}
-                  className="btn-primary min-w-[200px] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="btn-premium min-w-[200px] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Continue
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                    <path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <path
+                      d="M3 8H13M9 4L13 8L9 12"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
               </div>
@@ -401,23 +451,49 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
                   disabled={isSubmitting}
                   whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                   whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
-                  className="group relative inline-flex w-full max-w-md items-center justify-center gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-accent to-[#7c3aed] px-10 py-5 text-lg font-semibold text-white shadow-[0_12px_48px_rgba(110,58,255,0.35)] transition-all duration-300 hover:shadow-[0_16px_56px_rgba(110,58,255,0.45)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group relative inline-flex w-full max-w-md items-center justify-center gap-3 overflow-hidden rounded-2xl bg-accent px-10 py-5 text-lg font-semibold text-white shadow-[0_12px_48px_rgba(105, 71, 255, 0.12)] transition-all duration-300 hover:shadow-[0_16px_56px_rgba(105, 71, 255, 0.12)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   {isSubmitting ? (
                     <>
                       <motion.span
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
                         className="inline-block h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
                       />
                       Preparing comparison...
                     </>
                   ) : (
                     <>
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
-                        <rect x="3" y="5" width="7" height="12" rx="1.5" stroke="white" strokeWidth="1.5" />
-                        <rect x="12" y="5" width="7" height="12" rx="1.5" stroke="white" strokeWidth="1.5" />
+                      <svg
+                        width="22"
+                        height="22"
+                        viewBox="0 0 22 22"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <rect
+                          x="3"
+                          y="5"
+                          width="7"
+                          height="12"
+                          rx="1.5"
+                          stroke="white"
+                          strokeWidth="1.5"
+                        />
+                        <rect
+                          x="12"
+                          y="5"
+                          width="7"
+                          height="12"
+                          rx="1.5"
+                          stroke="white"
+                          strokeWidth="1.5"
+                        />
                       </svg>
                       Run Comparison
                     </>

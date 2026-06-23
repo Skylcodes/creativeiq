@@ -54,15 +54,22 @@ export type ComparisonRanking = {
   reason: string;
 };
 
+import type { AnalysisReport } from "@/lib/types/report";
+
 export type ComparisonVariantDetail = {
   variantId: string;
   label: string;
+  /** Overall funnel score — matches standalone analysis `funnel_score`. */
   score: number;
+  creativeStrengthScore?: number;
+  conversionScore?: number;
   scoreBreakdown: Record<string, number>;
   strengths: string[];
   weaknesses: string[];
   improvements?: string | null;
   productionNote?: string | null;
+  /** Full funnel analysis report — same structure as standalone analysis feedback. */
+  analysisReport?: AnalysisReport;
 };
 
 export type ComparisonReport = {

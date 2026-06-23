@@ -41,10 +41,10 @@ function CreativeThumbnail({ analysis }: { analysis: AnalysisListItem }) {
     image: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
         <rect x="3" y="5" width="18" height="14" rx="2.5" fill="#ede9fe" />
-        <circle cx="9" cy="10" r="2" fill="#6e3aff" fillOpacity="0.45" />
+        <circle cx="9" cy="10" r="2" fill="#6947ff" fillOpacity="0.45" />
         <path
           d="M3 16L9 11L13 14L21 8"
-          stroke="#6e3aff"
+          stroke="#6947ff"
           strokeWidth="1.2"
           strokeLinecap="round"
         />
@@ -64,7 +64,7 @@ function CreativeThumbnail({ analysis }: { analysis: AnalysisListItem }) {
   };
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-black/[0.03]">
+    <div className="surface-inset flex h-full w-full items-center justify-center">
       {icons[analysis.creative_type]}
     </div>
   );
@@ -142,21 +142,21 @@ export function HistoryAnalysisCard({
       className="group premium-card premium-card-interactive overflow-hidden"
     >
       <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:gap-5 md:p-5">
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl ring-1 ring-black/[0.04] md:h-[88px] md:w-[88px]">
+        <div className="surface-inset h-20 w-20 shrink-0 overflow-hidden md:h-[88px] md:w-[88px]">
           <CreativeThumbnail analysis={analysis} />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {isComparison && (
-              <span className="rounded-full bg-[#9333ea]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#9333ea]">
+              <span className="insight-chip text-[11px] font-semibold text-[#3b2b9f]">
                 Comparison · {variantCount} variants
               </span>
             )}
-            <span className="rounded-full bg-black/[0.04] px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary">
+            <span className="insight-chip text-[11px] font-semibold">
               Goal: {goalLabel}
             </span>
-            <span className="rounded-full bg-accent/8 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+            <span className="insight-chip text-[11px] font-semibold text-accent">
               {platforms}
             </span>
             <span className="text-[11px] text-text-muted">
@@ -203,7 +203,7 @@ export function HistoryAnalysisCard({
           <button
             type="button"
             onClick={() => onDelete(analysis)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-text-muted ring-1 ring-black/[0.06] transition-all hover:bg-black/[0.03] hover:text-text-primary md:h-auto md:w-auto md:px-3 md:py-2"
+            className="btn-ghost h-10 w-10 md:h-auto md:w-auto md:px-3 md:py-2"
             aria-label={`Delete analysis from ${platforms}`}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>

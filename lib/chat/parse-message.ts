@@ -17,7 +17,7 @@ const CALLOUT_PATTERNS: {
   {
     type: "insight",
     regex:
-      /^\*\*(insight|key insight|recommendation|creativeiq insight|strategic insight)\*\*:?\s*(.*)$/i,
+      /^\*\*(insight|key insight|recommendation|advara insight|strategic insight)\*\*:?\s*(.*)$/i,
   },
   {
     type: "warning",

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { CreativeDirectorChat } from "./creative-director-chat";
-import { PageShell, PageHeader } from "@/components/ui/page-shell";
+import { ChatSessionsSidebar } from "./chat-sessions-sidebar";
+import { useChatSessions } from "./use-chat-sessions";
+import { PageHeader } from "@/components/ui/page-shell";
 import type { ChatAnalysisOption } from "@/lib/types/chat";
 
 type WorkspaceChatPageProps = {
@@ -21,6 +23,16 @@ export function WorkspaceChatPage({
 
   const analysisId = mode === "analysis" && selectedAnalysisId ? selectedAnalysisId : null;
 
+  const {
+    sessions,
+    activeChatId,
+    setActiveChatId,
+    loading: sessionsLoading,
+    createSession,
+    deleteSession,
+    notifySessionUpdated,
+  } = useChatSessions({ workspaceId, analysisId });
+
   const selectedOption = analysisOptions.find((o) => o.id === selectedAnalysisId);
   const contextLabel =
     mode === "workspace"
@@ -29,12 +41,28 @@ export function WorkspaceChatPage({
         ? `${selectedOption.title} — ${selectedOption.date}`
         : "Select an analysis";
 
+  async function handleNewChat() {
+    try {
+      await createSession();
+    } catch {
+      // Errors surface in chat component if needed
+    }
+  }
+
+  async function handleDelete(chatId: string) {
+    try {
+      await deleteSession(chatId);
+    } catch {
+      // ignore
+    }
+  }
+
   return (
-    <PageShell ambient={false} className="flex h-[calc(100dvh-5rem)] min-h-0 flex-col p-0">
-      <div className="shrink-0 border-b border-black/[0.06] bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-4xl px-5 py-5 md:px-8">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-black/6 bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-4 md:px-8">
           <PageHeader
-            eyebrow="CreativeIQ Strategist"
+            eyebrow="Advara Strategist"
             title="Creative Director"
             description="Open-ended strategic conversations across your creative portfolio."
             compact
@@ -59,7 +87,7 @@ export function WorkspaceChatPage({
                       setSelectedAnalysisId(value);
                     }
                   }}
-                  className="premium-card w-full cursor-pointer px-3.5 py-2.5 text-sm text-text-primary outline-none transition-shadow focus:ring-2 focus:ring-accent/10"
+                  className="dash-card w-full cursor-pointer px-3.5 py-2.5 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[#6947ff]/15"
                 >
                   <option value="workspace">Full workspace context</option>
                   {analysisOptions.map((option) => (
@@ -76,15 +104,28 @@ export function WorkspaceChatPage({
         </div>
       </div>
 
-      <div className="mx-auto min-h-0 w-full max-w-4xl flex-1">
-        <CreativeDirectorChat
-          key={`${workspaceId}-${analysisId ?? "workspace"}`}
-          workspaceId={workspaceId}
-          analysisId={analysisId}
-          contextLabel={contextLabel}
-          variant="page"
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 overflow-hidden">
+        <ChatSessionsSidebar
+          sessions={sessions}
+          activeChatId={activeChatId}
+          loading={sessionsLoading}
+          onSelect={setActiveChatId}
+          onNewChat={() => void handleNewChat()}
+          onDelete={(id) => void handleDelete(id)}
         />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <CreativeDirectorChat
+            key={`${workspaceId}-${analysisId ?? "workspace"}-${activeChatId ?? "none"}`}
+            workspaceId={workspaceId}
+            analysisId={analysisId}
+            chatId={activeChatId}
+            contextLabel={contextLabel}
+            variant="page"
+            onNewChat={() => void handleNewChat()}
+            onSessionUpdated={notifySessionUpdated}
+          />
+        </div>
       </div>
-    </PageShell>
+    </div>
   );
 }

@@ -3,7 +3,9 @@ type SkeletonProps = {
 };
 
 export function Skeleton({ className = "" }: SkeletonProps) {
-  return <div className={`shimmer-skeleton rounded-xl ${className}`} aria-hidden />;
+  return (
+    <div className={`shimmer-skeleton rounded-xl ${className}`} aria-hidden />
+  );
 }
 
 export function PageSkeleton({
@@ -13,14 +15,7 @@ export function PageSkeleton({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={`px-5 py-6 md:px-8 ${className}`}>
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-0 mesh-gradient opacity-30" />
-        <div className="relative">{children}</div>
-      </div>
-    </div>
-  );
+  return <div className={`px-5 py-6 md:px-8 ${className}`}>{children}</div>;
 }
 
 export function DashboardSkeleton() {

@@ -68,14 +68,14 @@ export function ChangeEmailModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm"
+            className="modal-overlay"
             onClick={loading ? undefined : onClose}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.04]"
+            className="modal-panel fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 p-6"
             role="dialog"
             aria-modal="true"
           >
@@ -113,7 +113,7 @@ export function ChangeEmailModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 rounded-full bg-linear-to-r from-accent to-[#7c3aed] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  className="flex-1 rounded-full bg-accent px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {loading ? "Sending…" : "Send confirmation"}
                 </button>

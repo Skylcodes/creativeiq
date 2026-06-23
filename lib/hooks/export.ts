@@ -30,7 +30,7 @@ export function hooksToCsv(hooks: HookLibraryEntry[]): string {
     escapeCsv(
       h.source_type === "manual"
         ? manualSourceLabel(h.manual_source_category) || "Manual"
-        : "CreativeIQ Generated"
+        : "Advara Generated"
     ),
     h.source_score != null ? String(h.source_score) : "",
     h.is_favorited ? "Yes" : "No",

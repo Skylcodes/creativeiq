@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { ANALYSIS_PLATFORMS, COMPARISON_PLATFORMS } from "@/lib/analyses/constants";
 import { normalizeLandingPageUrl } from "@/lib/analyses/validation";
 import { createClient } from "@/lib/supabase/server";
+import { assertActionAllowed, blockedActionResult } from "@/lib/billing/gate";
+import type { ActionBlocked } from "@/lib/billing/account-types";
 import type { Analysis, CreateAnalysisInput } from "@/lib/types/analysis";
 import type {
   ComparisonTestDimension,
@@ -14,7 +16,7 @@ import { randomUUID } from "crypto";
 
 export type AnalysisActionResult =
   | { success: true; analysis: Analysis }
-  | { success: false; error: string };
+  | { success: false; error: string; blocked?: ActionBlocked };
 
 function buildAnalysisTitle(platforms: string[], platformOther?: string): string {
   const labels = platforms
@@ -43,6 +45,9 @@ export async function createAnalysis(
   if (!user) {
     return { success: false, error: "You must be signed in." };
   }
+
+  const gate = await assertActionAllowed(user.id, "funnel_analyses");
+  if (!gate.allowed) return blockedActionResult(gate);
 
   if (input.platforms.length === 0) {
     return { success: false, error: "Select at least one platform." };
@@ -123,6 +128,9 @@ export async function createComparisonAnalysis(
   if (!user) {
     return { success: false, error: "You must be signed in." };
   }
+
+  const gate = await assertActionAllowed(user.id, "variant_comparisons");
+  if (!gate.allowed) return blockedActionResult(gate);
 
   if (input.variants.length < 2 || input.variants.length > 4) {
     return { success: false, error: "Upload 2 to 4 variants to compare." };

@@ -5,6 +5,7 @@ import { isComparisonReport } from "@/lib/report/normalize-comparison";
 import type { Analysis } from "@/lib/types/analysis";
 import type {
   ChatAnalysisOption,
+  ChatSessionSummary,
   CreativeDirectorChat,
   CreativeDirectorMessage,
 } from "@/lib/types/chat";
@@ -16,18 +17,21 @@ import {
 } from "@/lib/chat/context";
 import type { Workspace } from "@/lib/types/workspace";
 
-export async function getOrCreateChatSession(
+export async function listChatSessions(
   userId: string,
   workspaceId: string,
-  analysisId: string | null
-): Promise<CreativeDirectorChat> {
+  analysisId: string | null,
+  limit = 30,
+): Promise<ChatSessionSummary[]> {
   const supabase = await createClient();
 
   let query = supabase
     .from("creative_director_chats")
-    .select("*")
+    .select("id, title, analysis_id, created_at, updated_at")
     .eq("workspace_id", workspaceId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
 
   if (analysisId) {
     query = query.eq("analysis_id", analysisId);
@@ -35,11 +39,17 @@ export async function getOrCreateChatSession(
     query = query.is("analysis_id", null);
   }
 
-  const { data: existing } = await query.maybeSingle();
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ChatSessionSummary[];
+}
 
-  if (existing) {
-    return existing as CreativeDirectorChat;
-  }
+export async function createChatSession(
+  userId: string,
+  workspaceId: string,
+  analysisId: string | null,
+): Promise<CreativeDirectorChat> {
+  const supabase = await createClient();
 
   const { data: created, error } = await supabase
     .from("creative_director_chats")
@@ -56,6 +66,52 @@ export async function getOrCreateChatSession(
   }
 
   return created as CreativeDirectorChat;
+}
+
+export async function getChatSessionById(
+  chatId: string,
+  userId: string,
+): Promise<CreativeDirectorChat | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("creative_director_chats")
+    .select("*")
+    .eq("id", chatId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data as CreativeDirectorChat | null) ?? null;
+}
+
+export async function deleteChatSession(
+  chatId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("creative_director_chats")
+    .delete()
+    .eq("id", chatId)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+}
+
+/** @deprecated Use listChatSessions + createChatSession for multi-chat support */
+export async function getOrCreateChatSession(
+  userId: string,
+  workspaceId: string,
+  analysisId: string | null
+): Promise<CreativeDirectorChat> {
+  const existing = await listChatSessions(userId, workspaceId, analysisId, 1);
+  if (existing[0]) {
+    const full = await getChatSessionById(existing[0].id, userId);
+    if (full) return full;
+  }
+  return createChatSession(userId, workspaceId, analysisId);
 }
 
 export async function getChatMessages(
@@ -128,9 +184,29 @@ export async function insertChatMessage(
     throw new Error(error?.message ?? "Failed to save message.");
   }
 
+  const updates: { updated_at: string; title?: string } = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (role === "user") {
+    const { data: chat } = await supabase
+      .from("creative_director_chats")
+      .select("title")
+      .eq("id", chatId)
+      .maybeSingle();
+
+    if (chat && !chat.title) {
+      const trimmed = content.trim();
+      if (trimmed) {
+        updates.title =
+          trimmed.length > 56 ? `${trimmed.slice(0, 56)}…` : trimmed;
+      }
+    }
+  }
+
   await supabase
     .from("creative_director_chats")
-    .update({ updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", chatId);
 
   return data as CreativeDirectorMessage;

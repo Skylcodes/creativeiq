@@ -1,6 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { CLAUDE_MODEL, getAnthropic } from "@/lib/ai/client";
+import { CLAUDE_CHAT_MODEL, getAnthropic } from "@/lib/ai/client";
 
 export type StreamClaudeOptions = {
   system: string;
@@ -64,10 +64,18 @@ export async function* streamClaudeText(
   }
 
   const stream = client.messages.stream({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_CHAT_MODEL,
     max_tokens: maxTokens,
     temperature,
-    system,
+    // Cache the system prompt for 1h — chat sessions span multiple user turns
+    // with pauses in between; 1h ensures cache hits across the full conversation.
+    system: [
+      {
+        type: "text" as const,
+        text: system,
+        cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+      },
+    ],
     messages: anthropicMessages,
   });
 

@@ -4,7 +4,11 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAnalysis, resetAnalysisForRetry } from "@/lib/analyses/actions";
-import { uploadCreativeFile, uploadVideoThumbnail } from "@/lib/analyses/upload";
+import { useBilling } from "@/components/billing/billing-provider";
+import {
+  uploadCreativeFile,
+  uploadVideoThumbnail,
+} from "@/lib/analyses/upload";
 import { validateLandingPageUrl } from "@/lib/analyses/validation";
 import type { Workspace } from "@/lib/types/workspace";
 import type { HookLibraryEntry } from "@/lib/types/hook";
@@ -39,11 +43,15 @@ const stepVariants = {
   exit: { opacity: 0, x: -24 },
 };
 
-export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: NewAnalysisWizardProps) {
+export function NewAnalysisWizard({
+  workspace,
+  prefill,
+  libraryHooks = [],
+}: NewAnalysisWizardProps) {
   const router = useRouter();
   const [state, setState] = useState<WizardState>(() => {
     const initial = createInitialWizardState(
-      prefill?.landingPageUrl || workspace.brand_url
+      prefill?.landingPageUrl || workspace.brand_url,
     );
     if (prefill?.platform) {
       return {
@@ -60,6 +68,7 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const { ensureCanAct, showBlocked } = useBilling();
 
   const togglePlatform = (id: string) => {
     setState((prev) => {
@@ -74,8 +83,12 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
   const canContinueStep1 = state.creativeGoal !== null;
   const canContinueStep2 =
     state.platforms.length > 0 &&
-    (!state.platforms.includes("other") || state.platformOther.trim().length > 0);
-  const canContinueStep3 = isCreativeStepValid(state.creativeTab, state.creative);
+    (!state.platforms.includes("other") ||
+      state.platformOther.trim().length > 0);
+  const canContinueStep3 = isCreativeStepValid(
+    state.creativeTab,
+    state.creative,
+  );
   const canContinueStep4 = isLandingStepValid(state.landingPageUrl);
 
   const canContinue =
@@ -98,18 +111,25 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
       }
     }
     if (state.step < 5) {
-      setState((prev) => ({ ...prev, step: (prev.step + 1) as WizardState["step"] }));
+      setState((prev) => ({
+        ...prev,
+        step: (prev.step + 1) as WizardState["step"],
+      }));
     }
   };
 
   const goBack = () => {
     if (state.step > 1) {
-      setState((prev) => ({ ...prev, step: (prev.step - 1) as WizardState["step"] }));
+      setState((prev) => ({
+        ...prev,
+        step: (prev.step - 1) as WizardState["step"],
+      }));
     }
   };
 
   const handleRunAnalysis = async () => {
     if (!state.creativeGoal) return;
+    if (!ensureCanAct("funnel_analyses")) return;
     setSubmitError(null);
     setIsSubmitting(true);
 
@@ -120,7 +140,10 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
       let thumbnailUrl: string | undefined;
 
       if (state.creativeTab === "image" && state.creative.imageFile) {
-        const upload = await uploadCreativeFile(state.creative.imageFile, "image");
+        const upload = await uploadCreativeFile(
+          state.creative.imageFile,
+          "image",
+        );
         if ("error" in upload) {
           setSubmitError(upload.error);
           setIsSubmitting(false);
@@ -132,7 +155,10 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
       }
 
       if (state.creativeTab === "video" && state.creative.videoFile) {
-        const upload = await uploadCreativeFile(state.creative.videoFile, "video");
+        const upload = await uploadCreativeFile(
+          state.creative.videoFile,
+          "video",
+        );
         if ("error" in upload) {
           setSubmitError(upload.error);
           setIsSubmitting(false);
@@ -143,7 +169,9 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
         creativeMimeType = state.creative.videoFile.type;
 
         if (state.creative.videoThumbnail) {
-          const thumb = await uploadVideoThumbnail(state.creative.videoThumbnail);
+          const thumb = await uploadVideoThumbnail(
+            state.creative.videoThumbnail,
+          );
           if (!("error" in thumb)) {
             thumbnailUrl = thumb.url;
           }
@@ -168,6 +196,7 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
       });
 
       if (!result.success) {
+        if (result.blocked) showBlocked(result.blocked);
         setSubmitError(result.error);
         setIsSubmitting(false);
         return;
@@ -221,7 +250,7 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
     <>
       <div className="relative flex min-h-full flex-col">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 mesh-gradient opacity-40" />
+          <div className="absolute inset-0 ambient-bg opacity-20" />
           <div className="absolute inset-0 grid-pattern opacity-25" />
         </div>
 
@@ -233,15 +262,30 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
                 onClick={goBack}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-black/[0.04] hover:text-text-primary"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                  <path d="M9 3L4 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M9 3L4 7L9 11"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Back
               </button>
             )}
           </div>
 
-          <WizardStepIndicator currentStep={state.step} steps={[...FUNNEL_WIZARD_STEPS]} />
+          <WizardStepIndicator
+            currentStep={state.step}
+            steps={[...FUNNEL_WIZARD_STEPS]}
+          />
 
           <div className="flex w-20 justify-end">
             <button
@@ -250,8 +294,19 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
               className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-black/[0.04] hover:text-text-primary"
               aria-label="Cancel analysis"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M4 4L12 12M12 4L4 12"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
@@ -323,7 +378,10 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
 
           <div className="mt-10">
             {submitError && (
-              <p className="mb-4 text-center text-sm text-[#ef4444]" role="alert">
+              <p
+                className="mb-4 text-center text-sm text-[#ef4444]"
+                role="alert"
+              >
                 {submitError}
               </p>
             )}
@@ -334,11 +392,23 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
                   type="button"
                   onClick={goNext}
                   disabled={!canContinue}
-                  className="btn-primary min-w-[200px] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="btn-premium min-w-[200px] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Continue
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                    <path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <path
+                      d="M3 8H13M9 4L13 8L9 12"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
               </div>
@@ -350,30 +420,44 @@ export function NewAnalysisWizard({ workspace, prefill, libraryHooks = [] }: New
                   disabled={isSubmitting}
                   whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                   whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
-                  className="group relative inline-flex w-full max-w-md items-center justify-center gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-accent to-[#7c3aed] px-10 py-5 text-lg font-semibold text-white shadow-[0_12px_48px_rgba(110,58,255,0.35)] transition-all duration-300 hover:shadow-[0_16px_56px_rgba(110,58,255,0.45)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group relative inline-flex w-full max-w-md items-center justify-center gap-3 overflow-hidden rounded-2xl bg-accent px-10 py-5 text-lg font-semibold text-white shadow-[0_12px_48px_rgba(105, 71, 255, 0.12)] transition-all duration-300 hover:shadow-[0_16px_56px_rgba(105, 71, 255, 0.12)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   {isSubmitting ? (
                     <>
                       <motion.span
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
                         className="inline-block h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
                       />
                       Preparing analysis...
                     </>
                   ) : (
                     <>
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
-                        <path d="M11 3L13.5 8.5L19 9.5L15 13.5L16 19L11 16L6 19L7 13.5L3 9.5L8.5 8.5L11 3Z" fill="white" fillOpacity="0.9" />
+                      <svg
+                        width="22"
+                        height="22"
+                        viewBox="0 0 22 22"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <path
+                          d="M11 3L13.5 8.5L19 9.5L15 13.5L16 19L11 16L6 19L7 13.5L3 9.5L8.5 8.5L11 3Z"
+                          fill="white"
+                          fillOpacity="0.9"
+                        />
                       </svg>
                       Run Analysis
                     </>
                   )}
                 </motion.button>
                 <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-text-muted">
-                  5 AI agents will stress-test your full funnel. Full report
-                  ready in under 3 minutes.
+                  Multiple AI agents will stress-test your full funnel. Full
+                  report ready in under 3 minutes.
                 </p>
               </div>
             )}

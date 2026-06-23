@@ -13,10 +13,10 @@ export function StepReady({ workspaceName, onContinue }: StepReadyProps) {
     <motion.div
       key="ready"
       {...stepTransition}
-      className="rounded-2xl border border-white/80 bg-white/90 p-8 text-center shadow-[0_24px_64px_rgba(110,58,255,0.08),0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl md:p-10"
+      className="premium-card noise-overlay rounded-2xl p-8 text-center md:p-10"
     >
       <motion.div
-        className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent-light"
+        className="icon-badge mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent-light"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
@@ -33,7 +33,7 @@ export function StepReady({ workspaceName, onContinue }: StepReadyProps) {
         >
           <motion.path
             d="M6 14L12 20L22 8"
-            stroke="#6e3aff"
+            stroke="#6947ff"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -52,7 +52,7 @@ export function StepReady({ workspaceName, onContinue }: StepReadyProps) {
       <button
         type="button"
         onClick={onContinue}
-        className="btn-primary mt-8 w-full"
+        className="btn-premium mt-8 w-full"
       >
         Go to my dashboard
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { triggerBackgroundWorker } from "@/lib/trigger-worker";
 import { createClient } from "@/lib/supabase/server";
+import { assertActionAllowed, blockedResponse } from "@/lib/billing/gate";
 import type { Analysis } from "@/lib/types/analysis";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,13 @@ export async function POST(request: Request, { params }: RouteContext) {
   if (analysis.status === "completed") {
     return NextResponse.json({ status: "completed", analysisId: id });
   }
+
+  const feature =
+    analysis.analysis_mode === "comparison"
+      ? "variant_comparisons"
+      : "funnel_analyses";
+  const gate = await assertActionAllowed(user.id, feature, { countTrial: false });
+  if (!gate.allowed) return blockedResponse(gate);
 
   const now = new Date().toISOString();
 

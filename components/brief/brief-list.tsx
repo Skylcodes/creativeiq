@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { PremiumCard } from "@/components/ui/premium-card";
-import { BRIEF_GOALS, BRIEF_PLATFORMS } from "@/lib/briefs/constants";
+import { BRIEF_GOALS, briefPlatformLabels } from "@/lib/briefs/constants";
 import { formatAnalysisDateTime } from "@/lib/analyses/utils";
 import type { CreativeBrief } from "@/lib/types/brief";
 
@@ -14,7 +14,7 @@ export function BriefList({ briefs }: BriefListProps) {
   if (briefs.length === 0) {
     return (
       <PremiumCard padding="lg" className="py-16 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d97706]/10">
+        <div className="icon-badge mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d97706]/10">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
             <rect x="4" y="3" width="16" height="18" rx="2" stroke="#d97706" strokeWidth="1.5" />
             <path d="M8 8H16M8 12H14" stroke="#d97706" strokeWidth="1.3" strokeLinecap="round" />
@@ -37,7 +37,7 @@ export function BriefList({ briefs }: BriefListProps) {
     <div className="space-y-3">
       {briefs.map((brief, index) => {
         const goal = BRIEF_GOALS.find((g) => g.id === brief.input?.goal)?.label;
-        const platform = BRIEF_PLATFORMS.find((p) => p.id === brief.input?.platform)?.label;
+        const platform = briefPlatformLabels(brief.input);
         const angleName =
           brief.brief?.angle?.name ??
           (brief.status === "awaiting_angle" ? "Choose an angle" : brief.title);

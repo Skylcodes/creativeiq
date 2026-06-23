@@ -9,8 +9,8 @@ type ChatCodeBlockProps = {
 
 export function ChatCodeBlock({ content, label = "Creative output" }: ChatCodeBlockProps) {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-black/[0.06] bg-[#faf9ff]">
-      <div className="flex items-center justify-between border-b border-black/[0.04] bg-white/60 px-3.5 py-2">
+    <div className="premium-card premium-card-accent group relative overflow-hidden rounded-xl">
+      <div className="premium-card-glass flex items-center justify-between border-b border-[rgba(55,41,111,0.07)] px-3.5 py-2">
         <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
           {label}
         </span>

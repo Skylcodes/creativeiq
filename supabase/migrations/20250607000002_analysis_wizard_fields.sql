@@ -1,4 +1,4 @@
--- CreativeIQ: Analysis wizard fields + creative storage
+-- Advara: Analysis wizard fields + creative storage
 -- Run in Supabase Dashboard → SQL Editor after analyses migration
 
 alter table public.analyses

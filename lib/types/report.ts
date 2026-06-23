@@ -1,4 +1,4 @@
-// Structured CreativeIQ intelligence report.
+// Structured Advara intelligence report.
 // This is produced by the final extraction call and saved to analyses.report.
 
 export const ANGLE_TAGS = [
@@ -80,7 +80,18 @@ export type PriorityAction = {
   action: string;
   impact: "high" | "medium" | "low";
   effort: "low" | "medium" | "high";
+  /** Which criteria ID this action addresses (e.g. "C1", "L3") */
+  criteriaRef?: string;
 } & StrategicBreakdown;
+
+/** Single criterion evaluation result stored in the report */
+export type CriteriaChecklistItem = {
+  id: string;             // e.g. "C1", "L3", "D1"
+  category: "creative" | "landing_page" | "dynamic";
+  label: string;          // the criterion text
+  pass: boolean | null;   // null = not applicable for this ad's goal/format/intent
+  note?: string;          // evidence for pass/fail or N/A reason
+};
 
 export type AnalysisReport = {
   schemaVersion: 1;
@@ -116,6 +127,9 @@ export type AnalysisReport = {
 
   // Real-world intelligence gathered before agents ran (Tavily + Meta Ad Library)
   intelligenceBrief?: IntelligenceBrief;
+
+  // Evaluation criteria checklist — pass/fail per item for this analysis
+  criteriaChecklist?: CriteriaChecklistItem[];
 
   // Raw agent transcripts (kept for transparency / future re-render)
   rawAgents: Record<string, string>;

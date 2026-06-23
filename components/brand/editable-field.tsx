@@ -22,7 +22,7 @@ export function EditableField({
   error,
 }: EditableFieldProps) {
   const sharedClassName =
-    "w-full rounded-xl bg-white px-4 py-3 text-sm text-text-primary ring-1 ring-black/[0.06] transition-all placeholder:text-text-muted hover:ring-black/[0.1] focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-60";
+    "input-field px-3.5 py-2.5 disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
     <label className="group block">

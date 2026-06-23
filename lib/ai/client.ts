@@ -5,9 +5,13 @@ import { jsonrepair } from "jsonrepair";
 export const CLAUDE_MODEL =
   process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6";
 
-/** Used for structured JSON extraction/scoring — cheaper, same schema fidelity. */
+/** Haiku — structured JSON, lightweight prose, and vision description. */
 export const CLAUDE_JSON_MODEL =
   process.env.ANTHROPIC_JSON_MODEL?.trim() || "claude-haiku-4-5-20251001";
+
+/** Creative Director chat — Haiku by default (cheaper, strong with cached report context). */
+export const CLAUDE_CHAT_MODEL =
+  process.env.ANTHROPIC_CHAT_MODEL?.trim() || CLAUDE_JSON_MODEL;
 
 /** Floor for small calls (hooks, conversion score). */
 const MIN_REQUEST_TIMEOUT_MS = 120_000;
@@ -88,7 +92,9 @@ function buildUserContent(
     blocks.push({
       type: "text",
       text: cachedContext,
-      cache_control: { type: "ephemeral", ttl: "1h" },
+      // 5m is enough for all pipeline calls (analyses finish in < 5min) and
+      // saves the 2× write cost of the 1h tier. Chat keeps 1h in stream.ts.
+      cache_control: { type: "ephemeral", ttl: "5m" },
     });
 
     const suffix = prompt.trim();
@@ -156,7 +162,16 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
         model,
         max_tokens: maxTokens,
         temperature,
-        system,
+        // Cache the system prompt so repeated calls with the same large system
+        // string (e.g. FUNNEL_REPORT_SYSTEM across concurrent analyses) pay the
+        // write cost once and get ~90% off on cache reads within the 5m window.
+        system: [
+          {
+            type: "text" as const,
+            text: system,
+            cache_control: { type: "ephemeral" as const, ttl: "5m" as const },
+          },
+        ],
         messages,
       },
       { timeout: requestTimeoutMs }
@@ -193,7 +208,7 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
 
 const JSON_OUTPUT_RULES = [
   "Respond with ONLY a valid JSON object.",
-  "No markdown fences, no commentary before or after.",
+  "Your first character must be { — no preamble, no markdown fences, no commentary.",
   "Escape double quotes inside string values as \\\".",
   "Use \\n for line breaks inside strings — never raw newlines inside JSON strings.",
   "No trailing commas after the last array element or object property.",
@@ -251,6 +266,7 @@ export function parseJsonObject<T>(raw: string): T {
 
 /**
  * Calls Claude (Haiku by default) and parses a JSON object from the response.
+ * Note: assistant prefill is not used — current Sonnet/Haiku models reject it.
  */
 export async function callClaudeJSON<T>(
   options: Omit<ClaudeCallOptions, "prefill">

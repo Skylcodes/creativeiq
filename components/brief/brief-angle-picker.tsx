@@ -36,8 +36,8 @@ export function BriefAnglePicker({ brief, angles }: BriefAnglePickerProps) {
   }
 
   return (
-    <div className="relative mx-auto max-w-4xl px-5 py-12 md:px-8">
-      <div className="pointer-events-none absolute inset-0 mesh-gradient opacity-40" />
+    <div className="relative mx-auto max-w-5xl px-5 py-12 md:px-8">
+      <div className="pointer-events-none absolute inset-0 ambient-bg opacity-20" />
       <div className="relative text-center">
         <h1 className="font-display text-3xl font-semibold text-text-primary">
           Choose your angle
@@ -61,11 +61,11 @@ export function BriefAnglePicker({ brief, angles }: BriefAnglePickerProps) {
               onClick={() => setSelected(angle.id)}
               className={`rounded-2xl p-6 text-left transition-all ${
                 isSelected
-                  ? "bg-white shadow-[0_16px_48px_rgba(110,58,255,0.18)] ring-2 ring-accent"
-                  : "bg-white/80 ring-1 ring-black/[0.06] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(110,58,255,0.1)]"
+                  ? "premium-card ring-2 ring-accent shadow-[0_16px_48px_rgba(105,71,255,0.08)]"
+                  : "premium-card premium-card-interactive hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(105,71,255,0.06)]"
               }`}
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+              <p className="card-eyebrow tracking-[0.12em]">
                 Option {i + 1}
               </p>
               <h3 className="mt-2 font-display text-lg font-semibold text-text-primary">
@@ -75,11 +75,15 @@ export function BriefAnglePicker({ brief, angles }: BriefAnglePickerProps) {
                 {angle.description}
               </p>
               <p className="mt-4 text-xs text-text-muted">
-                <span className="font-semibold text-text-secondary">Emotion:</span>{" "}
+                <span className="font-semibold text-text-secondary">
+                  Emotion:
+                </span>{" "}
                 {angle.emotionalHook}
               </p>
               <p className="mt-1 text-xs text-text-muted">
-                <span className="font-semibold text-text-secondary">Format:</span>{" "}
+                <span className="font-semibold text-text-secondary">
+                  Format:
+                </span>{" "}
                 {angle.productionFormat}
               </p>
             </motion.button>
@@ -88,7 +92,10 @@ export function BriefAnglePicker({ brief, angles }: BriefAnglePickerProps) {
       </div>
 
       {error && (
-        <p className="relative mt-6 text-center text-sm text-[#ef4444]" role="alert">
+        <p
+          className="relative mt-6 text-center text-sm text-[#ef4444]"
+          role="alert"
+        >
           {error}
         </p>
       )}
@@ -98,14 +105,17 @@ export function BriefAnglePicker({ brief, angles }: BriefAnglePickerProps) {
           type="button"
           onClick={handleDevelop}
           disabled={!selected || loading}
-          className="btn-primary min-w-[240px] disabled:opacity-40"
+          className="btn-premium min-w-[240px] disabled:opacity-40"
         >
           {loading ? "Generating full brief..." : "Develop This Angle"}
         </button>
       </div>
 
       <p className="relative mt-4 text-center">
-        <Link href="/brief" className="text-sm text-text-muted hover:text-accent">
+        <Link
+          href="/brief"
+          className="text-sm text-text-muted hover:text-accent"
+        >
           Back to briefs
         </Link>
       </p>

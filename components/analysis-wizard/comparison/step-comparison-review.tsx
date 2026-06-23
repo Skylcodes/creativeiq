@@ -48,7 +48,7 @@ export function StepComparisonReview({
       </p>
 
       <div className="mt-8 space-y-4">
-        <div className="rounded-2xl bg-white/80 p-5 ring-1 ring-black/[0.06]">
+        <div className="dashboard-panel p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-text-muted">
             Creative goal
           </p>
@@ -57,7 +57,7 @@ export function StepComparisonReview({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white/80 p-5 ring-1 ring-black/[0.06]">
+        <div className="dashboard-panel p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-text-muted">
             Testing
           </p>
@@ -66,7 +66,7 @@ export function StepComparisonReview({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white/80 p-5 ring-1 ring-black/[0.06]">
+        <div className="dashboard-panel p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-text-muted">
             Platform · Landing page
           </p>
@@ -76,7 +76,7 @@ export function StepComparisonReview({
           <p className="mt-1 truncate text-xs text-text-secondary">{landingPageUrl}</p>
         </div>
 
-        <div className="rounded-2xl bg-white/80 p-5 ring-1 ring-black/[0.06]">
+        <div className="dashboard-panel p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.1em] text-text-muted">
             {variants.length} variants
           </p>
@@ -89,7 +89,7 @@ export function StepComparisonReview({
                 null;
               return (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-black/[0.04] ring-1 ring-black/[0.04]">
+                  <div className="surface-inset h-12 w-12 shrink-0 overflow-hidden rounded-lg">
                     {preview ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={preview} alt="" className="h-full w-full object-cover" />

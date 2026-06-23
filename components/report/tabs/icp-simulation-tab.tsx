@@ -43,7 +43,7 @@ export function IcpSimulationTab({ report }: IcpSimulationTabProps) {
               <motion.div
                 key={persona.id}
                 layout
-                className="overflow-hidden rounded-2xl border border-black/[0.05] bg-white shadow-sm"
+                className="overflow-hidden dashboard-panel"
               >
                 <button
                   type="button"
@@ -86,7 +86,7 @@ export function IcpSimulationTab({ report }: IcpSimulationTabProps) {
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden"
                     >
-                      <div className="border-t border-black/[0.04] bg-[#fafaf9] px-6 py-6">
+                      <div className="border-t border-[rgba(55,41,111,0.07)] bg-accent/[0.025] px-6 py-6">
                         <p className="whitespace-pre-wrap font-serif text-[15px] leading-[1.9] text-text-primary">
                           {persona.narrative}
                         </p>
@@ -103,7 +103,7 @@ export function IcpSimulationTab({ report }: IcpSimulationTabProps) {
       {blockers.length > 0 && (
         <section>
           <h2 className="font-display text-xl font-semibold text-text-primary">
-            Top 5 Conversion Blockers
+            Top Conversion Blockers
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
             The highest-friction points stopping buyers from converting.
@@ -112,7 +112,7 @@ export function IcpSimulationTab({ report }: IcpSimulationTabProps) {
             {blockers.map((blocker, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-black/[0.05] bg-white p-5 shadow-sm"
+                className="dashboard-panel p-5"
               >
                 <div className="flex items-start gap-4">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ef4444]/10 font-display text-sm font-bold text-[#ef4444]">

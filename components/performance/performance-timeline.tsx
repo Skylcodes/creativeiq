@@ -68,16 +68,16 @@ export function PerformanceTimeline({ items }: PerformanceTimelineProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03, duration: 0.35 }}
-              className="surface-card flex flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between md:p-5"
+              className="premium-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   {item.isComparison && (
-                    <span className="rounded-full bg-[#9333ea]/10 px-2 py-0.5 text-[10px] font-semibold text-[#9333ea]">
+                    <span className="insight-chip text-[10px] font-semibold text-[#3b2b9f]">
                       Comparison · {item.variantCount} variants
                     </span>
                   )}
-                  <span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                  <span className="insight-chip text-[10px] font-semibold">
                     Goal: {item.creativeGoalLabel}
                   </span>
                   <span className="text-[11px] text-text-muted">
@@ -106,7 +106,7 @@ export function PerformanceTimeline({ items }: PerformanceTimelineProps) {
                 </div>
                 <Link
                   href={`/report/${item.id}`}
-                  className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-accent to-[#7c3aed] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(110,58,255,0.22)] transition-all hover:-translate-y-px"
+                  className="btn-premium shrink-0"
                 >
                   View Report
                 </Link>

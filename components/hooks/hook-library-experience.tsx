@@ -16,7 +16,11 @@ import {
   type HookFilters,
 } from "@/lib/hooks/filter";
 import { downloadHooksCsv, formatHooksForClipboard } from "@/lib/hooks/export";
-import { deleteHook, deleteHooksBulk, addCustomTagToHooks } from "@/lib/hooks/actions";
+import {
+  deleteHook,
+  deleteHooksBulk,
+  addCustomTagToHooks,
+} from "@/lib/hooks/actions";
 import { AddHookModal } from "./add-hook-modal";
 import { HookDetailPanel } from "./hook-detail-panel";
 import { HookLibraryEmpty } from "./hook-library-empty";
@@ -51,7 +55,7 @@ function FilterPill({
       onClick={onClick}
       className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
         active
-          ? "bg-accent text-white shadow-sm"
+          ? "bg-accent text-white"
           : "insight-chip hover:text-accent"
       }`}
     >
@@ -83,12 +87,15 @@ export function HookLibraryExperience({
 
   const filtered = useMemo(
     () => filterAndSortHooks(hooks, filters),
-    [hooks, filters]
+    [hooks, filters],
   );
 
   const allTags = useMemo(
-    () => [...new Set([...customTags, ...hooks.flatMap((h) => h.custom_tags)])].sort(),
-    [customTags, hooks]
+    () =>
+      [
+        ...new Set([...customTags, ...hooks.flatMap((h) => h.custom_tags)]),
+      ].sort(),
+    [customTags, hooks],
   );
 
   function toggleSelect(id: string) {
@@ -150,7 +157,11 @@ export function HookLibraryExperience({
             >
               Export Library
             </button>
-            <button type="button" onClick={() => setAddOpen(true)} className="btn-premium text-sm">
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="btn-premium text-sm"
+            >
               Add Hook
             </button>
           </div>
@@ -160,7 +171,10 @@ export function HookLibraryExperience({
       <div className="mb-6 flex flex-wrap gap-2">
         {[
           { label: `${stats.total} total` },
-          { label: `${stats.creativeiqGenerated} from CreativeIQ`, accent: true },
+          {
+            label: `${stats.advaraGenerated} from Advara`,
+            accent: true,
+          },
           { label: `${stats.manual} manual` },
         ].map((pill) => (
           <span
@@ -180,7 +194,9 @@ export function HookLibraryExperience({
             <input
               type="search"
               value={filters.search}
-              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, search: e.target.value }))
+              }
               placeholder="Search hooks and notes…"
               className="premium-card w-full px-5 py-3.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-accent/10"
             />
@@ -188,8 +204,13 @@ export function HookLibraryExperience({
 
           <div className="mt-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mr-1">Platform</span>
-              <FilterPill active={!filters.platform} onClick={() => setFilters((f) => ({ ...f, platform: null }))}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mr-1">
+                Platform
+              </span>
+              <FilterPill
+                active={!filters.platform}
+                onClick={() => setFilters((f) => ({ ...f, platform: null }))}
+              >
                 All
               </FilterPill>
               {HOOK_PLATFORMS.map((p) => (
@@ -209,8 +230,13 @@ export function HookLibraryExperience({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mr-1">Angle</span>
-              <FilterPill active={!filters.angleTag} onClick={() => setFilters((f) => ({ ...f, angleTag: null }))}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mr-1">
+                Angle
+              </span>
+              <FilterPill
+                active={!filters.angleTag}
+                onClick={() => setFilters((f) => ({ ...f, angleTag: null }))}
+              >
                 All
               </FilterPill>
               {HOOK_PRESET_ANGLE_TAGS.map((t) => (
@@ -263,19 +289,26 @@ export function HookLibraryExperience({
               </FilterPill>
               <FilterPill
                 active={filters.testQueue}
-                onClick={() => setFilters((f) => ({ ...f, testQueue: !f.testQueue }))}
+                onClick={() =>
+                  setFilters((f) => ({ ...f, testQueue: !f.testQueue }))
+                }
               >
                 Test queue
               </FilterPill>
               <select
                 value={filters.sort}
                 onChange={(e) =>
-                  setFilters((f) => ({ ...f, sort: e.target.value as HookFilters["sort"] }))
+                  setFilters((f) => ({
+                    ...f,
+                    sort: e.target.value as HookFilters["sort"],
+                  }))
                 }
                 className="insight-chip ml-auto cursor-pointer px-3 py-1.5 text-xs font-medium"
               >
                 {HOOK_SORT_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
               <button
@@ -289,7 +322,9 @@ export function HookLibraryExperience({
 
             {allTags.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Custom</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                  Custom
+                </span>
                 {allTags.map((t) => (
                   <FilterPill
                     key={t}
@@ -333,7 +368,7 @@ export function HookLibraryExperience({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(h.id)}
-                      className="h-4 w-4 rounded border-black/20 accent-accent"
+                      className="h-4 w-4 rounded border-[rgba(55,41,111,0.2)] accent-accent"
                     />
                   </label>
 
@@ -349,17 +384,26 @@ export function HookLibraryExperience({
 
                   <div className="mt-4 flex flex-wrap gap-1.5">
                     {h.platform && (
-                      <HookTagPill label={platformLabel(h.platform)} variant="platform" />
+                      <HookTagPill
+                        label={platformLabel(h.platform)}
+                        variant="platform"
+                      />
                     )}
                     {h.angle_tags.slice(0, 2).map((t) => (
                       <HookTagPill key={t} label={t} variant="angle" />
                     ))}
                     <HookTagPill
-                      label={h.source_type === "manual" ? "Manual" : "CreativeIQ"}
+                      label={
+                        h.source_type === "manual" ? "Manual" : "Advara"
+                      }
                       variant="source"
                     />
                     {h.source_score != null && (
-                      <HookTagPill label="" variant="score" score={h.source_score} />
+                      <HookTagPill
+                        label=""
+                        variant="score"
+                        score={h.source_score}
+                      />
                     )}
                     {h.is_in_test_queue && (
                       <HookTagPill label="Test queue" variant="custom" />
@@ -385,7 +429,7 @@ export function HookLibraryExperience({
                   </div>
 
                   <div
-                    className="mt-4 flex items-center justify-end gap-2 border-t border-black/[0.04] pt-3"
+                    className="mt-4 flex items-center justify-end gap-2 border-t border-white/65 pt-3"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {confirmDeleteId === h.id ? (
@@ -420,8 +464,10 @@ export function HookLibraryExperience({
                       onToggle={() => {
                         setHooks((prev) =>
                           prev.map((x) =>
-                            x.id === h.id ? { ...x, is_favorited: !x.is_favorited } : x
-                          )
+                            x.id === h.id
+                              ? { ...x, is_favorited: !x.is_favorited }
+                              : x,
+                          ),
                         );
                       }}
                     />
@@ -436,13 +482,17 @@ export function HookLibraryExperience({
 
       {selected.size > 0 && (
         <div className="premium-card premium-card-elevated fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 flex-wrap items-center gap-3 px-5 py-3">
-          <span className="text-sm font-medium text-text-primary">{selected.size} selected</span>
+          <span className="text-sm font-medium text-text-primary">
+            {selected.size} selected
+          </span>
           <button
             type="button"
             className="text-sm font-semibold text-accent"
             onClick={() => {
               const texts = hooks.filter((h) => selected.has(h.id));
-              void navigator.clipboard.writeText(formatHooksForClipboard(texts));
+              void navigator.clipboard.writeText(
+                formatHooksForClipboard(texts),
+              );
             }}
           >
             Copy selected
@@ -451,15 +501,29 @@ export function HookLibraryExperience({
             value={bulkTag}
             onChange={(e) => setBulkTag(e.target.value)}
             placeholder="Tag name"
-            className="rounded-lg border border-black/[0.08] px-2 py-1 text-xs"
+            className="input-field px-2 py-1 text-xs"
           />
-          <button type="button" onClick={handleBulkTag} className="text-sm font-semibold text-accent">
+          <button
+            type="button"
+            onClick={handleBulkTag}
+            className="text-sm font-semibold text-accent"
+          >
             Add tag
           </button>
-          <button type="button" onClick={() => downloadHooksCsv(hooks.filter((h) => selected.has(h.id)))} className="text-sm text-text-secondary">
+          <button
+            type="button"
+            onClick={() =>
+              downloadHooksCsv(hooks.filter((h) => selected.has(h.id)))
+            }
+            className="text-sm text-text-secondary"
+          >
             Export
           </button>
-          <button type="button" onClick={handleBulkDelete} className="text-sm font-semibold text-red-600">
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            className="text-sm font-semibold text-red-600"
+          >
             Delete
           </button>
         </div>

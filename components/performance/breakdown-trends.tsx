@@ -12,13 +12,13 @@ type BreakdownTrendsProps = {
 function Tag({ type }: { type: "needs_attention" | "improving" }) {
   if (type === "needs_attention") {
     return (
-      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+      <span className="insight-chip text-[10px] font-semibold text-amber-700">
         Needs attention
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-[#0d9488]/10 px-2 py-0.5 text-[10px] font-semibold text-[#0d9488]">
+    <span className="insight-chip text-[10px] font-semibold text-[#0d9488]">
       Improving
     </span>
   );
@@ -41,7 +41,7 @@ export function BreakdownTrends({ sparklines }: BreakdownTrendsProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04, duration: 0.4 }}
-            className="rounded-2xl bg-white/80 p-4 ring-1 ring-black/[0.04]"
+            className="dashboard-panel p-4"
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium text-text-secondary">{s.label}</p>

@@ -48,7 +48,7 @@ export function UserAvatar({
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center rounded-full bg-linear-to-br from-accent to-[#9333ea] font-bold text-white ring-2 ring-white/80 ${sizeClass} ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_8px_rgba(105, 71, 255, 0.12)] font-bold text-white ring-2 ring-white/80 ${sizeClass} ${className}`}
       aria-hidden
     >
       {initials}

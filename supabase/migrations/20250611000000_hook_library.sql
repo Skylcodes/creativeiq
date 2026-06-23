@@ -8,7 +8,7 @@ create table if not exists public.hook_library (
   platform text,
   angle_tags text[] not null default '{}',
   source_type text not null
-    check (source_type in ('creativeiq_generated', 'manual')),
+    check (source_type in ('advara_generated', 'manual')),
   manual_source_category text
     check (
       manual_source_category is null
@@ -16,7 +16,7 @@ create table if not exists public.hook_library (
         'my_own_idea',
         'competitor_ad',
         'inspiration',
-        'creativeiq_generated'
+        'advara_generated'
       )
     ),
   source_kind text

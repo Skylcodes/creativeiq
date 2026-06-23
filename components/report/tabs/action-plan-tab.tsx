@@ -9,7 +9,10 @@ import {
   impactLabel,
   inferActionCategory,
 } from "@/lib/report/utils";
-import { StrategicBreakdown, hasStrategicBreakdown } from "../shared/strategic-breakdown";
+import {
+  StrategicBreakdown,
+  hasStrategicBreakdown,
+} from "../shared/strategic-breakdown";
 
 type ActionPlanTabProps = {
   report: AnalysisReport;
@@ -18,7 +21,7 @@ type ActionPlanTabProps = {
 const categoryColors: Record<string, string> = {
   Creative: "bg-accent/10 text-accent",
   "Landing Page": "bg-accent-secondary/10 text-accent-secondary",
-  Funnel: "bg-[#9333ea]/10 text-[#9333ea]",
+  Funnel: "bg-[#3b2b9f]/10 text-[#3b2b9f]",
 };
 
 export function ActionPlanTab({ report }: ActionPlanTabProps) {
@@ -38,7 +41,8 @@ export function ActionPlanTab({ report }: ActionPlanTabProps) {
           Master Priority List
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Aggregated execution roadmap from creative, landing page, and ICP intelligence.
+          Aggregated execution roadmap from creative, landing page, and ICP
+          intelligence.
         </p>
 
         {masterList.length === 0 ? (
@@ -87,10 +91,8 @@ export function ActionPlanTab({ report }: ActionPlanTabProps) {
         )}
       </section>
 
-      <section className="rounded-3xl border border-accent/15 bg-linear-to-br from-accent/[0.06] via-white to-accent-secondary/[0.04] p-8 shadow-[0_16px_48px_rgba(110,58,255,0.1)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-          Strategic Next Step
-        </p>
+      <section className="premium-card premium-card-accent rounded-3xl p-8">
+        <p className="text-eyebrow-accent">Strategic Next Step</p>
         <h2 className="mt-2 font-display text-2xl font-semibold text-text-primary">
           What to test next
         </h2>
@@ -100,8 +102,20 @@ export function ActionPlanTab({ report }: ActionPlanTabProps) {
         <div className="mt-6">
           <Link href="/analyses/new" className="btn-primary">
             Start New Analysis
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden
+            >
+              <path
+                d="M3 8H13M9 4L13 8L9 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </Link>
         </div>

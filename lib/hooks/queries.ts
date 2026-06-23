@@ -33,7 +33,7 @@ export async function getHookLibraryStats(
   const rows = data ?? [];
   return {
     total: rows.length,
-    creativeiqGenerated: rows.filter((r) => r.source_type === "creativeiq_generated")
+    advaraGenerated: rows.filter((r) => r.source_type === "advara_generated")
       .length,
     manual: rows.filter((r) => r.source_type === "manual").length,
     favorited: rows.filter((r) => r.is_favorited).length,

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ChatMessageContent } from "./chat-message-content";
+import { CollapsibleMessageBody } from "./collapsible-message-body";
 
 type ChatAssistantMessageProps = {
   content: string;
@@ -9,6 +10,7 @@ type ChatAssistantMessageProps = {
   animate?: boolean;
   isStreaming?: boolean;
   streamText?: string;
+  defaultExpanded?: boolean;
 };
 
 export function ChatAssistantMessage({
@@ -17,6 +19,7 @@ export function ChatAssistantMessage({
   animate = true,
   isStreaming = false,
   streamText,
+  defaultExpanded = true,
 }: ChatAssistantMessageProps) {
   const displayContent = isStreaming && streamText ? streamText : content;
   const showCursor = isStreaming && streamText;
@@ -29,13 +32,26 @@ export function ChatAssistantMessage({
       className="w-full"
     >
       <div className="mb-3 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-accent/12 to-accent/6 ring-1 ring-accent/10">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-            <path d="M7 1L8.5 5H13L9.5 7.5L11 12L7 9.5L3 12L4.5 7.5L1 5H5.5L7 1Z" stroke="#6e3aff" strokeWidth="1.1" strokeLinejoin="round" />
+        <div className="icon-badge h-8 w-8 shrink-0 rounded-xl">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            aria-hidden
+          >
+            <path
+              d="M7 1L8.5 5H13L9.5 7.5L11 12L7 9.5L3 12L4.5 7.5L1 5H5.5L7 1Z"
+              stroke="#6947ff"
+              strokeWidth="1.1"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-text-primary">Creative Director</p>
+          <p className="text-sm font-semibold text-text-primary">
+            Creative Director
+          </p>
           <p className="truncate text-[11px] text-text-muted">
             Based on {contextLabel}
           </p>
@@ -53,7 +69,13 @@ export function ChatAssistantMessage({
             </p>
           </div>
         ) : (
-          <ChatMessageContent content={displayContent} animate={animate} />
+          <CollapsibleMessageBody
+            contentLength={displayContent.length}
+            defaultExpanded={defaultExpanded}
+            disabled={isStreaming}
+          >
+            <ChatMessageContent content={displayContent} animate={animate} />
+          </CollapsibleMessageBody>
         )}
       </div>
     </motion.article>
@@ -78,7 +100,9 @@ function ChatThinkingIndicator() {
           />
         ))}
       </div>
-      <span className="text-xs text-text-muted">Analyzing your creative context…</span>
+      <span className="text-xs text-text-muted">
+        Analyzing your creative context…
+      </span>
     </div>
   );
 }

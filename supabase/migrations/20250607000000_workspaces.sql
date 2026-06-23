@@ -1,4 +1,4 @@
--- CreativeIQ: Workspaces + User Profiles
+-- Advara: Workspaces + User Profiles
 -- Run this in Supabase Dashboard → SQL Editor
 
 -- Workspaces: one per brand

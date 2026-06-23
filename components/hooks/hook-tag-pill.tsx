@@ -10,7 +10,7 @@ const VARIANT_CLASSES: Record<NonNullable<HookTagPillProps["variant"]>, string> 
   platform: "bg-[#1877f2]/10 text-[#1877f2]",
   angle: "bg-accent/10 text-accent",
   source: "bg-black/[0.05] text-text-secondary",
-  custom: "bg-[#9333ea]/10 text-[#9333ea]",
+  custom: "bg-[#3b2b9f]/10 text-[#3b2b9f]",
   score: "bg-emerald-500/10 text-emerald-700",
 };
 

@@ -1,6 +1,6 @@
 import type { ManualSourceCategoryId } from "@/lib/hooks/constants";
 
-export type HookSourceType = "creativeiq_generated" | "manual";
+export type HookSourceType = "advara_generated" | "manual";
 export type HookSourceKind = "analysis" | "comparison" | "brief";
 
 export type HookLibraryEntry = {
@@ -27,7 +27,7 @@ export type HookLibraryEntry = {
 
 export type HookLibraryStats = {
   total: number;
-  creativeiqGenerated: number;
+  advaraGenerated: number;
   manual: number;
   favorited: number;
   testQueue: number;
@@ -42,6 +42,19 @@ export type CreateManualHookInput = {
   notes?: string;
   customTags?: string[];
   isInTestQueue?: boolean;
+};
+
+export type SaveGeneratedHookInput = {
+  workspaceId: string;
+  hookText: string;
+  sourceKind: HookSourceKind;
+  sourceAnalysisId?: string | null;
+  sourceBriefId?: string | null;
+  platform?: string | null;
+  angleTags?: string[];
+  notes?: string | null;
+  sourceScore?: number | null;
+  captureKeySuffix?: string;
 };
 
 export type UpdateHookInput = {

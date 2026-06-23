@@ -139,7 +139,7 @@ export const ANALYSIS_AGENTS = [
   },
   {
     id: "skeptical_buyer",
-    name: "The Skeptical Buyer",
+    name: "Your Ideal Customer",
     icon: "buyer",
     messages: [
       "Raising every objection your customer would have...",
@@ -160,6 +160,17 @@ export const ANALYSIS_AGENTS = [
     durationMs: 10000,
   },
   {
+    id: "competition_analysis",
+    name: "Competition Analysis",
+    icon: "competition",
+    messages: [
+      "Scanning competitor creative angles...",
+      "Mapping what winning ads in your niche are doing...",
+      "Identifying gaps in competitor positioning...",
+    ],
+    durationMs: 10000,
+  },
+  {
     id: "landing_page",
     name: "Landing Page Analyzer",
     icon: "landing",
@@ -169,6 +180,17 @@ export const ANALYSIS_AGENTS = [
       "Mapping friction points...",
     ],
     durationMs: 11000,
+  },
+  {
+    id: "funnel_match",
+    name: "Funnel Match Agent",
+    icon: "funnel",
+    messages: [
+      "Checking ad-to-landing page continuity...",
+      "Measuring promise vs. page delivery...",
+      "Flagging message mismatch risks...",
+    ],
+    durationMs: 10000,
   },
   {
     id: "verdict",

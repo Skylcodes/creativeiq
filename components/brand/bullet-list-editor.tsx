@@ -106,13 +106,13 @@ export function BulletListEditor({
               onKeyDown={(e) => handleKeyDown(index, e)}
               placeholder={placeholder}
               disabled={disabled}
-              className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-text-primary ring-1 ring-black/[0.06] transition-all placeholder:text-text-muted hover:ring-black/[0.1] focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-60"
+              className="input-field w-full disabled:cursor-not-allowed disabled:opacity-60"
             />
             {!disabled && visibleItems.length > 1 && (
               <button
                 type="button"
                 onClick={() => removeItem(index)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-text-muted opacity-0 transition-all hover:bg-black/[0.04] hover:text-text-primary group-hover:opacity-100"
+                className="dropdown-item flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-text-muted opacity-0 group-hover:opacity-100"
                 aria-label="Remove point"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>

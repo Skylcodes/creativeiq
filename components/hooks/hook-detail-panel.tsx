@@ -53,7 +53,7 @@ export function HookDetailPanel({
       <button
         type="button"
         aria-label="Close panel"
-        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
+        className="fixed inset-0 z-40 modal-overlay"
         onClick={onClose}
       />
       <motion.aside
@@ -61,11 +61,11 @@ export function HookDetailPanel({
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-black/[0.06] bg-white shadow-[-16px_0_48px_rgba(0,0,0,0.08)]"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col dashboard-panel rounded-none rounded-l-[var(--radius-xl)] border-y-0 border-r-0 shadow-[-16px_0_48px_rgba(43,24,95,0.08)]"
       >
-        <div className="flex items-center justify-between border-b border-black/[0.05] px-5 py-4">
+        <div className="app-topbar flex items-center justify-between px-5 py-4">
           <p className="text-sm font-semibold text-text-primary">Hook detail</p>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-text-muted hover:bg-black/[0.04]">
+          <button type="button" onClick={onClose} className="app-topbar-icon-btn">
             ✕
           </button>
         </div>
@@ -89,7 +89,7 @@ export function HookDetailPanel({
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Source</p>
               <p className="mt-1 text-text-secondary">
-                {hook.source_type === "manual" ? "Manually added" : "CreativeIQ generated"}
+                {hook.source_type === "manual" ? "Manually added" : "Advara generated"}
               </p>
               {sourceLink && (
                 <Link href={sourceLink} className="mt-1 inline-block text-accent hover:underline">
@@ -117,7 +117,7 @@ export function HookDetailPanel({
                 value={angleTags}
                 onChange={(e) => setAngleTags(e.target.value)}
                 list="preset-angles"
-                className="mt-1.5 w-full rounded-xl border border-black/[0.08] px-3 py-2 text-sm"
+                className="input-field mt-1.5"
               />
               <datalist id="preset-angles">
                 {HOOK_PRESET_ANGLE_TAGS.map((t) => (
@@ -132,7 +132,7 @@ export function HookDetailPanel({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
-                className="mt-1.5 w-full rounded-xl border border-black/[0.08] px-3 py-2 text-sm leading-relaxed"
+                className="input-field mt-1.5 leading-relaxed"
               />
               <button
                 type="button"
@@ -151,7 +151,7 @@ export function HookDetailPanel({
                 </p>
                 <ul className="mt-2 space-y-2">
                   {similar.map((s) => (
-                    <li key={s.id} className="rounded-xl bg-black/[0.02] p-3 text-sm text-text-secondary">
+                    <li key={s.id} className="dashboard-list-row p-3 text-sm text-text-secondary">
                       &ldquo;{s.hook_text.length > 100 ? `${s.hook_text.slice(0, 100)}…` : s.hook_text}&rdquo;
                     </li>
                   ))}
@@ -161,7 +161,7 @@ export function HookDetailPanel({
           </div>
         </div>
 
-        <div className="border-t border-black/[0.05] p-5 space-y-3">
+        <div className="app-topbar border-t border-white/65 p-5 space-y-3">
           <div className="flex items-center gap-2">
             <CopyButton text={hook.hook_text} label="Copy hook" className="flex-1 justify-center py-2.5" />
             <HookFavoriteButton hookId={hook.id} favorited={hook.is_favorited} size="md" />
@@ -176,7 +176,7 @@ export function HookDetailPanel({
               className={`rounded-lg px-3 py-2 text-xs font-semibold ${
                 hook.is_in_test_queue
                   ? "bg-violet-500/10 text-violet-700"
-                  : "bg-black/[0.04] text-text-secondary"
+                  : "dashboard-panel text-text-secondary hover:text-amber-600"
               }`}
             >
               {hook.is_in_test_queue ? "In test queue" : "Add to test queue"}
@@ -184,7 +184,7 @@ export function HookDetailPanel({
           </div>
           <Link
             href={`/brief/new?angle=${encodeURIComponent(hook.hook_text)}&platform=${hook.platform ?? ""}`}
-            className="btn-primary w-full justify-center text-sm"
+            className="btn-premium w-full justify-center text-sm"
           >
             Use as brief starting point
           </Link>

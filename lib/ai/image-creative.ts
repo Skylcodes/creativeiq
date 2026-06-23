@@ -1,5 +1,5 @@
 import "server-only";
-import { callClaude, type ImageInput } from "@/lib/ai/client";
+import { callClaude, CLAUDE_JSON_MODEL, type ImageInput } from "@/lib/ai/client";
 
 const IMAGE_CREATIVE_SYSTEM = `You are analyzing a static image advertisement. Your description will be used by direct-response copywriters and media buyers to evaluate the creative — they will NOT see the image themselves.
 
@@ -27,6 +27,7 @@ export async function describeImageCreative(
     image,
     maxTokens: 500,
     temperature: 0.3,
+    model: CLAUDE_JSON_MODEL,
   });
 }
 

@@ -25,7 +25,7 @@ export function DeleteAnalysisModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm"
+            className="fixed inset-0 z-50 modal-overlay"
             onClick={deleting ? undefined : onCancel}
           />
           <motion.div
@@ -33,7 +33,7 @@ export function DeleteAnalysisModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.04]"
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 modal-panel p-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-analysis-title"
@@ -54,7 +54,7 @@ export function DeleteAnalysisModal({
                 type="button"
                 onClick={onCancel}
                 disabled={deleting}
-                className="btn-secondary flex-1 text-sm disabled:opacity-60"
+                className="btn-surface flex-1 text-sm disabled:opacity-60"
               >
                 Keep analysis
               </button>

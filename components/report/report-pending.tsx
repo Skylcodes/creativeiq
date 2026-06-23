@@ -40,10 +40,10 @@ export function ReportPending({ analysisId }: ReportPendingProps) {
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-        className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 ring-1 ring-accent/20"
+        className="icon-badge mb-5 h-14 w-14 rounded-2xl bg-accent/10 text-accent"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="#6e3aff" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="#6947ff" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </motion.div>
       <h1 className="font-display text-xl font-semibold text-text-primary">

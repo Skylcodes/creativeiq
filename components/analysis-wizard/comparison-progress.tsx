@@ -61,7 +61,7 @@ export function ComparisonProgress({
 
   const [phase, setPhase] = useState<"individual" | "synthesis">("individual");
   const [variantStates, setVariantStates] = useState<VariantStatus[]>(
-    Array.from({ length: variantCount }, () => "waiting")
+    Array.from({ length: variantCount }, () => "waiting"),
   );
   const [synthesisStep, setSynthesisStep] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -91,7 +91,9 @@ export function ComparisonProgress({
     async function run() {
       for (let i = 0; i < INTELLIGENCE_STEPS.length; i++) {
         if (cancelled) return;
-        await new Promise((r) => setTimeout(r, INTELLIGENCE_STEPS[i].durationMs));
+        await new Promise((r) =>
+          setTimeout(r, INTELLIGENCE_STEPS[i].durationMs),
+        );
       }
       if (!cancelled) setIntelligenceDone(true);
     }
@@ -103,13 +105,24 @@ export function ComparisonProgress({
   }, [progressState, intelligenceDone]);
 
   useEffect(() => {
-    if (!isVideo || !intelligenceDone || videoDone || progressState !== "active") return;
+    if (
+      !isVideo ||
+      !intelligenceDone ||
+      videoDone ||
+      progressState !== "active"
+    )
+      return;
     let cancelled = false;
 
     async function run() {
       for (let i = 0; i < VIDEO_PROCESSING_STEPS.length; i++) {
         if (cancelled) return;
-        await new Promise((r) => setTimeout(r, VIDEO_PROCESSING_STEPS[i].durationMs / Math.max(1, variantCount)));
+        await new Promise((r) =>
+          setTimeout(
+            r,
+            VIDEO_PROCESSING_STEPS[i].durationMs / Math.max(1, variantCount),
+          ),
+        );
       }
       if (!cancelled) setVideoDone(true);
     }
@@ -129,7 +142,10 @@ export function ComparisonProgress({
     async function runIndividual() {
       setVariantStates(Array.from({ length: variantCount }, () => "active"));
 
-      const stepMs = COMPARISON_INDIVIDUAL_STEPS.reduce((s, v) => s + v.durationMs, 0);
+      const stepMs = COMPARISON_INDIVIDUAL_STEPS.reduce(
+        (s, v) => s + v.durationMs,
+        0,
+      );
       await new Promise((r) => setTimeout(r, stepMs));
 
       if (cancelled) return;
@@ -152,7 +168,9 @@ export function ComparisonProgress({
       for (let i = 0; i < COMPARISON_SYNTHESIS_STEPS.length; i++) {
         if (cancelled) return;
         setSynthesisStep(i);
-        await new Promise((r) => setTimeout(r, COMPARISON_SYNTHESIS_STEPS[i].durationMs));
+        await new Promise((r) =>
+          setTimeout(r, COMPARISON_SYNTHESIS_STEPS[i].durationMs),
+        );
       }
     }
 
@@ -178,12 +196,24 @@ export function ComparisonProgress({
         const complete = variantStates.filter((s) => s === "complete").length;
         p = preWeight + (complete / variantCount) * individualWeight;
       } else {
-        p = preWeight + individualWeight + ((synthesisStep + 1) / COMPARISON_SYNTHESIS_STEPS.length) * synthesisWeight;
+        p =
+          preWeight +
+          individualWeight +
+          ((synthesisStep + 1) / COMPARISON_SYNTHESIS_STEPS.length) *
+            synthesisWeight;
       }
       setProgress(Math.min(95, p));
     }, 200);
     return () => clearInterval(timer);
-  }, [progressState, intelligenceDone, videoDone, phase, variantStates, synthesisStep, variantCount]);
+  }, [
+    progressState,
+    intelligenceDone,
+    videoDone,
+    phase,
+    variantStates,
+    synthesisStep,
+    variantCount,
+  ]);
 
   useEffect(() => {
     if (progressState !== "active") return;
@@ -273,9 +303,14 @@ export function ComparisonProgress({
             Comparison couldn&apos;t complete
           </h2>
           <p className="mt-3 text-sm text-text-secondary">
-            {errorMessage ?? "Something went wrong. Your variants are saved — try again."}
+            {errorMessage ??
+              "Something went wrong. Your variants are saved — try again."}
           </p>
-          <button type="button" onClick={resetForRetry} className="btn-primary mt-7 text-sm">
+          <button
+            type="button"
+            onClick={resetForRetry}
+            className="btn-premium mt-7 text-sm"
+          >
             Try again
           </button>
         </div>
@@ -285,9 +320,7 @@ export function ComparisonProgress({
 
   const testingLabel =
     testDimensions.length > 0
-      ? COMPARISON_TEST_DIMENSIONS.filter((d) =>
-          testDimensions.includes(d.id)
-        )
+      ? COMPARISON_TEST_DIMENSIONS.filter((d) => testDimensions.includes(d.id))
           .map((d) => d.label)
           .join(" · ")
       : "Full creative";
@@ -295,7 +328,7 @@ export function ComparisonProgress({
   return (
     <div className="relative flex min-h-full flex-col items-center justify-center overflow-hidden px-5 py-10">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 mesh-gradient opacity-60" />
+        <div className="absolute inset-0 ambient-bg opacity-30" />
         <div className="absolute inset-0 grid-pattern opacity-30" />
       </div>
 
@@ -309,11 +342,13 @@ export function ComparisonProgress({
               ? `Phase 1 · Individual evaluation · ${elapsed}s`
               : `Phase 2 · Head-to-head ranking · ${elapsed}s`}
           </p>
-          <p className="mt-1 text-xs text-text-muted">Testing: {testingLabel}</p>
+          <p className="mt-1 text-xs text-text-muted">
+            Testing: {testingLabel}
+          </p>
 
           <div className="mx-auto mt-5 h-1.5 max-w-xs overflow-hidden rounded-full bg-black/[0.06]">
             <motion.div
-              className="h-full rounded-full bg-linear-to-r from-accent to-accent-secondary"
+              className="h-full rounded-full bg-accent"
               style={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
             />
@@ -343,15 +378,17 @@ export function ComparisonProgress({
                     key={label}
                     className={`rounded-2xl px-4 py-3.5 transition-all ${
                       isActive
-                        ? "bg-white shadow-[0_8px_32px_rgba(110,58,255,0.14)] ring-2 ring-accent/25"
+                        ? "dashboard-progress-active"
                         : isComplete
-                          ? "bg-white/90 ring-1 ring-[#0d9488]/20"
-                          : "bg-white/50 ring-1 ring-black/[0.04] opacity-60"
+                          ? "dashboard-progress-done"
+                          : "dashboard-progress-idle opacity-60"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-text-primary">{label}</p>
+                        <p className="text-sm font-semibold text-text-primary">
+                          {label}
+                        </p>
                         <p className="mt-0.5 text-xs text-text-secondary">
                           {blocked
                             ? "Waiting for context..."
@@ -369,13 +406,28 @@ export function ComparisonProgress({
                           transition={{ duration: 1.2, repeat: Infinity }}
                         >
                           {[0, 1, 2].map((d) => (
-                            <span key={d} className="h-1.5 w-1.5 rounded-full bg-accent" />
+                            <span
+                              key={d}
+                              className="h-1.5 w-1.5 rounded-full bg-accent"
+                            />
                           ))}
                         </motion.div>
                       )}
                       {isComplete && (
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-                          <path d="M5.5 9L8 11.5L12.5 6.5" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 18 18"
+                          fill="none"
+                          aria-hidden
+                        >
+                          <path
+                            d="M5.5 9L8 11.5L12.5 6.5"
+                            stroke="#0d9488"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       )}
                     </div>
@@ -401,13 +453,15 @@ export function ComparisonProgress({
                     key={step.message}
                     className={`rounded-2xl px-4 py-3.5 ${
                       isActive
-                        ? "bg-white shadow-[0_8px_32px_rgba(110,58,255,0.14)] ring-2 ring-accent/25"
+                        ? "dashboard-progress-active"
                         : isComplete
-                          ? "bg-white/90 ring-1 ring-[#0d9488]/20"
-                          : "bg-white/50 ring-1 ring-black/[0.04] opacity-50"
+                          ? "dashboard-progress-done"
+                          : "dashboard-progress-idle opacity-50"
                     }`}
                   >
-                    <p className={`text-sm ${isActive ? "font-medium text-accent" : "text-text-secondary"}`}>
+                    <p
+                      className={`text-sm ${isActive ? "font-medium text-accent" : "text-text-secondary"}`}
+                    >
                       {step.message}
                     </p>
                   </div>

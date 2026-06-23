@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { CreateManualHookInput, HookLibraryEntry, UpdateHookInput } from "@/lib/types/hook";
+import { saveHookToLibrary } from "@/lib/hooks/capture";
+import type {
+  CreateManualHookInput,
+  HookLibraryEntry,
+  SaveGeneratedHookInput,
+  UpdateHookInput,
+} from "@/lib/types/hook";
 export type HookActionResult =
   | { success: true; hook?: HookLibraryEntry }
   | { success: false; error: string };
@@ -15,6 +21,36 @@ async function verifyWorkspace(supabase: Awaited<ReturnType<typeof createClient>
     .eq("user_id", userId)
     .maybeSingle();
   return Boolean(data);
+}
+
+export async function saveGeneratedHook(
+  input: SaveGeneratedHookInput
+): Promise<HookActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "You must be signed in." };
+
+  if (!(await verifyWorkspace(supabase, input.workspaceId, user.id))) {
+    return { success: false, error: "Workspace not found." };
+  }
+
+  const { hook, error } = await saveHookToLibrary(supabase, user.id, input);
+  if (error || !hook) {
+    return { success: false, error: error ?? "Could not save hook." };
+  }
+
+  revalidatePath("/hooks");
+  revalidatePath("/dashboard");
+  if (input.sourceAnalysisId) {
+    revalidatePath(`/report/${input.sourceAnalysisId}`);
+  }
+  if (input.sourceBriefId) {
+    revalidatePath(`/brief/${input.sourceBriefId}`);
+  }
+
+  return { success: true, hook };
 }
 
 export async function createManualHook(

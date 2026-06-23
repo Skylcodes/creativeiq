@@ -21,7 +21,11 @@ import {
 import { saveBrandProfile } from "@/lib/workspaces/brand-profile-actions";
 import { PageShell, PageHeader } from "@/components/ui/page-shell";
 import { PremiumCard } from "@/components/ui/premium-card";
-import type { BrandProfile, BrandProfileProgress, BrandProfileStatus } from "@/lib/types/report";
+import type {
+  BrandProfile,
+  BrandProfileProgress,
+  BrandProfileStatus,
+} from "@/lib/types/report";
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -56,7 +60,9 @@ export function BrandProfilePage({
   const [unsavedOpen, setUnsavedOpen] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState("Crawling your website…");
+  const [refreshMessage, setRefreshMessage] = useState(
+    "Crawling your website…",
+  );
   const [refreshProgress, setRefreshProgress] = useState(8);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [isSaving, startSaveTransition] = useTransition();
@@ -65,7 +71,11 @@ export function BrandProfilePage({
 
   useEffect(() => {
     const nextInitial = profile
-      ? profileToForm(normalizeLegacyProfile(profile), workspaceName, websiteUrl)
+      ? profileToForm(
+          normalizeLegacyProfile(profile),
+          workspaceName,
+          websiteUrl,
+        )
       : createEmptyBrandProfileForm(workspaceName, websiteUrl);
     queueMicrotask(() => {
       setForm(nextInitial);
@@ -128,7 +138,7 @@ export function BrandProfilePage({
     async function poll() {
       try {
         const res = await fetch(
-          `/api/workspaces/${workspaceId}/brand-profile/status`
+          `/api/workspaces/${workspaceId}/brand-profile/status`,
         );
         if (!res.ok) throw new Error("Could not check refresh status.");
 
@@ -152,7 +162,7 @@ export function BrandProfilePage({
           const nextForm = profileToForm(
             normalized,
             normalized.brandName,
-            normalized.url
+            normalized.url,
           );
           setForm(nextForm);
           setSavedForm(nextForm);
@@ -168,7 +178,7 @@ export function BrandProfilePage({
           setRefreshing(false);
           setRefreshError(
             data.error ??
-              "We couldn't refresh your brand profile. Your existing profile is unchanged."
+              "We couldn't refresh your brand profile. Your existing profile is unchanged.",
           );
           return;
         }
@@ -204,7 +214,7 @@ export function BrandProfilePage({
       const nextForm = profileToForm(
         normalizeLegacyProfile(result.profile),
         result.workspaceName,
-        result.websiteUrl
+        result.websiteUrl,
       );
 
       setForm(nextForm);
@@ -232,11 +242,13 @@ export function BrandProfilePage({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ websiteUrl: form.websiteUrl }),
-          }
+          },
         );
 
         if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
           throw new Error(data.error ?? "Refresh failed.");
         }
       } catch (err) {
@@ -244,7 +256,7 @@ export function BrandProfilePage({
         setRefreshError(
           err instanceof Error
             ? err.message
-            : "Refresh failed. Your existing profile is unchanged."
+            : "Refresh failed. Your existing profile is unchanged.",
         );
       }
     })();
@@ -279,14 +291,26 @@ export function BrandProfilePage({
               disabled={refreshing || isSaving || switching}
               className="btn-ghost gap-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden
+              >
                 <path
                   d="M13.5 8C13.5 11 11 13.5 8 13.5C5.3 13.5 3.1 11.5 2.6 9M2.5 8C2.5 5 5 2.5 8 2.5C10.5 2.5 12.6 4.3 13.2 6.5"
                   stroke="currentColor"
                   strokeWidth="1.3"
                   strokeLinecap="round"
                 />
-                <path d="M12.5 3.5V6.5H9.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M12.5 3.5V6.5H9.5"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
               Refresh from website
             </button>
@@ -324,7 +348,9 @@ export function BrandProfilePage({
 
       <div
         className={`mt-6 space-y-5 transition-opacity duration-200 ${
-          refreshing || switching ? "pointer-events-none opacity-60" : "opacity-100"
+          refreshing || switching
+            ? "pointer-events-none opacity-60"
+            : "opacity-100"
         }`}
       >
         <BrandProfileFormSections

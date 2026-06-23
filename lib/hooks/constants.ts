@@ -25,13 +25,13 @@ export const MANUAL_SOURCE_CATEGORIES = [
   { id: "my_own_idea", label: "My own idea" },
   { id: "competitor_ad", label: "Competitor ad" },
   { id: "inspiration", label: "Inspiration" },
-  { id: "creativeiq_generated", label: "CreativeIQ generated" },
+  { id: "advara_generated", label: "Advara generated" },
 ] as const;
 
 export type ManualSourceCategoryId = (typeof MANUAL_SOURCE_CATEGORIES)[number]["id"];
 
 export const HOOK_SOURCE_TYPES = [
-  { id: "creativeiq_generated", label: "CreativeIQ Generated" },
+  { id: "advara_generated", label: "Advara Generated" },
   { id: "manual", label: "Manually Added" },
 ] as const;
 

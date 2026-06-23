@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { triggerBackgroundWorker } from "@/lib/trigger-worker";
 import { createClient } from "@/lib/supabase/server";
+import { assertActionAllowed, blockedResponse } from "@/lib/billing/gate";
 import type { CreativeBrief } from "@/lib/types/brief";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,11 @@ export async function POST(request: Request, { params }: RouteContext) {
   if (brief.status === "completed") {
     return NextResponse.json({ status: "completed", briefId: id });
   }
+
+  const gate = await assertActionAllowed(user.id, "creative_briefs", {
+    countTrial: false,
+  });
+  if (!gate.allowed) return blockedResponse(gate);
 
   const now = new Date().toISOString();
 

@@ -16,7 +16,7 @@ export function Sparkline({
   values,
   width = 120,
   height = 36,
-  stroke = "#6e3aff",
+  stroke = "#6947ff",
   fill,
   className = "",
   animate = true,

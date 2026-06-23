@@ -40,7 +40,9 @@ export function BriefProgress({
       for (let i = 0; i < BRIEF_PROGRESS_STEPS.length; i++) {
         if (cancelled) return;
         setStepIndex(i);
-        await new Promise((r) => setTimeout(r, BRIEF_PROGRESS_STEPS[i].durationMs));
+        await new Promise((r) =>
+          setTimeout(r, BRIEF_PROGRESS_STEPS[i].durationMs),
+        );
       }
     }
 
@@ -108,7 +110,11 @@ export function BriefProgress({
             Brief couldn&apos;t be generated
           </h2>
           <p className="mt-3 text-sm text-text-secondary">{errorMessage}</p>
-          <button type="button" onClick={onRetry} className="btn-primary mt-7 text-sm">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="btn-premium mt-7 text-sm"
+          >
             Try again
           </button>
         </div>
@@ -118,13 +124,13 @@ export function BriefProgress({
 
   const progress = Math.min(
     95,
-    ((stepIndex + 1) / BRIEF_PROGRESS_STEPS.length) * 90 + elapsed * 0.5
+    ((stepIndex + 1) / BRIEF_PROGRESS_STEPS.length) * 90 + elapsed * 0.5,
   );
 
   return (
     <div className="relative flex min-h-full flex-col items-center justify-center overflow-hidden px-5 py-10">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 mesh-gradient opacity-60" />
+        <div className="absolute inset-0 ambient-bg opacity-30" />
         <div className="absolute inset-0 grid-pattern opacity-30" />
       </div>
 
@@ -133,11 +139,30 @@ export function BriefProgress({
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d97706]/10 ring-1 ring-[#d97706]/20"
+            className="icon-badge mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d97706]/10 ring-1 ring-[#d97706]/20"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <rect x="4" y="3" width="16" height="18" rx="2" stroke="#d97706" strokeWidth="1.5" />
-              <path d="M8 8H16M8 12H14M8 16H12" stroke="#d97706" strokeWidth="1.3" strokeLinecap="round" />
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
+              <rect
+                x="4"
+                y="3"
+                width="16"
+                height="18"
+                rx="2"
+                stroke="#d97706"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M8 8H16M8 12H14M8 16H12"
+                stroke="#d97706"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
             </svg>
           </motion.div>
           <h2 className="font-display text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
@@ -161,13 +186,15 @@ export function BriefProgress({
                 key={step.message}
                 className={`rounded-2xl px-4 py-3.5 transition-all ${
                   isActive
-                    ? "bg-white shadow-[0_8px_32px_rgba(217,119,6,0.14)] ring-2 ring-[#d97706]/25"
+                    ? "dashboard-panel-warm ring-2 ring-[#d97706]/25"
                     : isComplete
-                      ? "bg-white/90 ring-1 ring-[#0d9488]/20"
-                      : "bg-white/50 ring-1 ring-black/[0.04] opacity-50"
+                      ? "dashboard-progress-done"
+                      : "dashboard-progress-idle opacity-50"
                 }`}
               >
-                <p className={`text-sm ${isActive ? "font-medium text-[#d97706]" : "text-text-secondary"}`}>
+                <p
+                  className={`text-sm ${isActive ? "font-medium text-[#d97706]" : "text-text-secondary"}`}
+                >
                   {step.message}
                 </p>
               </div>

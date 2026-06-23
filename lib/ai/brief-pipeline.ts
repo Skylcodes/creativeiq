@@ -16,6 +16,8 @@ import {
   BRIEF_GOALS,
   BRIEF_PLATFORMS,
   PRODUCTION_RESOURCES,
+  briefPlatformLabels,
+  getBriefPlatforms,
   isStaticCreative,
 } from "@/lib/briefs/constants";
 import type {
@@ -45,7 +47,7 @@ function buildInputContext(
     "",
     "=== CAMPAIGN BRIEF INPUTS ===",
     `Campaign goal: ${labelFor(BRIEF_GOALS, input.goal)}`,
-    `Platform: ${labelFor(BRIEF_PLATFORMS, input.platform)}`,
+    `Platform(s): ${briefPlatformLabels(input)}`,
     `Audience temperature: ${labelFor(AUDIENCE_TEMPERATURES, input.audienceTemperature)}`,
     input.audienceNotes?.trim()
       ? `Audience notes: ${input.audienceNotes.trim()}`
@@ -126,7 +128,7 @@ export async function generateFullBrief(
     header: raw.header ?? {
       campaignGoal: labelFor(BRIEF_GOALS, input.goal),
       targetAudience: input.audienceNotes ?? "Target customer from brand profile",
-      platform: labelFor(BRIEF_PLATFORMS, input.platform),
+      platform: briefPlatformLabels(input),
       audienceTemperature: labelFor(AUDIENCE_TEMPERATURES, input.audienceTemperature),
       productionResources: labelFor(PRODUCTION_RESOURCES, input.productionResource),
       strategicRationale: "",
@@ -186,12 +188,14 @@ export async function runBriefPipeline(
 
   const category =
     (brandProfile as { category?: string }).category?.trim() || workspace.name || "DTC";
-  const platformLabel = labelFor(BRIEF_PLATFORMS, input.platform);
+  const platformLabels = getBriefPlatforms(input).map((id) =>
+    labelFor(BRIEF_PLATFORMS, id)
+  );
   const intelligenceBrief = await buildIntelligenceBrief(
     supabase,
     workspace.id,
     category,
-    [platformLabel]
+    platformLabels.length > 0 ? platformLabels : ["Multi-platform"]
   );
   const intelligenceBriefText = intelligenceBrief
     ? formatIntelligenceForPrompt(intelligenceBrief)
@@ -211,7 +215,7 @@ export async function runBriefPipeline(
   );
 
   const title = document.angle?.name
-    ? `${document.angle.name} · ${labelFor(BRIEF_PLATFORMS, input.platform)}`
+    ? `${document.angle.name} · ${briefPlatformLabels(input)}`
     : briefRow.title;
 
   const { error } = await supabase
@@ -234,6 +238,6 @@ export async function runBriefPipeline(
     workspace.id,
     briefRow.user_id,
     document,
-    input.platform
+    getBriefPlatforms(input)[0] ?? null
   );
 }

@@ -22,31 +22,39 @@ export function BrowseHooksModal({
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(
-    () =>
-      filterAndSortHooks(hooks, { ...DEFAULT_HOOK_FILTERS, search }),
-    [hooks, search]
+    () => filterAndSortHooks(hooks, { ...DEFAULT_HOOK_FILTERS, search }),
+    [hooks, search],
   );
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[80vh] w-full max-w-xl flex-col rounded-3xl bg-white shadow-xl">
-        <div className="border-b border-black/[0.05] p-5">
-          <h2 className="font-display text-lg font-semibold">Browse hook library</h2>
+    <div className="modal-overlay p-4">
+      <button
+        type="button"
+        aria-label="Close"
+        className="absolute inset-0"
+        onClick={onClose}
+      />
+      <div className="modal-panel relative z-10 flex max-h-[80vh] w-full max-w-xl flex-col">
+        <div className="border-b border-white/65 p-5">
+          <h2 className="font-display text-lg font-semibold">
+            Browse hook library
+          </h2>
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search hooks…"
-            className="mt-3 w-full rounded-xl border border-black/[0.08] px-4 py-2.5 text-sm"
+            className="input-field mt-3 px-4 py-2.5 text-sm"
             autoFocus
           />
         </div>
         <ul className="flex-1 overflow-y-auto p-3">
           {filtered.length === 0 && (
-            <li className="p-6 text-center text-sm text-text-muted">No hooks found.</li>
+            <li className="p-6 text-center text-sm text-text-muted">
+              No hooks found.
+            </li>
           )}
           {filtered.map((h) => (
             <li key={h.id}>
@@ -63,7 +71,10 @@ export function BrowseHooksModal({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {h.platform && (
-                    <HookTagPill label={platformLabel(h.platform)} variant="platform" />
+                    <HookTagPill
+                      label={platformLabel(h.platform)}
+                      variant="platform"
+                    />
                   )}
                   {h.is_favorited && (
                     <HookTagPill label="Favorited" variant="custom" />

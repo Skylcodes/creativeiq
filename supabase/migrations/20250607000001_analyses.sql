@@ -1,4 +1,4 @@
--- CreativeIQ: Analyses
+-- Advara: Analyses
 -- Run in Supabase Dashboard → SQL Editor after workspaces migration
 
 create table if not exists public.analyses (

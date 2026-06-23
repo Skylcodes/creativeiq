@@ -9,13 +9,14 @@ import {
   buildImageCreativeBrief,
   describeImageCreative,
 } from "@/lib/ai/image-creative";
-import { captureHooksFromAnalysis } from "@/lib/hooks/capture";
 import {
   COMPARISON_SYNTHESIS_SYSTEM,
   buildComparisonScopeBlock,
 } from "@/lib/ai/prompts";
-import { scrapePage } from "@/lib/ai/scrape";
+import { getOrBuildCriteria, formatCriteriaForContext } from "@/lib/ai/criteria";
+import { isScrapeContentSufficient, scrapePage } from "@/lib/ai/scrape";
 import { buildVideoBrief, processVideoCreative } from "@/lib/ai/video";
+import type { VideoCreativeContext } from "@/lib/ai/video";
 import { ANALYSIS_PLATFORMS, COMPARISON_PLATFORMS } from "@/lib/analyses/constants";
 import {
   getCreativeGoalEvaluationBlock,
@@ -23,6 +24,7 @@ import {
   normalizeCreativeGoal,
 } from "@/lib/analyses/creative-goals";
 import type { Analysis } from "@/lib/types/analysis";
+import type { AnalysisReport } from "@/lib/types/report";
 import type {
   ComparisonReport,
   ComparisonRanking,
@@ -68,7 +70,13 @@ async function buildVariantCreative(
   supabase: SupabaseClient,
   analysis: Analysis,
   variant: StoredAnalysisVariant
-): Promise<{ text: string; image?: ImageInput; visionImage?: ImageInput; kind: string }> {
+): Promise<{
+  text: string;
+  image?: ImageInput;
+  visionImage?: ImageInput;
+  kind: AnalysisReport["flags"]["creativeKind"];
+  videoContext?: VideoCreativeContext;
+}> {
   const row = variantAsAnalysisRow(analysis, variant);
 
   if (variant.creative_type === "script") {
@@ -81,7 +89,7 @@ async function buildVariantCreative(
   if (variant.creative_type === "video") {
     const videoCtx = await processVideoCreative(supabase, row);
     const { text } = buildVideoBrief(videoCtx, variant.creative_file_name ?? undefined);
-    return { text, kind: "video" };
+    return { text, kind: "video", videoContext: videoCtx };
   }
 
   const path = variant.creative_storage_path;
@@ -124,12 +132,15 @@ type IndividualEvalResult = {
   variantId: string;
   label: string;
   score: number;
+  creativeStrengthScore: number;
+  conversionScore: number;
   scoreBreakdown: Record<string, number>;
   strengths: string[];
   weaknesses: string[];
   improvements: string | null;
   productionNote: string | null;
   summary: string;
+  analysisReport: AnalysisReport;
 };
 
 function enforceRankingsFromScores(
@@ -210,7 +221,7 @@ export async function runComparisonPipeline(
   const landingPageStatus: "ok" | "partial" | "failed" = !lp
     ? "failed"
     : lp.ok
-      ? lp.bodyText.length > 200
+      ? isScrapeContentSufficient(lp)
         ? "ok"
         : "partial"
       : "failed";
@@ -220,36 +231,60 @@ export async function runComparisonPipeline(
     ? formatIntelligenceForPrompt(intelligenceBrief)
     : undefined;
 
-  // Pass 1 — per variant: DR Critic + Skeptical Buyer → calibrated extraction
+  // Build criteria checklist — same as normal analysis pipeline. This is
+  // cached per workspace (7-day TTL) so it hits cache on almost every call.
+  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
+  const criteriaList = await getOrBuildCriteria(
+    supabase,
+    workspace.id,
+    intelligenceBrief
+  ).catch(() => []);
+  const criteriaText = criteriaList.length > 0
+    ? formatCriteriaForContext(criteriaList, getCreativeGoalLabel(creativeGoal))
+    : undefined;
+
+  // Pass 1 — per variant: same funnel grading path as standalone analysis
   const individualResults: IndividualEvalResult[] = await Promise.all(
     variants.map(async (variant) => {
       const creative = await buildVariantCreative(supabase, analysis, variant);
 
-      const evaluation = await evaluateCreative({
-        brandProfileText,
-        creativeText: creative.text,
-        creativeIsImage: Boolean(creative.image),
-        creativeIsVideo: creative.kind === "video",
-        creativeGoal: analysis.creative_goal,
-        landingPageText,
-        landingPageStatus,
-        platformText,
-        intelligenceBriefText,
-        visionImage: creative.visionImage,
-        variantLabel: variant.label,
-        testDimensions: dimensions,
-      });
+      const evaluation = await evaluateCreative(
+        {
+          brandProfileText,
+          creativeText: creative.text,
+          creativeIsImage: creative.kind === "image",
+          creativeIsVideo: creative.kind === "video",
+          creativeGoal: analysis.creative_goal,
+          landingPageText,
+          landingPageStatus,
+          lpError: lp?.error,
+          platformText,
+          intelligenceBriefText,
+          intelligenceBrief,
+          criteriaList,
+          visionImage: creative.visionImage,
+          variantLabel: variant.label,
+          testDimensions: dimensions,
+          creativeKind: creative.kind,
+          videoContext: creative.videoContext,
+          brandProfilePartial: brandProfile.partial,
+        },
+        { criteriaText }
+      );
 
       return {
         variantId: variant.id,
         label: variant.label,
         score: evaluation.score,
+        creativeStrengthScore: evaluation.creativeStrengthScore,
+        conversionScore: evaluation.conversionScore,
         scoreBreakdown: evaluation.scoreBreakdown,
         strengths: evaluation.strengths,
         weaknesses: evaluation.weaknesses,
         improvements: evaluation.improvements,
         productionNote: evaluation.productionNote,
         summary: evaluation.summary,
+        analysisReport: evaluation.analysisReport,
       };
     })
   );
@@ -259,15 +294,16 @@ export async function runComparisonPipeline(
       variantId: r.variantId,
       label: r.label,
       score: r.score,
+      creativeStrengthScore: r.creativeStrengthScore,
+      conversionScore: r.conversionScore,
       scoreBreakdown: r.scoreBreakdown,
       strengths: r.strengths,
       weaknesses: r.weaknesses,
       improvements: r.improvements,
       productionNote: r.productionNote,
+      analysisReport: r.analysisReport,
     })
   );
-
-  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
 
   // Pass 2 — comparative synthesis (ranking + insights; scores anchored to pass 1)
   const synthesis = await callClaudeJSON<Omit<ComparisonReport, "variantDetails">>({
@@ -337,6 +373,7 @@ export async function runComparisonPipeline(
   };
 
   const winner = rankings.find((r) => r.rank === 1) ?? rankings[0];
+  const winnerResult = individualResults.find((r) => r.variantId === winner?.variantId);
 
   const updatedVariants: StoredAnalysisVariant[] = variants.map((v) => {
     const detail = variantDetails.find((d) => d.variantId === v.id);
@@ -358,9 +395,9 @@ export async function runComparisonPipeline(
     .update({
       report,
       variants: updatedVariants,
-      funnel_score: winner?.score ?? null,
-      creative_strength_score: winner?.score ?? null,
-      conversion_score: null,
+      funnel_score: winnerResult?.score ?? winner?.score ?? null,
+      creative_strength_score: winnerResult?.creativeStrengthScore ?? null,
+      conversion_score: winnerResult?.conversionScore ?? null,
       thumbnail_url: winnerVariant?.thumbnail_url ?? variants[0].thumbnail_url ?? null,
       status: "completed",
       error_message: null,
@@ -372,6 +409,4 @@ export async function runComparisonPipeline(
   if (error) {
     throw new Error(`Failed to save comparison report: ${error.message}`);
   }
-
-  await captureHooksFromAnalysis(supabase, analysis, report, workspace.user_id);
 }

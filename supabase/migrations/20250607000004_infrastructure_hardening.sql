@@ -1,4 +1,4 @@
--- CreativeIQ: Infrastructure hardening
+-- Advara: Infrastructure hardening
 -- Brand profile generation status + analysis watchdog timestamps
 
 alter table public.workspaces

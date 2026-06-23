@@ -93,7 +93,7 @@ function VariantSlot({
   };
 
   return (
-    <div className="rounded-2xl bg-white/80 p-5 ring-1 ring-black/[0.06]">
+    <div className="dashboard-panel p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex-1">
           <label className="text-xs font-medium text-text-muted">
@@ -104,7 +104,7 @@ function VariantSlot({
             value={slot.label}
             onChange={(e) => onUpdate({ ...slot, label: e.target.value })}
             placeholder={defaultLabel}
-            className="mt-1 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
+            className="input-field mt-1 w-full text-sm"
           />
         </div>
         {canRemove && onRemove && (
@@ -119,19 +119,20 @@ function VariantSlot({
       </div>
 
       {!lockedTab && (
-        <div className="mb-4 flex gap-1 rounded-xl bg-black/[0.03] p-1">
+        <div className="premium-tabs mb-4">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => handleTabChange(tab.id)}
-              className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                activeTab === tab.id
-                  ? "bg-white text-text-primary shadow-sm"
-                  : "text-text-muted hover:text-text-secondary"
+              className={`premium-tab relative flex-1 ${
+                activeTab === tab.id ? "premium-tab-active" : ""
               }`}
             >
-              {tab.label}
+              {activeTab === tab.id && (
+                <div className="premium-tab-indicator" />
+              )}
+              <span className="relative">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -140,7 +141,7 @@ function VariantSlot({
       {activeTab === "image" && (
         <>
           {slot.creative.imagePreview ? (
-            <div className="overflow-hidden rounded-xl ring-1 ring-black/[0.06]">
+            <div className="premium-card overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={slot.creative.imagePreview}
@@ -156,7 +157,11 @@ function VariantSlot({
                   onClick={() =>
                     onUpdate({
                       ...slot,
-                      creative: { ...slot.creative, imageFile: null, imagePreview: null },
+                      creative: {
+                        ...slot.creative,
+                        imageFile: null,
+                        imagePreview: null,
+                      },
                     })
                   }
                   className="font-medium text-accent"
@@ -166,7 +171,7 @@ function VariantSlot({
               </div>
             </div>
           ) : (
-            <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/[0.08] bg-white/60 px-4 py-6 hover:border-accent/30">
+            <label className="surface-inset flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 hover:border-accent/30">
               <input
                 type="file"
                 accept="image/jpeg,image/png,.jpg,.jpeg,.png"
@@ -177,7 +182,9 @@ function VariantSlot({
                   e.target.value = "";
                 }}
               />
-              <p className="text-sm font-medium text-text-primary">Upload image</p>
+              <p className="text-sm font-medium text-text-primary">
+                Upload image
+              </p>
               <p className="mt-1 text-xs text-text-muted">JPG or PNG</p>
             </label>
           )}
@@ -191,11 +198,17 @@ function VariantSlot({
               <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-[#1a1a2e]">
                 {slot.creative.videoThumbnail && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={slot.creative.videoThumbnail} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={slot.creative.videoThumbnail}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{slot.creative.videoFile.name}</p>
+                <p className="truncate text-sm font-medium">
+                  {slot.creative.videoFile.name}
+                </p>
                 <button
                   type="button"
                   onClick={() =>
@@ -216,7 +229,7 @@ function VariantSlot({
               </div>
             </div>
           ) : (
-            <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/[0.08] bg-white/60 px-4 py-6 hover:border-accent/30">
+            <label className="surface-inset flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 hover:border-accent/30">
               <input
                 type="file"
                 accept="video/mp4,.mp4"
@@ -227,7 +240,9 @@ function VariantSlot({
                   e.target.value = "";
                 }}
               />
-              <p className="text-sm font-medium text-text-primary">Upload video</p>
+              <p className="text-sm font-medium text-text-primary">
+                Upload video
+              </p>
               <p className="mt-1 text-xs text-text-muted">MP4 only</p>
             </label>
           )}
@@ -247,10 +262,11 @@ function VariantSlot({
             }
             placeholder="Paste this variant's script or copy..."
             rows={6}
-            className="w-full resize-none rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm leading-relaxed outline-none focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
+            className="input-field w-full resize-none text-sm leading-relaxed"
           />
           <p className="mt-1 text-xs text-text-muted">
-            {slot.creative.scriptContent.trim().length} / {MIN_SCRIPT_LENGTH} min characters
+            {slot.creative.scriptContent.trim().length} / {MIN_SCRIPT_LENGTH}{" "}
+            min characters
           </p>
         </>
       )}
@@ -266,12 +282,10 @@ function VariantSlot({
 
 export function StepVariants({ variants, onChange }: StepVariantsProps) {
   const filledSlots = variants.filter(isSlotFilled);
-  const lockedTab =
-    filledSlots.length > 0 ? filledSlots[0].creativeTab : null;
+  const lockedTab = filledSlots.length > 0 ? filledSlots[0].creativeTab : null;
 
   const typeMismatch =
-    lockedTab &&
-    filledSlots.some((s) => s.creativeTab !== lockedTab);
+    lockedTab && filledSlots.some((s) => s.creativeTab !== lockedTab);
 
   const updateVariant = (index: number, slot: VariantSlotState) => {
     const next = [...variants];
@@ -311,13 +325,22 @@ export function StepVariants({ variants, onChange }: StepVariantsProps) {
       {lockedTab && (
         <p className="mt-4 rounded-xl bg-accent/[0.06] px-4 py-2.5 text-xs font-medium text-accent">
           All variants locked to{" "}
-          {lockedTab === "image" ? "static image" : lockedTab === "video" ? "video" : "script"} uploads
+          {lockedTab === "image"
+            ? "static image"
+            : lockedTab === "video"
+              ? "video"
+              : "script"}{" "}
+          uploads
         </p>
       )}
 
       {typeMismatch && (
-        <p className="mt-3 rounded-xl bg-[#ef4444]/8 px-4 py-2.5 text-sm text-[#ef4444]" role="alert">
-          All variants must use the same creative type. Remove mismatched uploads or start over with one format.
+        <p
+          className="mt-3 rounded-xl bg-[#ef4444]/8 px-4 py-2.5 text-sm text-[#ef4444]"
+          role="alert"
+        >
+          All variants must use the same creative type. Remove mismatched
+          uploads or start over with one format.
         </p>
       )}
 
@@ -335,7 +358,9 @@ export function StepVariants({ variants, onChange }: StepVariantsProps) {
                 slot={slot}
                 lockedTab={lockedTab}
                 onUpdate={(s) => updateVariant(index, s)}
-                onRemove={() => onChange(variants.filter((_, i) => i !== index))}
+                onRemove={() =>
+                  onChange(variants.filter((_, i) => i !== index))
+                }
                 canRemove={index >= 2}
               />
             </motion.div>
@@ -347,10 +372,21 @@ export function StepVariants({ variants, onChange }: StepVariantsProps) {
         <button
           type="button"
           onClick={addVariant}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-black/[0.08] py-4 text-sm font-medium text-text-secondary transition-colors hover:border-accent/30 hover:text-accent"
+          className="surface-inset mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed py-4 text-sm font-medium text-text-secondary transition-colors hover:border-accent/30 hover:text-accent"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden
+          >
+            <path
+              d="M8 3V13M3 8H13"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
           </svg>
           Add a {variants.length === 2 ? "third" : "fourth"} variant
         </button>
@@ -368,7 +404,7 @@ export function areVariantsValid(variants: VariantSlotState[]): boolean {
 }
 
 export function getLockedCreativeType(
-  variants: VariantSlotState[]
+  variants: VariantSlotState[],
 ): "image" | "video" | "script" | null {
   const filled = variants.filter(isSlotFilled);
   return filled.length > 0 ? filled[0].creativeTab : null;

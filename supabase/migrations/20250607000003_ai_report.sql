@@ -1,4 +1,4 @@
--- CreativeIQ: AI report fields + cached brand profile
+-- Advara: AI report fields + cached brand profile
 -- Run in Supabase Dashboard → SQL Editor after the analysis wizard migration
 
 -- Cache the AI-generated brand profile on the workspace so we don't

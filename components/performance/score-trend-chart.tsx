@@ -100,7 +100,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
                 y1={plot.avgY}
                 x2={CHART_W - PAD.right}
                 y2={plot.avgY}
-                stroke="#6e3aff"
+                stroke="#6947ff"
                 strokeWidth={1}
                 strokeDasharray="6 4"
                 opacity={0.45}
@@ -109,7 +109,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
                 x={CHART_W - PAD.right}
                 y={plot.avgY - 6}
                 textAnchor="end"
-                fill="#6e3aff"
+                fill="#6947ff"
                 fontSize={10}
                 opacity={0.7}
               >
@@ -131,7 +131,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
           <motion.path
             d={plot.linePath}
             fill="none"
-            stroke="#6e3aff"
+            stroke="#6947ff"
             strokeWidth={2.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -156,7 +156,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
                 cx={x}
                 cy={y}
                 r={point.isComparison ? 7 : 5}
-                fill={point.isComparison ? "#9333ea" : getReportScoreColor(point.score)}
+                fill={point.isComparison ? "#3b2b9f" : getReportScoreColor(point.score)}
                 stroke="white"
                 strokeWidth={2}
                 initial={{ scale: 0 }}
@@ -169,7 +169,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
                   cy={y}
                   r={10}
                   fill="none"
-                  stroke="#9333ea"
+                  stroke="#3b2b9f"
                   strokeWidth={1.5}
                   opacity={0.4}
                 />
@@ -179,8 +179,8 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
 
           <defs>
             <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(110, 58, 255, 0.18)" />
-              <stop offset="100%" stopColor="rgba(110, 58, 255, 0.02)" />
+              <stop offset="0%" stopColor="rgba(94, 80, 235, 0.18)" />
+              <stop offset="100%" stopColor="rgba(94, 80, 235, 0.02)" />
             </linearGradient>
           </defs>
         </svg>
@@ -188,7 +188,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
         {/* Tooltip */}
         {hoveredCoord && (
           <div
-            className="pointer-events-none absolute z-10 max-w-[240px] rounded-xl bg-white px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]"
+            className="pointer-events-none absolute z-10 max-w-[240px] premium-card-glass px-4 py-3 shadow-[var(--shadow-soft)]"
             style={{
               left: `${(hoveredCoord.x / CHART_W) * 100}%`,
               top: `${(hoveredCoord.y / CHART_H) * 100 - 8}%`,
@@ -198,7 +198,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
             <p className="truncate text-sm font-semibold text-text-primary">
               {hoveredCoord.point.title}
               {hoveredCoord.point.isComparison && (
-                <span className="ml-1.5 text-[10px] font-medium text-[#9333ea]">
+                <span className="ml-1.5 text-[10px] font-medium text-[#3b2b9f]">
                   Comparison
                 </span>
               )}
@@ -225,7 +225,7 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
           Funnel analysis
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full border-2 border-[#9333ea] bg-[#9333ea]/30" />
+          <span className="h-2.5 w-2.5 rounded-full border-2 border-[#3b2b9f] bg-[#3b2b9f]/30" />
           Variant comparison (winner score)
         </span>
       </div>

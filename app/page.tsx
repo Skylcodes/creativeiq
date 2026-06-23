@@ -5,7 +5,7 @@ import { HowItWorks } from "@/components/landing/how-it-works";
 import { Agents } from "@/components/landing/agents";
 import { Features } from "@/components/landing/features";
 import { Comparison } from "@/components/landing/comparison";
-import { Testimonials } from "@/components/landing/testimonials";
+import { Pricing } from "@/components/landing/pricing";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
@@ -20,7 +20,7 @@ export default function Home() {
         <Agents />
         <Features />
         <Comparison />
-        <Testimonials />
+        <Pricing />
         <FinalCTA />
       </main>
       <Footer />

@@ -8,20 +8,20 @@ function PlatformIcon({ icon }: { icon: string }) {
     case "organic":
       return (
         <svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <circle cx="12" cy="12" r="8" stroke="#6e3aff" strokeWidth="1.5" />
-          <path d="M8 12C8 9.5 10 8 12 8C14 8 16 9.5 16 12" stroke="#6e3aff" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="8" stroke="#6947ff" strokeWidth="1.5" />
+          <path d="M8 12C8 9.5 10 8 12 8C14 8 16 9.5 16 12" stroke="#6947ff" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       );
     case "tiktok":
       return (
         <svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M14 4V14.5C14 16.985 12.209 19 10 19C7.791 19 6 17.015 6 14.5C6 11.985 7.791 10 10 10V13C9.172 13 8.5 13.672 8.5 14.5C8.5 15.328 9.172 16 10 16C10.828 16 11.5 15.328 11.5 14.5V4H14Z" fill="#6e3aff" />
+          <path d="M14 4V14.5C14 16.985 12.209 19 10 19C7.791 19 6 17.015 6 14.5C6 11.985 7.791 10 10 10V13C9.172 13 8.5 13.672 8.5 14.5C8.5 15.328 9.172 16 10 16C10.828 16 11.5 15.328 11.5 14.5V4H14Z" fill="#6947ff" />
         </svg>
       );
     default:
       return (
         <svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <rect x="3" y="5" width="18" height="14" rx="3" stroke="#6e3aff" strokeWidth="1.5" />
+          <rect x="3" y="5" width="18" height="14" rx="3" stroke="#6947ff" strokeWidth="1.5" />
         </svg>
       );
   }
@@ -71,10 +71,8 @@ export function StepComparisonContext({
               onLandingError(null);
             }}
             placeholder="https://yourbrand.com/landing-page"
-            className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3.5 text-sm outline-none transition-all focus:ring-4 focus:ring-accent/10 ${
-              landingError
-                ? "border-[#ef4444] focus:border-[#ef4444]"
-                : "border-black/[0.08] focus:border-accent/40"
+            className={`input-field mt-2 px-4 py-3.5 text-sm ${
+              landingError ? "border-[#ef4444] focus:border-[#ef4444]" : ""
             }`}
           />
           {landingError && (
@@ -97,10 +95,10 @@ export function StepComparisonContext({
                   key={p.id}
                   type="button"
                   onClick={() => onPlatformSelect(p.id)}
-                  className={`rounded-2xl p-4 text-left transition-all ${
+                  className={`p-4 text-left transition-all ${
                     selected
-                      ? "bg-white shadow-[0_8px_28px_rgba(110,58,255,0.12)] ring-2 ring-accent/30"
-                      : "bg-white/70 ring-1 ring-black/[0.06] hover:ring-accent/20"
+                      ? "premium-card premium-card-accent"
+                      : "premium-card premium-card-interactive"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -121,7 +119,7 @@ export function StepComparisonContext({
               value={platformOther}
               onChange={(e) => onPlatformOtherChange(e.target.value)}
               placeholder="Describe your platform..."
-              className="mt-4 w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm outline-none focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
+              className="input-field mt-4 text-sm"
             />
           )}
         </div>

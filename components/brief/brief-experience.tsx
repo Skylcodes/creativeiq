@@ -72,7 +72,7 @@ export function BriefExperience({
         <p className="mt-2 text-sm text-text-secondary">
           {brief.error_message ?? "Something went wrong."}
         </p>
-        <button type="button" onClick={handleRetry} className="btn-primary mt-6 text-sm">
+        <button type="button" onClick={handleRetry} className="btn-premium mt-6 text-sm">
           Try again
         </button>
         <Link href="/brief" className="mt-4 text-sm text-accent">
@@ -104,7 +104,7 @@ export function BriefExperience({
   return (
     <div className="mx-auto max-w-md px-6 py-20 text-center">
       <p className="text-text-secondary">Brief unavailable.</p>
-      <Link href="/brief" className="btn-secondary mt-6 inline-flex text-sm">
+      <Link href="/brief" className="btn-outline mt-6 inline-flex text-sm">
         Back to briefs
       </Link>
     </div>

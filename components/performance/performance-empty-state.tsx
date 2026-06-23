@@ -29,12 +29,12 @@ export function PerformanceEmptyState() {
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.15 }}
-        className="relative mx-auto mt-10 overflow-hidden rounded-3xl bg-white/60 p-8 ring-1 ring-black/[0.06]"
+        className="relative mx-auto mt-10 overflow-hidden premium-card premium-card-glass p-8"
       >
         <div className="pointer-events-none select-none blur-[6px] opacity-60">
           <div className="mb-6 grid grid-cols-4 gap-3">
             {["Avg 72", "Best 85", "+14 pts", "8 runs"].map((l) => (
-              <div key={l} className="rounded-xl bg-black/[0.04] py-4 text-sm font-semibold text-text-muted">
+              <div key={l} className="surface-inset py-4 text-sm font-semibold text-text-muted">
                 {l}
               </div>
             ))}
@@ -43,15 +43,15 @@ export function PerformanceEmptyState() {
             values={PLACEHOLDER_SCORES}
             width={600}
             height={120}
-            stroke="#6e3aff"
-            fill="rgba(110,58,255,0.1)"
+            stroke="#6947ff"
+            fill="rgba(94, 80, 235,0.1)"
             animate={false}
             className="mx-auto w-full max-w-xl"
           />
         </div>
 
         <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
-          <div className="rounded-2xl bg-white px-8 py-6 shadow-[0_12px_40px_rgba(110,58,255,0.12)] ring-1 ring-black/[0.04]">
+          <div className="premium-card px-8 py-6 shadow-[var(--shadow-soft)]">
             <p className="text-sm font-medium text-text-primary">
               Preview of your performance dashboard
             </p>

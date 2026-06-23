@@ -4,7 +4,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { NewAnalysisCta } from "@/components/dashboard/new-analysis-cta";
 import { Sparkline } from "@/components/performance/sparkline";
-import { PremiumCard } from "@/components/ui/premium-card";
 import { getReportScoreColor } from "@/lib/report/utils";
 import type { PerformanceSnapshot } from "@/lib/performance/types";
 import { EASE_PREMIUM } from "@/components/ui/motion";
@@ -19,37 +18,40 @@ export function PerformanceSnapshotWidget({
   if (!snapshot.hasEnoughData) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.25, ease: EASE_PREMIUM }}
+        transition={{ duration: 0.45, delay: 0.2, ease: EASE_PREMIUM }}
       >
-        <PremiumCard padding="md">
+        <div className="dash-card p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted">
             Performance Snapshot
           </p>
           <p className="mt-3 text-[13px] leading-relaxed text-text-secondary">
-            Run 2 or more analyses to start tracking your creative performance trends.
+            Run 2 or more analyses to start tracking your creative performance
+            trends.
           </p>
           <div className="mt-4">
             <NewAnalysisCta label="Run New Analysis" size="compact" />
           </div>
-        </PremiumCard>
+        </div>
       </motion.div>
     );
   }
 
   const trendColor =
     snapshot.recentScores.length >= 2
-      ? getReportScoreColor(snapshot.recentScores[snapshot.recentScores.length - 1])
-      : "#6e3aff";
+      ? getReportScoreColor(
+          snapshot.recentScores[snapshot.recentScores.length - 1],
+        )
+      : "#6947ff";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.25, ease: EASE_PREMIUM }}
+      transition={{ duration: 0.45, delay: 0.2, ease: EASE_PREMIUM }}
     >
-      <PremiumCard padding="md">
+      <div className="dash-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted">
@@ -84,14 +86,20 @@ export function PerformanceSnapshotWidget({
 
         <Link
           href="/performance"
-          className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-accent hover:text-accent-hover"
+          className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-[#4c3d8f] hover:text-accent"
         >
           View full performance
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-            <path d="M3 7H11M8 4L11 7L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M3 7H11M8 4L11 7L8 10"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </Link>
-      </PremiumCard>
+      </div>
     </motion.div>
   );
 }

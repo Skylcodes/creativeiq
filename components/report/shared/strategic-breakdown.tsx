@@ -12,7 +12,10 @@ const FIELDS = [
   { key: "expectedImpact" as const, label: "Expected impact" },
 ];
 
-export function StrategicBreakdown({ breakdown, compact }: StrategicBreakdownProps) {
+export function StrategicBreakdown({
+  breakdown,
+  compact,
+}: StrategicBreakdownProps) {
   const items = FIELDS.filter((f) => breakdown[f.key]?.trim());
 
   if (items.length === 0) return null;
@@ -33,6 +36,8 @@ export function StrategicBreakdown({ breakdown, compact }: StrategicBreakdownPro
   );
 }
 
-export function hasStrategicBreakdown(breakdown: StrategicBreakdownType): boolean {
+export function hasStrategicBreakdown(
+  breakdown: StrategicBreakdownType,
+): boolean {
   return FIELDS.some((f) => Boolean(breakdown[f.key]?.trim()));
 }

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { callClaude } from "@/lib/ai/client";
+import { callClaude, CLAUDE_JSON_MODEL } from "@/lib/ai/client";
 import { SCRIPT_REWRITE_EXPERTISE } from "@/lib/ai/prompts";
 import {
   extractScriptRewriteFromAgent,
@@ -83,6 +83,7 @@ export async function ensureScriptRewrite(
     ].join("\n"),
     maxTokens: 900,
     temperature: 0.75,
+    model: CLAUDE_JSON_MODEL,
   });
 
   const trimmed = generated.trim();

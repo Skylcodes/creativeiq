@@ -22,13 +22,13 @@ const display = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "CreativeIQ — AI Funnel Intelligence for DTC Brands",
+  title: "Advara — AI Funnel Intelligence for DTC Brands",
   description:
-    "Stop launching ads blind. CreativeIQ runs 5 AI agents against your ad creative and landing page together — delivering a full funnel intelligence report before you spend on Meta or TikTok.",
+    "Stop launching ads blind. Advara runs multiple AI agents against your ad creative and landing page together — delivering a full funnel intelligence report before you spend on Meta or TikTok.",
   openGraph: {
-    title: "CreativeIQ — AI Funnel Intelligence for DTC Brands",
+    title: "Advara — AI Funnel Intelligence for DTC Brands",
     description:
-      "Stress-test your entire ad funnel with 5 specialized AI agents. Ad analysis, conversion scoring, ICP simulation, and a prioritized action plan — in minutes.",
+      "Stress-test your entire ad funnel with multiple specialized AI agents. Ad analysis, conversion scoring, ICP simulation, and a prioritized action plan — in minutes.",
     type: "website",
   },
 };

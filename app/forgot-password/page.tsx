@@ -56,11 +56,11 @@ export default function ForgotPasswordPage() {
     >
       {success ? (
         <div className="space-y-4 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-light">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-accent/10 bg-accent-light shadow-[0_16px_34px_rgba(105,71,255,0.14)]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
               <path
                 d="M4 10L8 14L16 6"
-                stroke="#6e3aff"
+                stroke="#6947ff"
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"

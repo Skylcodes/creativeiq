@@ -13,6 +13,15 @@ export type CreativeDirectorChat = {
   workspace_id: string;
   user_id: string;
   analysis_id: string | null;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ChatSessionSummary = {
+  id: string;
+  title: string | null;
+  analysis_id: string | null;
   created_at: string;
   updated_at: string;
 };

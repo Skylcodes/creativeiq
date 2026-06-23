@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   HOOK_PLATFORMS,
   HOOK_PRESET_ANGLE_TAGS,
@@ -16,6 +17,12 @@ type AddHookModalProps = {
   onCreated: () => void;
 };
 
+const fieldClass =
+  "w-full rounded-2xl border border-border-strong bg-white/[0.88] px-4 py-3 text-sm text-text-primary shadow-[0_1px_1px_rgba(255,255,255,0.75)_inset,0_8px_24px_rgba(43,24,95,0.045)] outline-none transition-all placeholder:text-text-muted focus:border-accent/[0.45] focus:bg-white focus:ring-4 focus:ring-accent/[0.12]";
+
+const labelClass =
+  "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-muted";
+
 export function AddHookModal({
   workspaceId,
   open,
@@ -30,8 +37,6 @@ export function AddHookModal({
   const [sourceCategory, setSourceCategory] = useState<ManualSourceCategoryId>("my_own_idea");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  if (!open) return null;
 
   const angleTags =
     angleTag === "custom" && customAngle.trim()
@@ -67,117 +72,177 @@ export function AddHookModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Close"
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-lg rounded-3xl bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
-        <h2 className="font-display text-xl font-semibold text-text-primary">Add Hook</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Save a hook from anywhere — competitor ads, inspiration, or your own ideas.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Hook
-            </label>
-            <textarea
-              value={hookText}
-              onChange={(e) => setHookText(e.target.value)}
-              rows={4}
-              required
-              placeholder="The opening line or hook text…"
-              className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm leading-relaxed text-text-primary outline-none focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                Platform
-              </label>
-              <select
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm"
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[rgba(8,7,17,0.42)] backdrop-blur-[6px]"
+            onClick={pending ? undefined : onClose}
+            aria-hidden
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="premium-card premium-card-elevated fixed left-1/2 top-1/2 z-50 flex max-h-[min(90vh,720px)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-hook-title"
+          >
+            <div className="shrink-0 border-b border-white/65 px-6 py-5">
+              <h2
+                id="add-hook-title"
+                className="font-display text-xl font-semibold text-text-primary"
               >
-                <option value="">Any platform</option>
-                {HOOK_PLATFORMS.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
+                Add Hook
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+                Save a hook from anywhere — competitor ads, inspiration, or your own ideas.
+              </p>
             </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                Angle type
-              </label>
-              <select
-                value={angleTag}
-                onChange={(e) => setAngleTag(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm"
-              >
-                <option value="">None</option>
-                {HOOK_PRESET_ANGLE_TAGS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-                <option value="custom">Custom tag…</option>
-              </select>
-            </div>
-          </div>
 
-          {angleTag === "custom" && (
-            <input
-              value={customAngle}
-              onChange={(e) => setCustomAngle(e.target.value)}
-              placeholder="Custom angle tag"
-              className="w-full rounded-xl border border-black/[0.08] px-4 py-2.5 text-sm"
-            />
-          )}
-
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Source
-            </label>
-            <select
-              value={sourceCategory}
-              onChange={(e) => setSourceCategory(e.target.value as ManualSourceCategoryId)}
-              className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm"
+            <form
+              onSubmit={handleSubmit}
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
-              {MANUAL_SOURCE_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>{c.label}</option>
-              ))}
-            </select>
-          </div>
+              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                <div>
+                  <label htmlFor="hook-text" className={labelClass}>
+                    Hook
+                  </label>
+                  <textarea
+                    id="hook-text"
+                    value={hookText}
+                    onChange={(e) => setHookText(e.target.value)}
+                    rows={4}
+                    required
+                    autoFocus
+                    placeholder="The opening line or hook text…"
+                    className={`${fieldClass} resize-none leading-relaxed`}
+                  />
+                </div>
 
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Notes (optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              placeholder="e.g. Saw on competitor TikTok · 3.2% CTR in August"
-              className="mt-1.5 w-full rounded-xl border border-black/[0.08] px-4 py-2.5 text-sm"
-            />
-          </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="hook-platform" className={labelClass}>
+                      Platform
+                    </label>
+                    <select
+                      id="hook-platform"
+                      value={platform}
+                      onChange={(e) => setPlatform(e.target.value)}
+                      className={fieldClass}
+                    >
+                      <option value="">Any platform</option>
+                      {HOOK_PLATFORMS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="hook-angle" className={labelClass}>
+                      Angle type
+                    </label>
+                    <select
+                      id="hook-angle"
+                      value={angleTag}
+                      onChange={(e) => setAngleTag(e.target.value)}
+                      className={fieldClass}
+                    >
+                      <option value="">None</option>
+                      {HOOK_PRESET_ANGLE_TAGS.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                      <option value="custom">Custom tag…</option>
+                    </select>
+                  </div>
+                </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+                {angleTag === "custom" && (
+                  <div>
+                    <label htmlFor="hook-custom-angle" className={labelClass}>
+                      Custom angle
+                    </label>
+                    <input
+                      id="hook-custom-angle"
+                      value={customAngle}
+                      onChange={(e) => setCustomAngle(e.target.value)}
+                      placeholder="Custom angle tag"
+                      className={fieldClass}
+                    />
+                  </div>
+                )}
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary text-sm">
-              Cancel
-            </button>
-            <button type="submit" disabled={pending} className="btn-primary text-sm">
-              {pending ? "Saving…" : "Save Hook"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+                <div>
+                  <label htmlFor="hook-source" className={labelClass}>
+                    Source
+                  </label>
+                  <select
+                    id="hook-source"
+                    value={sourceCategory}
+                    onChange={(e) =>
+                      setSourceCategory(e.target.value as ManualSourceCategoryId)
+                    }
+                    className={fieldClass}
+                  >
+                    {MANUAL_SOURCE_CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="hook-notes" className={labelClass}>
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    id="hook-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Saw on competitor TikTok · 3.2% CTR in August"
+                    className={`${fieldClass} resize-none`}
+                  />
+                </div>
+
+                {error && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-3 border-t border-white/65 bg-white/40 px-6 py-4 backdrop-blur-sm">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={pending}
+                  className="btn-surface text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="btn-premium text-sm"
+                >
+                  {pending ? "Saving…" : "Save Hook"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

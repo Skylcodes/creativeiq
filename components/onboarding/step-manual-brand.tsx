@@ -55,9 +55,9 @@ export function StepManualBrand({
     <motion.div
       key="manual"
       {...stepTransition}
-      className="rounded-2xl border border-white/80 bg-white/90 p-8 shadow-[0_24px_64px_rgba(110,58,255,0.08),0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl md:p-10"
+      className="premium-card noise-overlay rounded-2xl p-8 md:p-10"
     >
-      <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20">
+      <div className="icon-badge mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden>
           <path
             d="M13 4L14.5 9.5H20L15.5 13L17 18.5L13 15.5L9 18.5L10.5 13L6 9.5H11.5L13 4Z"
@@ -87,7 +87,7 @@ export function StepManualBrand({
           onChange={(e) => setDescription(e.target.value)}
           rows={7}
           placeholder="Example: We sell premium cold-press skincare for women 30–50 who want clean ingredients without luxury markup. Our hero product is a $48 vitamin C serum. We compete on transparency and dermatologist-backed formulas…"
-          className="w-full resize-none rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent/40 focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="input-field w-full resize-none text-sm leading-relaxed"
         />
         <p className="mt-2 text-xs text-text-muted">
           Minimum 50 characters · Be specific about product, audience, and positioning
@@ -103,7 +103,7 @@ export function StepManualBrand({
           <button
             type="submit"
             disabled={isSubmitting || description.trim().length < 50}
-            className="btn-primary min-w-[200px] disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn-premium min-w-[200px] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isSubmitting ? "Saving profile…" : "Continue"}
           </button>

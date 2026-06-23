@@ -47,7 +47,7 @@ export function UserMenu({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="transition-transform hover:scale-105"
+        className="rounded-full transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-accent/[0.12]"
         aria-expanded={open}
         aria-label="User menu"
       >
@@ -60,9 +60,9 @@ export function UserMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl bg-white/95 p-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+        <div className="dash-card absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden p-1.5">
           <div className="px-3 py-2.5">
-            <p className="truncate text-sm font-medium text-text-primary">
+            <p className="truncate text-sm font-semibold tracking-[-0.01em] text-text-primary">
               {displayName}
             </p>
             <p className="truncate text-xs text-text-muted">{email}</p>
@@ -71,7 +71,7 @@ export function UserMenu({
             <Link
               href="/settings"
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-black/[0.04] hover:text-text-primary"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-[#f6f7fb] hover:text-text-primary"
             >
               Account settings
             </Link>
@@ -79,7 +79,7 @@ export function UserMenu({
               type="button"
               onClick={handleSignOut}
               disabled={signingOut}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50/80 disabled:opacity-60"
             >
               {signingOut ? "Signing out…" : "Sign out"}
             </button>

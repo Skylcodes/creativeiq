@@ -22,10 +22,12 @@ const OUTCOME_CARDS = [
 
 export function AnalysesEmptyState() {
   return (
-    <PremiumCard variant="elevated" padding="lg" className="relative mt-10 overflow-hidden md:px-10 md:py-12">
-      <div className="pointer-events-none absolute inset-0 mesh-gradient opacity-40" />
-      <div className="pointer-events-none absolute -right-10 top-0 h-56 w-56 rounded-full bg-accent/8 blur-3xl" />
-
+    <PremiumCard
+      variant="elevated"
+      padding="lg"
+      className="relative mt-10 overflow-hidden md:px-10 md:py-12"
+    >
+      <div className="pointer-events-none absolute inset-0 ambient-bg opacity-20" />
       <div className="relative mx-auto grid max-w-5xl items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -37,7 +39,7 @@ export function AnalysesEmptyState() {
           </p>
           <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
             Every funnel report,{" "}
-            <span className="text-gradient-accent">in one place</span>
+            <span className="text-accent">in one place</span>
           </h2>
           <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-text-secondary">
             Run your first analysis to build a searchable history of scores,
@@ -56,7 +58,7 @@ export function AnalysesEmptyState() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + i * 0.06, duration: 0.4 }}
-                className="premium-card p-4"
+                className="premium-card premium-card-glass p-4"
               >
                 <h3 className="text-sm font-semibold text-text-primary">
                   {card.title}

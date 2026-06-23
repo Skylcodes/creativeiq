@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+ui-ux-pro-max-skill-main/
 
 # debug
 npm-debug.log*

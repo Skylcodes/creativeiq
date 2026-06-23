@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { PremiumCard } from "@/components/ui/premium-card";
 
 const INSIGHTS = [
   {
@@ -40,20 +39,27 @@ export function InsightsStrip() {
   const insight = INSIGHTS[index];
 
   return (
-    <PremiumCard variant="accent" padding="md">
-      <div className="flex items-start gap-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+    <div className="dash-card p-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#6947ff]/10">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <path d="M8 1.5L9.5 6H14L10.5 8.5L12 13L8 10.5L4 13L5.5 8.5L2 6H6.5L8 1.5Z" stroke="#6e3aff" strokeWidth="1.2" strokeLinejoin="round" />
+            <path
+              d="M8 1.5L9.5 6H14L10.5 8.5L12 13L8 10.5L4 13L5.5 8.5L2 6H6.5L8 1.5Z"
+              stroke="#6947ff"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-center gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6947ff]">
               Intelligence Tip
             </p>
-            <span className="text-[10px] text-text-muted">· {insight.category}</span>
+            <span className="text-[10px] text-text-muted">
+              · {insight.category}
+            </span>
           </div>
 
           <div className="min-h-14 overflow-hidden">
@@ -78,7 +84,9 @@ export function InsightsStrip() {
                 type="button"
                 onClick={() => setIndex(i)}
                 className={`h-1 rounded-full transition-all duration-300 ${
-                  i === index ? "w-5 bg-accent" : "w-1.5 bg-black/10 hover:bg-black/20"
+                  i === index
+                    ? "w-5 bg-[#6947ff]"
+                    : "w-1.5 bg-black/10 hover:bg-black/20"
                 }`}
                 aria-label={`Show insight ${i + 1}`}
               />
@@ -86,6 +94,6 @@ export function InsightsStrip() {
           </div>
         </div>
       </div>
-    </PremiumCard>
+    </div>
   );
 }

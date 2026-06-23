@@ -9,7 +9,7 @@ import type {
 export type BriefWizardState = {
   step: 1 | 2 | 3 | 4 | 5;
   goal: BriefGoal | "";
-  platform: string;
+  platforms: string[];
   audienceTemperature: AudienceTemperature | "";
   audienceNotes: string;
   angleMode: AngleMode;
@@ -22,6 +22,7 @@ export type BriefWizardState = {
 
 export type BriefWizardPrefill = {
   platform?: string;
+  platforms?: string[];
   landingPageUrl?: string;
   angleIdea?: string;
 };
@@ -31,10 +32,15 @@ export function createInitialBriefState(
   prefill?: BriefWizardPrefill
 ): BriefWizardState {
   const hasAngle = Boolean(prefill?.angleIdea?.trim());
+  const prefillPlatforms = prefill?.platforms?.length
+    ? prefill.platforms
+    : prefill?.platform
+      ? prefill.platform.split(",").map((p) => p.trim()).filter(Boolean)
+      : [];
   return {
     step: hasAngle ? 3 : 1,
     goal: "",
-    platform: prefill?.platform ?? "",
+    platforms: prefillPlatforms,
     audienceTemperature: "",
     audienceNotes: "",
     angleMode: hasAngle ? "user_idea" : "surprise_me",

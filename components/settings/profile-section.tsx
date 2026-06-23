@@ -90,7 +90,7 @@ export function ProfileSection({
         </p>
       </div>
 
-      <div className="space-y-6 rounded-2xl bg-white/80 p-6 ring-1 ring-black/[0.04] md:p-7">
+      <div className="space-y-6 dashboard-panel p-6 md:p-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <UserAvatar
             name={fullName}
@@ -110,7 +110,7 @@ export function ProfileSection({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="rounded-full bg-white px-4 py-2 text-sm font-medium text-text-primary ring-1 ring-black/[0.08] transition-colors hover:bg-black/[0.02] disabled:opacity-60"
+              className="btn-surface disabled:opacity-60"
             >
               {uploadingAvatar ? "Uploading…" : "Upload photo"}
             </button>
@@ -132,7 +132,7 @@ export function ProfileSection({
           <label className="mb-2 block text-sm font-medium text-text-primary">
             Email address
           </label>
-          <div className="rounded-xl bg-black/[0.02] px-4 py-3 text-sm text-text-primary ring-1 ring-black/[0.06]">
+          <div className="surface-inset rounded-xl px-4 py-3 text-sm text-text-primary">
             {email}
           </div>
           <p className="mt-2 text-xs leading-relaxed text-text-muted">
@@ -148,12 +148,12 @@ export function ProfileSection({
           </button>
         </div>
 
-        <div className="border-t border-black/[0.05] pt-5">
+        <div className="border-t border-[rgba(55,41,111,0.07)] pt-5">
           <button
             type="button"
             onClick={handleSaveName}
             disabled={!nameDirty || isSaving || uploadingAvatar}
-            className="rounded-full bg-linear-to-r from-accent to-[#7c3aed] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(110,58,255,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(94, 80, 235,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? "Saving…" : "Save changes"}
           </button>
@@ -247,7 +247,7 @@ export function SecuritySection() {
       <div className="space-y-6">
         <form
           onSubmit={handlePasswordSubmit}
-          className="rounded-2xl bg-white/80 p-6 ring-1 ring-black/[0.04] md:p-7"
+          className="dashboard-panel p-6 md:p-7"
         >
           <h3 className="text-sm font-semibold text-text-primary">
             Change password
@@ -290,13 +290,13 @@ export function SecuritySection() {
           <button
             type="submit"
             disabled={isChangingPassword}
-            className="mt-5 rounded-full bg-linear-to-r from-accent to-[#7c3aed] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            className="mt-5 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
           >
             {isChangingPassword ? "Updating…" : "Update password"}
           </button>
         </form>
 
-        <div className="rounded-2xl bg-white/80 p-6 ring-1 ring-black/[0.04] md:p-7">
+        <div className="dashboard-panel p-6 md:p-7">
           <h3 className="text-sm font-semibold text-text-primary">
             Active sessions
           </h3>
@@ -305,7 +305,7 @@ export function SecuritySection() {
             everywhere except this browser.
           </p>
 
-          <div className="mt-4 rounded-xl bg-black/[0.02] px-4 py-3 ring-1 ring-black/[0.05]">
+          <div className="surface-inset mt-4 rounded-xl px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-text-primary">
@@ -323,7 +323,7 @@ export function SecuritySection() {
             type="button"
             onClick={handleSignOutOthers}
             disabled={isSigningOutOthers}
-            className="mt-4 rounded-full bg-white px-4 py-2.5 text-sm font-medium text-text-primary ring-1 ring-black/[0.08] transition-colors hover:bg-black/[0.02] disabled:opacity-60"
+            className="btn-surface mt-4 disabled:opacity-60"
           >
             {isSigningOutOthers
               ? "Signing out other sessions…"

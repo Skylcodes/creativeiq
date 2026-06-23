@@ -27,10 +27,10 @@ export function StepTestDimension({ selected, onToggle }: StepTestDimensionProps
               key={dim.id}
               type="button"
               onClick={() => onToggle(dim.id)}
-              className={`group relative rounded-2xl p-5 text-left transition-all duration-200 ${
+              className={`group relative p-5 text-left transition-all duration-200 ${
                 isSelected
-                  ? "bg-white shadow-[0_8px_28px_rgba(110,58,255,0.12)] ring-2 ring-accent/30"
-                  : "bg-white/70 ring-1 ring-black/[0.06] hover:bg-white hover:ring-accent/20"
+                  ? "premium-card premium-card-accent"
+                  : "premium-card premium-card-interactive"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -44,7 +44,7 @@ export function StepTestDimension({ selected, onToggle }: StepTestDimensionProps
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                     isSelected
                       ? "border-accent bg-accent text-white"
-                      : "border-black/[0.12] bg-white"
+                      : "surface-inset"
                   }`}
                 >
                   {isSelected && (

@@ -2,7 +2,10 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import type { BrandProfileProgress, BrandProfileStatus } from "@/lib/types/report";
+import type {
+  BrandProfileProgress,
+  BrandProfileStatus,
+} from "@/lib/types/report";
 import { stepTransition } from "./onboarding-shell";
 
 const POLL_INTERVAL_MS = 2000;
@@ -51,7 +54,7 @@ export function StepLoading({
     async function poll() {
       try {
         const res = await fetch(
-          `/api/workspaces/${workspaceId}/brand-profile/status`
+          `/api/workspaces/${workspaceId}/brand-profile/status`,
         );
         if (!res.ok) throw new Error("Status check failed");
 
@@ -84,7 +87,7 @@ export function StepLoading({
         if (data.status === "failed") {
           onManualRef.current(
             data.error ??
-              "We couldn't build your brand profile automatically. Please describe your brand below."
+              "We couldn't build your brand profile automatically. Please describe your brand below.",
           );
           return;
         }
@@ -111,24 +114,24 @@ export function StepLoading({
     <motion.div
       key="loading"
       {...stepTransition}
-      className="rounded-2xl border border-white/80 bg-white/90 p-10 text-center shadow-[0_24px_64px_rgba(110,58,255,0.08),0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl"
+      className="premium-card rounded-2xl p-10 text-center"
     >
       <div className="relative mx-auto mb-8 h-24 w-24">
         <motion.div
-          className="absolute inset-0 rounded-full bg-linear-to-br from-accent/20 to-accent-secondary/20"
+          className="absolute inset-0 rounded-full bg-accent/10"
           animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute inset-2 rounded-full bg-linear-to-br from-accent to-[#9333ea] shadow-[0_8px_32px_rgba(110,58,255,0.35)]"
+          className="absolute inset-2 rounded-full bg-accent shadow-soft"
           animate={{ rotate: 360 }}
           transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
           style={{
             background:
-              "conic-gradient(from 0deg, #6e3aff, #0d9488, #9333ea, #6e3aff)",
+              "conic-gradient(from 0deg, #6947ff, #0d9488, #3b2b9f, #6947ff)",
           }}
         />
-        <div className="absolute inset-4 flex items-center justify-center rounded-full bg-white">
+        <div className="surface-inset absolute inset-4 flex items-center justify-center rounded-full">
           <motion.svg
             width="28"
             height="28"
@@ -140,7 +143,7 @@ export function StepLoading({
           >
             <path
               d="M14 3L17 11H25L19 16L21 24L14 19L7 24L9 16L3 11H11L14 3Z"
-              stroke="#6e3aff"
+              stroke="#6947ff"
               strokeWidth="1.5"
               strokeLinejoin="round"
             />
@@ -170,7 +173,7 @@ export function StepLoading({
       <div className="mx-auto mt-8 max-w-xs">
         <div className="h-1 overflow-hidden rounded-full bg-surface-muted">
           <motion.div
-            className="h-full rounded-full bg-linear-to-r from-accent to-accent-secondary"
+            className="h-full rounded-full bg-accent"
             style={{ width: `${progress}%` }}
             transition={{ duration: 0.4 }}
           />

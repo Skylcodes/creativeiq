@@ -25,14 +25,10 @@ export function ScoreHero({ score, label, size = "lg" }: ScoreHeroProps) {
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className={`score-ring relative flex items-center justify-center ${isLarge ? "h-40 w-40" : "h-28 w-28"}`}
-        style={{ background: bg, borderRadius: "1.5rem" }}
+        className={`relative flex items-center justify-center rounded-3xl ${isLarge ? "h-40 w-40" : "h-28 w-28"}`}
+        style={{ background: bg }}
       >
-        <div
-          className="score-ring-glow absolute inset-0 rounded-[1.5rem]"
-          style={{ background: color }}
-        />
-        <div className="relative text-center">
+        <div className="text-center">
           <motion.span
             className={`block font-display font-bold tracking-tight ${isLarge ? "text-5xl" : "text-3xl"}`}
             style={{ color }}
@@ -45,9 +41,7 @@ export function ScoreHero({ score, label, size = "lg" }: ScoreHeroProps) {
           <span className="text-xs font-medium text-text-muted">/ 100</span>
         </div>
       </motion.div>
-      <p className="mt-4 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-        {label}
-      </p>
+      <p className="mt-4 text-center text-eyebrow">{label}</p>
       <p className="mt-1 text-sm font-semibold" style={{ color }}>
         {getReportScoreLabel(score)}
       </p>

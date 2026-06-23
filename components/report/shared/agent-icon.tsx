@@ -5,7 +5,7 @@ type AgentIconProps = {
 };
 
 export function AgentIcon({ icon, active = true, size = 20 }: AgentIconProps) {
-  const color = active ? "#6e3aff" : "#a1a1aa";
+  const color = active ? "#6947ff" : "#a1a1aa";
 
   switch (icon) {
     case "buyer":
@@ -37,7 +37,7 @@ export function AgentIcon({ icon, active = true, size = 20 }: AgentIconProps) {
     case "verdict":
       return (
         <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
-          <path d="M10 3L12 7L16 8L13 11L14 15L10 13L6 15L7 11L4 8L8 7L10 3Z" fill={active ? "#6e3aff" : "none"} stroke={color} strokeWidth="1.3" />
+          <path d="M10 3L12 7L16 8L13 11L14 15L10 13L6 15L7 11L4 8L8 7L10 3Z" fill={active ? "#6947ff" : "none"} stroke={color} strokeWidth="1.3" />
         </svg>
       );
     default:

@@ -47,14 +47,14 @@ async function tavilySearch(query: string): Promise<string> {
   try {
     const res = await client.search(query, {
       searchDepth: "basic",
-      maxResults: 5,
+      maxResults: 3,
       includeAnswer: "basic",
       timeRange: "month",
     });
 
     const answer = typeof res.answer === "string" ? res.answer.trim() : "";
     const snippets = res.results
-      .slice(0, 4)
+      .slice(0, 3)
       .map((r) => `• ${r.title}: ${r.content.slice(0, 180).replace(/\n/g, " ")}`)
       .join("\n");
 
@@ -74,19 +74,13 @@ async function runMarketCreativeSearch(
   return tavilySearch(query);
 }
 
-/** Merged search 2: audience behavior + buyer psychology. */
-async function runAudiencePsychologySearch(
+/** Merged search 2: audience psychology + LP conversion + customer frustrations. */
+async function runAudienceConversionSearch(
   category: string,
   platforms: string[]
 ): Promise<string> {
   const platform = platforms[0] || "TikTok";
-  const query = `${category} audience content ${platform} creator UGC trends buyer psychology objections market sophistication ad fatigue DTC 2025`;
-  return tavilySearch(query);
-}
-
-/** Merged search 3: LP conversion patterns + customer frustrations. */
-async function runConversionFrustrationSearch(category: string): Promise<string> {
-  const query = `${category} DTC landing page conversion offers guarantees objections customer complaints frustrations Reddit Amazon reviews what brands get wrong 2025`;
+  const query = `${category} ${platform} buyer psychology objections ad fatigue DTC landing page conversion offers customer complaints frustrations Reddit reviews what brands get wrong 2025`;
   return tavilySearch(query);
 }
 
@@ -249,28 +243,24 @@ export async function buildIntelligenceBrief(
 
   if (!tavilyEnabled && !metaEnabled) return null;
 
-  // Three merged Tavily queries (down from 7) + Meta Ad Library
-  const [marketCreative, audiencePsychology, conversionFrustration, competitorAds] =
-    await Promise.all([
-      tavilyEnabled
-        ? runMarketCreativeSearch(category, platforms)
-        : Promise.resolve(""),
-      tavilyEnabled
-        ? runAudiencePsychologySearch(category, platforms)
-        : Promise.resolve(""),
-      tavilyEnabled
-        ? runConversionFrustrationSearch(category)
-        : Promise.resolve(""),
-      metaEnabled ? fetchMetaCompetitorAds(category) : Promise.resolve([] as CompetitorAd[]),
-    ]);
+  // Two merged Tavily queries + Meta Ad Library
+  const [marketCreative, audienceConversion, competitorAds] = await Promise.all([
+    tavilyEnabled
+      ? runMarketCreativeSearch(category, platforms)
+      : Promise.resolve(""),
+    tavilyEnabled
+      ? runAudienceConversionSearch(category, platforms)
+      : Promise.resolve(""),
+    metaEnabled ? fetchMetaCompetitorAds(category) : Promise.resolve([] as CompetitorAd[]),
+  ]);
 
   const platformTrends = marketCreative;
   const competitorAngles = marketCreative;
   const winningScriptPatterns = marketCreative;
-  const audienceContent = audiencePsychology;
-  const nicheSophistication = audiencePsychology;
-  const categoryConversion = conversionFrustration;
-  const customerFrustrations = conversionFrustration;
+  const audienceContent = audienceConversion;
+  const nicheSophistication = audienceConversion;
+  const categoryConversion = audienceConversion;
+  const customerFrustrations = audienceConversion;
 
   // If Meta returned nothing, use Tavily competitor results as fallback signal
   // (agents will get the text version from competitorAngles; no structural change needed)
@@ -291,7 +281,7 @@ export async function buildIntelligenceBrief(
       tavilyEnabled,
       metaEnabled,
       adsFound: competitorAds.length,
-      searchesRun: tavilyEnabled ? 3 : 0,
+      searchesRun: tavilyEnabled ? 2 : 0,
     },
   };
 

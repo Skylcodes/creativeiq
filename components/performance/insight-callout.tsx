@@ -10,18 +10,15 @@ type InsightCalloutProps = {
 
 const TONE_STYLES = {
   positive: {
-    ring: "ring-[#0d9488]/15",
-    bg: "from-[#0d9488]/8 to-white",
+    surface: "dashboard-panel border-[rgba(13,148,136,0.16)] bg-[rgba(13,148,136,0.04)]",
     icon: "#0d9488",
   },
   coaching: {
-    ring: "ring-accent/15",
-    bg: "from-accent/8 to-white",
-    icon: "#6e3aff",
+    surface: "dashboard-panel-accent",
+    icon: "#6947ff",
   },
   neutral: {
-    ring: "ring-black/[0.06]",
-    bg: "from-black/[0.02] to-white",
+    surface: "dashboard-panel",
     icon: "#71717a",
   },
 };
@@ -34,10 +31,10 @@ export function InsightCallout({ insight, index = 0 }: InsightCalloutProps) {
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.08, duration: 0.4 }}
-      className={`flex gap-4 rounded-2xl bg-linear-to-br ${style.bg} p-5 ring-1 ${style.ring}`}
+      className={`flex gap-4 p-5 ${style.surface}`}
     >
       <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm"
+        className="icon-badge flex h-10 w-10 shrink-0 items-center justify-center"
         style={{ color: style.icon }}
       >
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
@@ -49,7 +46,9 @@ export function InsightCallout({ insight, index = 0 }: InsightCalloutProps) {
           />
         </svg>
       </div>
-      <p className="text-sm leading-relaxed text-text-primary">{insight.message}</p>
+      <p className="text-sm leading-relaxed text-text-primary">
+        {insight.message}
+      </p>
     </motion.div>
   );
 }
