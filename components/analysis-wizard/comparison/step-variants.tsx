@@ -262,7 +262,7 @@ function VariantSlot({
             }
             placeholder="Paste this variant's script or copy..."
             rows={6}
-            className="input-field w-full resize-none text-sm leading-relaxed"
+            className="input-field text-sm leading-relaxed"
           />
           <p className="mt-1 text-xs text-text-muted">
             {slot.creative.scriptContent.trim().length} / {MIN_SCRIPT_LENGTH}{" "}

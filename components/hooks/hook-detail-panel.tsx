@@ -109,15 +109,15 @@ export function HookDetailPanel({
               </p>
             </div>
 
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            <div className="field-stack">
+              <label className="field-label text-[10px] font-semibold uppercase tracking-wider text-white/45">
                 Angle tags (comma-separated)
               </label>
               <input
                 value={angleTags}
                 onChange={(e) => setAngleTags(e.target.value)}
                 list="preset-angles"
-                className="input-field mt-1.5"
+                className="input-field"
               />
               <datalist id="preset-angles">
                 {HOOK_PRESET_ANGLE_TAGS.map((t) => (
@@ -126,13 +126,15 @@ export function HookDetailPanel({
               </datalist>
             </div>
 
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Notes</label>
+            <div className="field-stack">
+              <label className="field-label text-[10px] font-semibold uppercase tracking-wider text-white/45">
+                Notes
+              </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
-                className="input-field mt-1.5 leading-relaxed"
+                className="input-field leading-relaxed"
               />
               <button
                 type="button"

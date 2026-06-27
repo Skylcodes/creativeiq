@@ -312,7 +312,7 @@ export function CreativeDirectorChat({
   const lastMessageIndex = messages.length - 1;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#fafaf9]">
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
       {sessionsSlot}
 
       {variant === "panel" ? (
@@ -326,9 +326,9 @@ export function CreativeDirectorChat({
           newChatDisabled={isResponding}
         />
       ) : (
-        <div className="flex shrink-0 items-center justify-between border-b border-black/6 bg-white px-5 py-3">
-          <div className="flex items-center gap-2 text-[11px] text-text-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#0d9488]" />
+        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#080711]/40 px-5 py-3 backdrop-blur-xl">
+          <div className="flex items-center gap-2 text-[11px] text-white/45">
+            <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
             Briefed on {contextLabel}
           </div>
           <div className="flex items-center gap-2">
@@ -346,7 +346,7 @@ export function CreativeDirectorChat({
               type="button"
               onClick={() => void handleClear()}
               disabled={isResponding || noActiveChat}
-              className="rounded-lg px-2.5 py-1 text-xs font-medium text-text-muted disabled:opacity-40"
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-white/45 hover:text-white/70 disabled:opacity-40"
             >
               Clear conversation
             </button>
@@ -366,7 +366,7 @@ export function CreativeDirectorChat({
                 />
               ))}
             </div>
-            <p className="mt-3 text-sm text-text-muted">
+            <p className="mt-3 text-sm text-white/45">
               Loading strategist session…
             </p>
           </div>
@@ -374,10 +374,10 @@ export function CreativeDirectorChat({
 
         {!loading && noActiveChat && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="font-display text-lg font-semibold text-text-primary">
+            <p className="font-display text-lg font-semibold text-white">
               Start a new conversation
             </p>
-            <p className="mt-2 max-w-sm text-sm text-text-secondary">
+            <p className="mt-2 max-w-sm text-sm text-white/55">
               Each chat is saved separately. Click &ldquo;New chat&rdquo; to begin.
             </p>
             {onNewChat && (

@@ -19,7 +19,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   creative_briefs: "Creative Briefs / month",
   ad_deconstructions: "Ad Deconstructions / month",
   chat_messages: "Chat Messages / day",
-  workspaces: "Workspaces",
+  workspaces: "Brand Workspaces",
   user_seats: "User Seats",
 };
 

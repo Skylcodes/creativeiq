@@ -4,128 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { PlanUsageSidebarCard } from "@/components/billing/plan-usage-sidebar-card";
 import { Logo } from "@/components/shared/logo";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
+import type { AccountUsageSummary } from "@/lib/billing/usage-summary-types";
+import { isAtWorkspaceLimit } from "@/lib/billing/usage-summary-types";
+import { ADMIN_NAV_ITEM, NAV_ITEMS, isNavItemActive } from "./nav-config";
 
-const NAV_ITEMS = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    ),
-  },
-  {
-    label: "Creative Director",
-    href: "/chat",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <path d="M2.5 4.5H15.5V11.5C15.5 12.6 14.6 13.5 13.5 13.5H7.5L4 16V13.5H3.5C2.4 13.5 1.5 12.6 1.5 11.5V5C1.5 3.9 2.4 3 3.5 3H2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M5.5 7H12.5M5.5 9.5H10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Analyses",
-    href: "/analyses",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <path d="M3 14L7 8L10 11L15 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M2 16H16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Compare Variants",
-    href: "/analyses/compare",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <rect x="2" y="4" width="6" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="10" y="4" width="6" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    ),
-  },
-  {
-    label: "Ad Deconstructor",
-    href: "/deconstructor",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <path d="M4 8L12 4L16 8V14L8 18L2 14V8L4 8Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-        <path d="M8 4V18M2 8L16 14" stroke="currentColor" strokeWidth="1.2" />
-      </svg>
-    ),
-  },
-  {
-    label: "Briefs",
-    href: "/brief",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <rect x="3" y="2" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M6 6H12M6 9H10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Hook Library",
-    href: "/hooks",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <path d="M4 5H14M4 9H12M4 13H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M14 13L16 15" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Performance",
-    href: "/performance",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <path d="M3 15V9M7 15V5M11 15V11M15 15V3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M2 15H16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Brand Profile",
-    href: "/brand",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-        <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M6 7H12M6 10H12M6 13H9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-];
-
-const ADMIN_NAV_ITEM = {
-  label: "Admin",
-  href: "/admin",
-  icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <rect x="2.5" y="2.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M6.5 9H11.5M9 6.5V11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  ),
-};
-
-function isNavItemActive(pathname: string, href: string): boolean {
-  if (href === "/analyses") {
-    return (
-      pathname === "/analyses" ||
-      (pathname.startsWith("/analyses/") &&
-        !pathname.startsWith("/analyses/compare"))
-    );
-  }
-
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean }) {
+export function AppSidebar({
+  showAdminLink = false,
+  usageSummary,
+}: {
+  showAdminLink?: boolean;
+  usageSummary?: AccountUsageSummary;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -140,39 +32,45 @@ export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean 
     });
   }
 
+  const canAddWorkspace = !usageSummary || !isAtWorkspaceLimit(usageSummary);
+
   return (
     <aside
-      className={`dash-sidebar-nav flex h-full min-h-0 shrink-0 flex-col pb-4 pt-4 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        collapsed ? "w-[60px] px-2" : "w-[232px] px-3.5"
+      className={`dash-sidebar-nav relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-[inherit] pb-4 pt-4 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        collapsed ? "w-[60px] px-2" : "w-[248px] px-3"
       }`}
     >
       <div className={`mb-5 flex h-10 items-center ${collapsed ? "justify-center" : "px-0.5"}`}>
         {collapsed ? (
           <Link
             href="/dashboard"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#4c3d8f] text-white shadow-sm transition-transform hover:scale-105"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-[#2b185f] to-[#6947ff] text-white shadow-[0_6px_20px_rgba(105,71,255,0.32)] transition-all duration-300 hover:scale-105 hover:shadow-[0_10px_28px_rgba(105,71,255,0.4)]"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path d="M3 8L7 4L11 8L7 12L3 8Z" fill="white" fillOpacity="0.95" />
             </svg>
           </Link>
         ) : (
-          <Logo href="/dashboard" size="sm" />
+          <Logo href="/dashboard" size="sm" tone="dark" />
         )}
       </div>
 
-      {!collapsed && (
-        <div className="mb-5 px-0.5">
-          <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a7194]">
+      <div className={`mb-5 min-w-0 ${collapsed ? "flex flex-col items-center" : ""}`}>
+        {!collapsed && (
+          <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">
             Workspace
           </p>
-          <WorkspaceSwitcher />
-        </div>
-      )}
+        )}
+        <WorkspaceSwitcher
+          variant="dark"
+          canAddWorkspace={canAddWorkspace}
+          collapsed={collapsed}
+        />
+      </div>
 
-      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-0.5" aria-label="App navigation">
+      <nav className="scrollbar-none min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1" aria-label="App navigation">
         {!collapsed && (
-          <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a7194]">
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">
             Menu
           </p>
         )}
@@ -184,8 +82,8 @@ export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean 
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium tracking-[-0.01em] transition-all duration-200 ${
-                active ? "text-[#4c3d8f]" : "nav-pill"
+              className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold tracking-[-0.015em] transition-all duration-250 ${
+                active ? "text-white" : "nav-pill"
               } ${collapsed ? "justify-center px-2" : ""}`}
             >
               {active && (
@@ -195,23 +93,28 @@ export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean 
                   transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 />
               )}
-              <span className={`relative shrink-0 ${active ? "text-[#4c3d8f]" : "opacity-80"}`}>
+              <span className={`relative flex h-[18px] w-[18px] shrink-0 items-center justify-center ${active ? "text-accent-tertiary" : "opacity-75"}`}>
                 {item.icon}
               </span>
-              {!collapsed && <span className="relative">{item.label}</span>}
+              {!collapsed && (
+                <span className="relative min-w-0 flex-1 truncate pr-1">{item.label}</span>
+              )}
             </Link>
           );
         })}
       </nav>
 
       <div className="mt-auto shrink-0 space-y-0.5 px-0.5 pt-3">
+        {usageSummary && (
+          <PlanUsageSidebarCard summary={usageSummary} collapsed={collapsed} />
+        )}
         {showAdminLink && (
           <Link
             href={ADMIN_NAV_ITEM.href}
             title={collapsed ? ADMIN_NAV_ITEM.label : undefined}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium tracking-[-0.01em] transition-all duration-200 ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold tracking-[-0.015em] transition-all duration-250 ${
               collapsed ? "justify-center px-2" : ""
-            } border border-amber-500/15 bg-amber-500/[0.06] text-amber-700 hover:bg-amber-500/10`}
+            } border border-amber-400/25 bg-amber-400/[0.08] text-amber-300 backdrop-blur-sm hover:border-amber-400/35 hover:bg-amber-400/12`}
           >
             <span className="shrink-0 opacity-90">{ADMIN_NAV_ITEM.icon}</span>
             {!collapsed && <span>Admin</span>}
@@ -220,8 +123,8 @@ export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean 
         {!collapsed && (
           <Link
             href="/settings"
-            className={`nav-pill flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium tracking-[-0.01em] transition-all duration-200 ${
-              pathname.startsWith("/settings") ? "sidebar-nav-active text-[#4c3d8f]" : ""
+            className={`nav-pill flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold tracking-[-0.015em] transition-all duration-250 ${
+              pathname.startsWith("/settings") ? "sidebar-nav-active text-white" : ""
             }`}
           >
             <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="opacity-70" aria-hidden>
@@ -234,7 +137,7 @@ export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean 
         <button
           type="button"
           onClick={toggleCollapsed}
-          className={`nav-pill flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
+          className={`nav-pill flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-250 ${
             collapsed ? "justify-center px-2" : ""
           }`}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -249,7 +152,7 @@ export function AppSidebar({ showAdminLink = false }: { showAdminLink?: boolean 
           >
             <path d="M11 4L6 9L11 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {!collapsed && <span className="text-[#7a7194]">Collapse</span>}
+          {!collapsed && <span className="text-white/45">Collapse</span>}
         </button>
       </div>
     </aside>

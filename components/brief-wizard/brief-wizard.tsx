@@ -54,8 +54,8 @@ function SelectCard({
       onClick={onClick}
       className={`relative rounded-2xl p-5 text-left transition-all ${
         selected
-          ? "premium-card premium-card-accent"
-          : "premium-card premium-card-interactive"
+          ? "dash-card border-accent/30 bg-accent/[0.08] ring-1 ring-accent/25"
+          : "dash-card dash-card-interactive"
       }`}
     >
       {multi && selected && (
@@ -71,9 +71,9 @@ function SelectCard({
           </svg>
         </span>
       )}
-      <p className="font-semibold text-text-primary">{title}</p>
+      <p className="font-semibold text-white">{title}</p>
       {description && (
-        <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+        <p className="mt-1 text-xs leading-relaxed text-white/55">
           {description}
         </p>
       )}
@@ -219,7 +219,7 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
               <button
                 type="button"
                 onClick={goBack}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-text-secondary hover:bg-black/[0.04]"
+                className="wizard-ghost-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium"
               >
                 <svg
                   width="14"
@@ -248,7 +248,7 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
             <button
               type="button"
               onClick={() => setShowCancelModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-black/[0.04]"
+              className="wizard-ghost-btn flex h-9 w-9 items-center justify-center rounded-full"
               aria-label="Cancel"
             >
               <svg
@@ -360,10 +360,10 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-text-primary">
+                    <div className="field-stack">
+                      <label className="field-label">
                         Audience notes{" "}
-                        <span className="text-text-muted">(optional)</span>
+                        <span className="field-label-muted">(optional)</span>
                       </label>
                       <textarea
                         value={state.audienceNotes}
@@ -375,7 +375,7 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                         }
                         placeholder='e.g. "Women 25–40 interested in skincare" or "Cart abandoners last 30 days"'
                         rows={3}
-                        className="input-field mt-2 resize-none text-sm"
+                        className="input-field text-sm"
                       />
                     </div>
                   </div>
@@ -422,11 +422,11 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                       }
                       placeholder='e.g. "Founder story about why I started this brand" or "Before/after transformation UGC style"'
                       rows={6}
-                      className="input-field mt-4 resize-none text-sm leading-relaxed"
+                      className="input-field min-h-[9.5rem] text-sm leading-relaxed"
                     />
                   )}
                   {state.angleMode === "surprise_me" && (
-                    <p className="mt-4 rounded-xl bg-accent/[0.06] px-4 py-3 text-sm text-text-secondary">
+                    <p className="mt-4 app-inset rounded-xl px-4 py-3 text-sm text-white/55">
                       We&apos;ll generate 3 distinct angle options for you to
                       choose from before building the full brief.
                     </p>
@@ -496,7 +496,7 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                                 creativeDuration: d.id,
                               }))
                             }
-                            className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${state.creativeDuration === d.id ? "bg-accent text-white shadow-[0_4px_14px_rgba(105, 71, 255, 0.12)]" : "bg-black/[0.04] text-text-secondary hover:text-text-primary"}`}
+                            className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${state.creativeDuration === d.id ? "btn-premium !rounded-full !px-4 !py-2 !text-sm !shadow-none" : "app-chip hover:border-white/20 hover:bg-white/[0.08] hover:text-white/80"}`}
                           >
                             {d.label}
                           </button>
@@ -512,7 +512,7 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                   <h2 className="font-display text-2xl font-semibold text-text-primary md:text-[1.75rem]">
                     Review and generate
                   </h2>
-                  <div className="mt-8 space-y-3 dashboard-panel p-5">
+                  <div className="mt-8 space-y-3 dash-card p-5">
                     <p className="text-sm">
                       <span className="text-text-muted">Goal:</span>{" "}
                       <span className="font-medium">{goalLabel}</span>

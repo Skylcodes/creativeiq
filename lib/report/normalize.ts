@@ -48,6 +48,14 @@ export function normalizeReport(
   return {
     ...EMPTY_REPORT,
     ...report,
+    creativeScoreBreakdown:
+      report.creativeScoreBreakdown ??
+      (report.creativeStrengthScore != null
+        ? {
+            strategicScore: report.creativeStrengthScore,
+            retentionScore: report.creativeStrengthScore,
+          }
+        : undefined),
     conversionScore: {
       total: report.conversionScore?.total ?? 0,
       categories: report.conversionScore?.categories ?? [],

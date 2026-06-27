@@ -82,6 +82,7 @@ export function CreateWorkspaceModal({
               <AuthInput
                 label="Brand name"
                 name="brandName"
+                tone="app"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Velour Skin Co."
@@ -92,6 +93,7 @@ export function CreateWorkspaceModal({
                 label="Brand website URL"
                 name="brandUrl"
                 type="url"
+                tone="app"
                 value={brandUrl}
                 onChange={(e) => setBrandUrl(e.target.value)}
                 placeholder="https://yourbrand.com"

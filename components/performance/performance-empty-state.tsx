@@ -15,10 +15,10 @@ export function PerformanceEmptyState() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="font-display text-2xl font-semibold text-text-primary">
+        <h2 className="font-display text-2xl font-semibold tracking-[-0.04em] text-white">
           Your performance story starts here
         </h2>
-        <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-text-secondary">
+        <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/55">
           Run at least 2 analyses to unlock score tracking, trend charts, and
           coaching insights. Every analysis builds a picture of how your creative
           quality improves over time.
@@ -29,12 +29,15 @@ export function PerformanceEmptyState() {
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.15 }}
-        className="relative mx-auto mt-10 overflow-hidden premium-card premium-card-glass p-8"
+        className="relative mx-auto mt-10 overflow-hidden dash-card p-8"
       >
-        <div className="pointer-events-none select-none blur-[6px] opacity-60">
-          <div className="mb-6 grid grid-cols-4 gap-3">
+        <div className="pointer-events-none select-none blur-[6px] opacity-50">
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {["Avg 72", "Best 85", "+14 pts", "8 runs"].map((l) => (
-              <div key={l} className="surface-inset py-4 text-sm font-semibold text-text-muted">
+              <div
+                key={l}
+                className="app-inset rounded-xl py-4 text-sm font-semibold text-white/40"
+              >
                 {l}
               </div>
             ))}
@@ -50,12 +53,12 @@ export function PerformanceEmptyState() {
           />
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
-          <div className="premium-card px-8 py-6 shadow-[var(--shadow-soft)]">
-            <p className="text-sm font-medium text-text-primary">
+        <div className="absolute inset-0 flex items-center justify-center bg-[#080711]/50 backdrop-blur-sm">
+          <div className="dash-card px-8 py-6">
+            <p className="text-sm font-medium text-white">
               Preview of your performance dashboard
             </p>
-            <p className="mt-1 text-xs text-text-muted">
+            <p className="mt-1 text-xs text-white/45">
               One more analysis unlocks the full view
             </p>
             <div className="mt-5 flex justify-center">

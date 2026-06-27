@@ -332,7 +332,7 @@ export function StepCreative({
                 }
                 placeholder="Paste your ad script, voiceover copy, or primary ad text here..."
                 rows={10}
-                className="input-field w-full resize-none px-4 py-3 text-sm leading-relaxed"
+                className="input-field text-sm leading-relaxed"
               />
               {libraryHooks.length > 0 && (
                 <button

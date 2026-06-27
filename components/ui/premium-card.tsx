@@ -56,13 +56,33 @@ type MetricTileProps = {
   tone?: "default" | "orange" | "purple" | "teal" | "pink";
 };
 
-const toneClassMap = {
-  default: "",
-  orange: "dash-metric dash-metric-orange",
-  purple: "dash-metric dash-metric-purple",
-  teal: "dash-metric dash-metric-teal",
-  pink: "dash-metric dash-metric-pink",
-};
+const toneAccentMap = {
+  default: {
+    top: "rgba(105, 71, 255, 0.55)",
+    iconWrap: "border-accent/20 bg-accent/10 text-accent-tertiary",
+    glow: "rgba(105, 71, 255, 0.1)",
+  },
+  orange: {
+    top: "rgba(251, 146, 60, 0.7)",
+    iconWrap: "border-amber-400/25 bg-amber-400/10 text-amber-300",
+    glow: "rgba(251, 146, 60, 0.08)",
+  },
+  purple: {
+    top: "rgba(167, 139, 250, 0.75)",
+    iconWrap: "border-accent/25 bg-accent/12 text-accent-tertiary",
+    glow: "rgba(105, 71, 255, 0.1)",
+  },
+  teal: {
+    top: "rgba(45, 212, 191, 0.7)",
+    iconWrap: "border-teal-400/25 bg-teal-400/10 text-teal-300",
+    glow: "rgba(45, 212, 191, 0.08)",
+  },
+  pink: {
+    top: "rgba(244, 114, 182, 0.7)",
+    iconWrap: "border-pink-400/25 bg-pink-400/10 text-pink-300",
+    glow: "rgba(244, 114, 182, 0.08)",
+  },
+} as const;
 
 export function MetricTile({
   label,
@@ -73,51 +93,36 @@ export function MetricTile({
   delay = 0,
   tone = "default",
 }: MetricTileProps) {
-  const isPastel = tone !== "default";
+  const accent = toneAccentMap[tone];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay, ease: EASE_PREMIUM }}
-      className={
-        isPastel
-          ? toneClassMap[tone]
-          : "dash-card p-5 md:p-6"
-      }
+      className="dash-card dash-card-interactive group relative overflow-hidden p-5 md:p-6"
+      style={{
+        borderTopWidth: 2,
+        borderTopColor: accent.top,
+        background: `radial-gradient(ellipse 80% 60% at 12% 0%, ${accent.glow}, transparent 55%), rgba(255, 255, 255, 0.04)`,
+      }}
     >
       <div className="relative flex items-start justify-between gap-3">
-        <p
-          className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${
-            isPastel ? "text-white/75" : "text-text-muted"
-          }`}
-        >
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
           {label}
         </p>
         {icon && (
           <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-              isPastel
-                ? "bg-white/18 text-white"
-                : "border border-black/6 bg-[#f6f7fb] text-accent"
-            }`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${accent.iconWrap}`}
           >
             {icon}
           </div>
         )}
       </div>
-      <p
-        className={`relative mt-3 font-display text-[1.75rem] font-semibold tracking-[-0.04em] md:text-[2rem] ${
-          isPastel ? "text-white" : "text-text-primary"
-        }`}
-      >
+      <p className="relative mt-3 font-display text-[1.75rem] font-semibold tracking-[-0.04em] text-white md:text-[2rem]">
         {value}
         {suffix && (
-          <span
-            className={`ml-0.5 text-lg font-medium ${
-              isPastel ? "text-white/70" : "text-text-muted"
-            }`}
-          >
+          <span className="ml-0.5 text-lg font-medium text-white/45">
             {suffix}
           </span>
         )}
@@ -125,13 +130,7 @@ export function MetricTile({
       {trend && (
         <p
           className={`relative mt-2 text-xs font-medium ${
-            trend.positive
-              ? isPastel
-                ? "text-white/90"
-                : "text-emerald-600"
-              : isPastel
-                ? "text-white/70"
-                : "text-text-muted"
+            trend.positive ? "text-teal-300" : "text-white/45"
           }`}
         >
           {trend.value}

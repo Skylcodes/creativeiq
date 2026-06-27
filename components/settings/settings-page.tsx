@@ -8,6 +8,7 @@ import {
 import { WorkspacesSection } from "@/components/settings/workspaces-section";
 import { BillingSection } from "@/components/settings/billing-section";
 import { PageShell, PageHeader } from "@/components/ui/page-shell";
+import type { AccountUsageSummary } from "@/lib/billing/usage-summary-types";
 import type { AccountSettingsData } from "@/lib/types/workspace";
 
 const NAV_ITEMS = [
@@ -17,13 +18,16 @@ const NAV_ITEMS = [
   { id: "workspaces", label: "Workspaces" },
 ] as const;
 
-type SettingsPageProps = AccountSettingsData;
+type SettingsPageProps = AccountSettingsData & {
+  usageSummary: AccountUsageSummary;
+};
 
 export function SettingsPage({
   email,
   fullName,
   avatarUrl: initialAvatarUrl,
   workspaces,
+  usageSummary,
 }: SettingsPageProps) {
   const [activeSection, setActiveSection] = useState<string>("profile");
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
@@ -67,7 +71,6 @@ export function SettingsPage({
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Account"
         title="Settings"
         description="Manage your personal account, security, and workspaces."
       />
@@ -77,18 +80,18 @@ export function SettingsPage({
           className="lg:sticky lg:top-6 lg:self-start"
           aria-label="Settings sections"
         >
-          <ul className="premium-card flex gap-1 overflow-x-auto p-1.5 lg:flex-col lg:overflow-visible">
+          <ul className="dash-card grid grid-cols-2 gap-1 p-1.5 sm:grid-cols-4 lg:flex lg:flex-col lg:overflow-visible">
             {NAV_ITEMS.map((item) => {
               const active = activeSection === item.id;
               return (
-                <li key={item.id} className="shrink-0 lg:shrink">
+                <li key={item.id}>
                   <button
                     type="button"
                     onClick={() => scrollToSection(item.id)}
                     className={`dropdown-item w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium ${
                       active
                         ? "dropdown-item-active"
-                        : "text-text-secondary"
+                        : "text-white/55"
                     }`}
                   >
                     {item.label}
@@ -107,8 +110,8 @@ export function SettingsPage({
             onAvatarChange={setAvatarOverride}
           />
           <SecuritySection />
-          <BillingSection />
-          <WorkspacesSection workspaces={workspaces} />
+          <BillingSection usageSummary={usageSummary} />
+          <WorkspacesSection workspaces={workspaces} usageSummary={usageSummary} />
         </div>
       </div>
     </PageShell>

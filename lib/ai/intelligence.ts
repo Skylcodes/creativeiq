@@ -1,29 +1,32 @@
 import "server-only";
 import { tavily } from "@tavily/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { IntelligenceBrief, CompetitorAd } from "@/lib/types/report";
+import {
+  buildCompetitiveInsights,
+  buildMarketPatterns,
+  fetchMetaAdsLibrary,
+  isMetaAdsLibraryConfigured,
+} from "@/lib/ai/meta-ads-library";
+import {
+  enrichToleranceFromResearch,
+  formatToleranceSignalsForPrompt,
+} from "@/lib/ai/tolerance-signals";
+import type { IntelligenceBrief, CompetitorAd, MarketPatterns } from "@/lib/types/report";
 
 // ---------------------------------------------------------------------------
 // API key setup
 //
-// Tavily:  https://app.tavily.com/home  →  API Keys
-//          Set TAVILY_API_KEY in .env.local
+// Tavily:  https://app.tavily.com/home  →  API Keys → TAVILY_API_KEY
 //
-// Meta Ad Library:
-//   1. Create a Facebook App at https://developers.facebook.com
-//   2. Request "Ads Library API" product access
-//   3. Generate a long-lived user/app token with `ads_read` permission
-//   4. Set META_AD_LIBRARY_TOKEN in .env.local
-//   Note: Basic ad creative fields (page_name, ad text, start date) are
-//   available without researcher-level access. Spend/impressions require
-//   special Meta research access approval.
+// Meta Ad Library (recommended — Apify):
+//   APIFY_API_TOKEN — https://console.apify.com/account/integrations
+//   Optional: APIFY_META_ADS_ACTOR_ID (default: apify/facebook-ads-scraper)
+//
+// Fallback Meta Graph API:
+//   META_AD_LIBRARY_TOKEN — Facebook App with Ads Library API access
 // ---------------------------------------------------------------------------
 
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — invalidate via cache key bump on schema change
-
-// ---------------------------------------------------------------------------
-// Tavily client (lazy singleton)
-// ---------------------------------------------------------------------------
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 let _tavilyClient: ReturnType<typeof tavily> | null = null;
 
@@ -35,10 +38,6 @@ function getTavily() {
   }
   return _tavilyClient;
 }
-
-// ---------------------------------------------------------------------------
-// Tavily search helpers — each returns a compact text summary
-// ---------------------------------------------------------------------------
 
 async function tavilySearch(query: string): Promise<string> {
   const client = getTavily();
@@ -64,7 +63,6 @@ async function tavilySearch(query: string): Promise<string> {
   }
 }
 
-/** Merged search 1: hooks, formats, competitor angles, winning scripts. */
 async function runMarketCreativeSearch(
   category: string,
   platforms: string[]
@@ -74,7 +72,6 @@ async function runMarketCreativeSearch(
   return tavilySearch(query);
 }
 
-/** Merged search 2: audience psychology + LP conversion + customer frustrations. */
 async function runAudienceConversionSearch(
   category: string,
   platforms: string[]
@@ -84,78 +81,25 @@ async function runAudienceConversionSearch(
   return tavilySearch(query);
 }
 
-// ---------------------------------------------------------------------------
-// Meta Ad Library
-// ---------------------------------------------------------------------------
-
-type MetaAdRaw = {
-  id?: string;
-  page_name?: string;
-  ad_creative_bodies?: string[];
-  ad_creative_link_titles?: string[];
-  ad_delivery_start_time?: string;
-  call_to_action_type?: string;
-};
-
-async function fetchMetaCompetitorAds(category: string): Promise<CompetitorAd[]> {
-  const token = process.env.META_AD_LIBRARY_TOKEN?.trim();
-  if (!token) return [];
-
-  try {
-    const params = new URLSearchParams({
-      access_token: token,
-      ad_type: "ALL",
-      ad_reached_countries: '["US"]',
-      search_terms: category,
-      fields: "id,page_name,ad_creative_bodies,ad_creative_link_titles,ad_delivery_start_time,call_to_action_type",
-      limit: "10",
-      ad_active_status: "ACTIVE",
-    });
-
-    const url = `https://graph.facebook.com/v20.0/ads_archive?${params.toString()}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-
-    if (!res.ok) return [];
-
-    const json = (await res.json()) as { data?: MetaAdRaw[]; error?: { message: string } };
-    if (json.error || !Array.isArray(json.data)) return [];
-
-    return json.data
-      .filter((ad) => ad.page_name || ad.ad_creative_bodies?.length)
-      .slice(0, 10)
-      .map((ad): CompetitorAd => {
-        const copyText =
-          ad.ad_creative_bodies?.[0] ??
-          ad.ad_creative_link_titles?.[0] ??
-          "";
-
-        let runningDays: number | undefined;
-        if (ad.ad_delivery_start_time) {
-          const start = new Date(ad.ad_delivery_start_time).getTime();
-          runningDays = Math.floor((Date.now() - start) / (1000 * 60 * 60 * 24));
-        }
-
-        return {
-          advertiser: ad.page_name ?? "Unknown",
-          copySnippet: copyText.slice(0, 300),
-          cta: ad.call_to_action_type ?? "",
-          runningDays,
-        };
-      })
-      .filter((ad) => ad.copySnippet || ad.advertiser !== "Unknown");
-  } catch {
-    return [];
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Format brief as prompt text — injected into every agent's context
-// ---------------------------------------------------------------------------
-
 function truncateForPrompt(text: string, maxLen = 720): string {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length <= maxLen) return trimmed;
   return `${trimmed.slice(0, maxLen).trim()}…`;
+}
+
+function formatCompetitorAdLine(ad: CompetitorAd): string {
+  const duration = ad.runningDays != null ? ` — ${ad.runningDays}d running` : "";
+  const cta = ad.cta ? ` — CTA: ${ad.cta}` : "";
+  const signal =
+    ad.qualitySignal === "high"
+      ? " [high-signal]"
+      : ad.qualitySignal === "low"
+        ? " [weak-signal]"
+        : "";
+  const formats = ad.formatSignals?.length
+    ? ` — ${ad.formatSignals.join(", ")}`
+    : "";
+  return `  ${ad.advertiser}${duration}${cta}${signal}${formats}: "${ad.copySnippet}"`;
 }
 
 export function formatIntelligenceForPrompt(brief: IntelligenceBrief): string {
@@ -185,30 +129,76 @@ export function formatIntelligenceForPrompt(brief: IntelligenceBrief): string {
     );
   }
 
-  if (brief.competitorAds.length > 0) {
-    lines.push(`\nACTIVE COMPETITOR ADS (${brief.category} — from Meta Ad Library):`);
-    for (const ad of brief.competitorAds) {
-      const duration = ad.runningDays != null ? ` — Running ${ad.runningDays}d` : "";
-      const cta = ad.cta ? ` — CTA: ${ad.cta}` : "";
-      lines.push(`  ${ad.advertiser}${duration}${cta}: "${ad.copySnippet}"`);
+  if (brief.marketPatterns?.summary) {
+    lines.push(
+      `\nMETA AD LIBRARY PATTERNS (${brief.category}):\n${truncateForPrompt(brief.marketPatterns.summary, 900)}`
+    );
+
+    if (brief.marketPatterns.saturationNotes.length) {
+      lines.push(
+        `Saturation signals: ${brief.marketPatterns.saturationNotes.slice(0, 2).join(" ")}`
+      );
+    }
+    if (brief.marketPatterns.differentiationOpportunities.length) {
+      lines.push(
+        `Differentiation opportunities: ${brief.marketPatterns.differentiationOpportunities.slice(0, 2).join(" ")}`
+      );
+    }
+    if (brief.marketPatterns.engagementBenchmarks?.length) {
+      lines.push(
+        `\nENGAGEMENT BENCHMARKS (high-signal Meta ads in this niche):`
+      );
+      for (const b of brief.marketPatterns.engagementBenchmarks.slice(0, 4)) {
+        lines.push(`  • ${b}`);
+      }
     }
   }
 
-  lines.push("\n=== END INTELLIGENCE BRIEF ===");
+  const qualityAds = brief.competitorAds.filter((a) => a.qualitySignal !== "low");
+  const adsToShow = (qualityAds.length >= 3 ? qualityAds : brief.competitorAds).slice(
+    0,
+    8
+  );
+
+  if (adsToShow.length > 0) {
+    lines.push(
+      `\nACTIVE COMPETITOR ADS (${brief.category} — Meta Ad Library, ${brief.competitorAds.length} found):`
+    );
+    for (const ad of adsToShow) {
+      lines.push(formatCompetitorAdLine(ad));
+    }
+    lines.push(
+      "Quality rule: [high-signal] = long runtime or heavy advertiser repetition. [weak-signal] = treat as noise. Do NOT copy — use for competitive benchmarking only."
+    );
+  }
+
+  if (brief.competitiveInsights?.length) {
+    lines.push("\nCOMPETITIVE INTELLIGENCE SEEDS:");
+    for (const insight of brief.competitiveInsights.slice(0, 4)) {
+      lines.push(`  • ${insight}`);
+    }
+  }
+
+  const toleranceBlock = formatToleranceSignalsForPrompt(
+    brief.toleranceSignals ?? brief.marketPatterns?.toleranceSignals ?? []
+  );
+  if (toleranceBlock) {
+    lines.push("", toleranceBlock);
+  }
+
+  lines.push(
+    "\n=== COMPETITIVE EVALUATION MANDATE ===",
+    "Compare the user's ad against these market examples on: (1) hook strength vs common openings, (2) creative style/format vs what scaled advertisers run, (3) messaging/angle vs competitor copy.",
+    "Do NOT imitate competitors. Evaluate whether THIS creative is competitive, differentiated, or at risk of fatigue.",
+    "\n=== END INTELLIGENCE BRIEF ==="
+  );
+
   return lines.join("\n");
 }
 
-// ---------------------------------------------------------------------------
-// Cache key
-// ---------------------------------------------------------------------------
-
 function cacheKey(workspaceId: string, category: string): string {
-  return `${workspaceId}:${category.toLowerCase().trim()}:v3`;
+  return `${workspaceId}:${category.toLowerCase().trim()}:v5`;
 }
-
-// ---------------------------------------------------------------------------
-// Main entry point: gather or return cached brief
-// ---------------------------------------------------------------------------
 
 export async function buildIntelligenceBrief(
   supabase: SupabaseClient,
@@ -218,7 +208,6 @@ export async function buildIntelligenceBrief(
 ): Promise<IntelligenceBrief | null> {
   const key = cacheKey(workspaceId, category);
 
-  // Check cache in workspaces table
   try {
     const { data: ws } = await supabase
       .from("workspaces")
@@ -237,55 +226,61 @@ export async function buildIntelligenceBrief(
     // Cache miss — proceed to gather
   }
 
-  // Determine if Tavily is configured
   const tavilyEnabled = Boolean(process.env.TAVILY_API_KEY?.trim());
-  const metaEnabled = Boolean(process.env.META_AD_LIBRARY_TOKEN?.trim());
+  const metaEnabled = isMetaAdsLibraryConfigured();
 
   if (!tavilyEnabled && !metaEnabled) return null;
 
-  // Two merged Tavily queries + Meta Ad Library
-  const [marketCreative, audienceConversion, competitorAds] = await Promise.all([
+  const [marketCreative, audienceConversion, metaResult] = await Promise.all([
     tavilyEnabled
       ? runMarketCreativeSearch(category, platforms)
       : Promise.resolve(""),
     tavilyEnabled
       ? runAudienceConversionSearch(category, platforms)
       : Promise.resolve(""),
-    metaEnabled ? fetchMetaCompetitorAds(category) : Promise.resolve([] as CompetitorAd[]),
+    metaEnabled
+      ? fetchMetaAdsLibrary({ query: category, limit: 12 })
+      : Promise.resolve({ ads: [] as CompetitorAd[], patterns: null, source: "none" as const }),
   ]);
 
-  const platformTrends = marketCreative;
-  const competitorAngles = marketCreative;
-  const winningScriptPatterns = marketCreative;
-  const audienceContent = audienceConversion;
-  const nicheSophistication = audienceConversion;
-  const categoryConversion = audienceConversion;
-  const customerFrustrations = audienceConversion;
+  const competitorAds = metaResult.ads;
+  const marketPatterns = metaResult.patterns ?? undefined;
+  const competitiveInsights = buildCompetitiveInsights(competitorAds, metaResult.patterns);
 
-  // If Meta returned nothing, use Tavily competitor results as fallback signal
-  // (agents will get the text version from competitorAngles; no structural change needed)
+  const researchBlob = [marketCreative, audienceConversion].filter(Boolean).join("\n");
+  const toleranceSignals = enrichToleranceFromResearch(
+    marketPatterns?.toleranceSignals ?? [],
+    researchBlob
+  );
 
   const brief: IntelligenceBrief = {
     gatheredAt: new Date().toISOString(),
     category,
     platforms,
-    platformTrends,
-    competitorAngles,
-    categoryConversion,
-    customerFrustrations,
-    audienceContent,
-    winningScriptPatterns,
-    nicheSophistication,
+    platformTrends: marketCreative,
+    competitorAngles: marketCreative,
+    categoryConversion: audienceConversion,
+    customerFrustrations: audienceConversion,
+    audienceContent: audienceConversion,
+    winningScriptPatterns: marketCreative,
+    nicheSophistication: audienceConversion,
     competitorAds,
+    marketPatterns: marketPatterns
+      ? { ...marketPatterns, toleranceSignals: toleranceSignals.length ? toleranceSignals : marketPatterns.toleranceSignals }
+      : undefined,
+    competitiveInsights,
+    toleranceSignals: toleranceSignals.length ? toleranceSignals : undefined,
     sources: {
       tavilyEnabled,
       metaEnabled,
+      apifyEnabled: Boolean(process.env.APIFY_API_TOKEN?.trim()),
+      metaSource: metaResult.source,
       adsFound: competitorAds.length,
+      adsHighQuality: competitorAds.filter((a) => a.qualitySignal === "high").length,
       searchesRun: tavilyEnabled ? 2 : 0,
     },
   };
 
-  // Persist to cache
   try {
     await supabase
       .from("workspaces")
@@ -299,4 +294,77 @@ export async function buildIntelligenceBrief(
   }
 
   return brief;
+}
+
+/** Targeted market context for deconstruction — advertiser + optional category. */
+export async function buildDeconstructionMarketContext(
+  advertiser: string,
+  category?: string,
+  preloadedAdvertiserAds?: CompetitorAd[]
+): Promise<{
+  marketContextText: string;
+  competitorAds: CompetitorAd[];
+  patternsSummary?: string;
+  competitiveInsights: string[];
+}> {
+  if (!isMetaAdsLibraryConfigured()) {
+    return { marketContextText: "", competitorAds: [], competitiveInsights: [] };
+  }
+
+  const [advertiserResult, categoryResult] = await Promise.all([
+    preloadedAdvertiserAds?.length
+      ? Promise.resolve({
+          ads: preloadedAdvertiserAds,
+          patterns: null as MarketPatterns | null,
+          source: "none" as const,
+        })
+      : fetchMetaAdsLibrary({ query: advertiser, limit: 15 }),
+    category && category.toLowerCase() !== advertiser.toLowerCase()
+      ? fetchMetaAdsLibrary({ query: category, limit: 10 })
+      : Promise.resolve({ ads: [] as CompetitorAd[], patterns: null, source: "none" as const }),
+  ]);
+
+  const merged = [...advertiserResult.ads];
+  const seen = new Set(merged.map((a) => `${a.advertiser}:${a.copySnippet.slice(0, 60)}`));
+  for (const ad of categoryResult.ads) {
+    const k = `${ad.advertiser}:${ad.copySnippet.slice(0, 60)}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      merged.push(ad);
+    }
+  }
+
+  const patterns =
+    advertiserResult.patterns ??
+    (preloadedAdvertiserAds?.length
+      ? buildMarketPatterns(preloadedAdvertiserAds, advertiser)
+      : null) ??
+    categoryResult.patterns ??
+    null;
+  const insights = buildCompetitiveInsights(merged, patterns);
+
+  const lines: string[] = ["=== MARKET CONTEXT (Meta Ad Library) ==="];
+  if (patterns?.summary) {
+    lines.push(patterns.summary);
+  }
+  if (merged.length) {
+    lines.push(`\nSample active ads (${merged.length}):`);
+    for (const ad of merged.slice(0, 6)) {
+      lines.push(formatCompetitorAdLine(ad));
+    }
+  }
+  if (insights.length) {
+    lines.push("\nMarket signals:");
+    for (const i of insights) lines.push(`  • ${i}`);
+  }
+  lines.push(
+    "\nUse this to explain WHY the reference ad's approach works or differs vs the market. Do not assume every scraped ad is a winner."
+  );
+
+  return {
+    marketContextText: merged.length || patterns ? lines.join("\n") : "",
+    competitorAds: merged,
+    patternsSummary: patterns?.summary,
+    competitiveInsights: insights,
+  };
 }

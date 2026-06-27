@@ -9,7 +9,6 @@ import {
 } from "@/lib/analyses/utils";
 import { getCreativeGoalLabel, normalizeCreativeGoal } from "@/lib/analyses/creative-goals";
 import {
-  getReportScoreBg,
   getReportScoreColor,
   getReportScoreLabel,
   formatPlatforms,
@@ -70,48 +69,39 @@ function CreativeThumbnail({ analysis }: { analysis: AnalysisListItem }) {
   );
 }
 
-function ScoreBadge({
+function ScoreStat({
   score,
   label,
-  prominent = false,
+  showGrade = false,
 }: {
   score: number | null;
   label: string;
-  prominent?: boolean;
+  showGrade?: boolean;
 }) {
   if (score === null) {
     return (
-      <div className="text-center">
-        <p className="text-2xl font-display font-semibold text-text-muted">—</p>
-        <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted">
+      <div className="min-w-[72px]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/40">
           {label}
         </p>
+        <p className="mt-0.5 font-display text-xl font-semibold text-white/35">—</p>
       </div>
     );
   }
 
   const color = getReportScoreColor(score);
-  const bg = getReportScoreBg(score);
 
   return (
-    <div className="text-center">
-      <div
-        className={`inline-flex flex-col items-center rounded-2xl px-3 py-2 ${prominent ? "min-w-[88px]" : "min-w-[72px]"}`}
-        style={{ background: bg }}
-      >
-        <span
-          className={`font-display font-bold tracking-tight ${prominent ? "text-3xl" : "text-xl"}`}
-          style={{ color }}
-        >
-          {score}
-        </span>
-        <span className="text-[10px] font-medium text-text-muted">/100</span>
-      </div>
-      <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+    <div className="min-w-[72px]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/40">
         {label}
       </p>
-      {prominent && (
-        <p className="mt-0.5 text-xs font-medium" style={{ color }}>
+      <p className="mt-0.5 font-display text-2xl font-bold leading-none" style={{ color }}>
+        {score}
+        <span className="ml-0.5 text-sm font-medium text-white/35">/100</span>
+      </p>
+      {showGrade && (
+        <p className="mt-1 text-xs font-medium" style={{ color }}>
           {getReportScoreLabel(score)}
         </p>
       )}
@@ -132,93 +122,94 @@ export function HistoryAnalysisCard({
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
-        duration: 0.38,
-        delay: index * 0.04,
+        duration: 0.3,
+        delay: index * 0.03,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group premium-card premium-card-interactive overflow-hidden"
+      className="group dash-card dash-card-interactive overflow-hidden"
     >
-      <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:gap-5 md:p-5">
-        <div className="surface-inset h-20 w-20 shrink-0 overflow-hidden md:h-[88px] md:w-[88px]">
-          <CreativeThumbnail analysis={analysis} />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            {isComparison && (
-              <span className="insight-chip text-[11px] font-semibold text-[#3b2b9f]">
-                Comparison · {variantCount} variants
-              </span>
-            )}
-            <span className="insight-chip text-[11px] font-semibold">
-              Goal: {goalLabel}
-            </span>
-            <span className="insight-chip text-[11px] font-semibold text-accent">
-              {platforms}
-            </span>
-            <span className="text-[11px] text-text-muted">
-              {formatAnalysisDateTime(analysis.created_at)}
-            </span>
+      <div className="flex flex-col gap-4 p-4 md:p-5">
+        <div className="flex gap-4">
+          <div className="surface-inset h-[72px] w-[72px] shrink-0 overflow-hidden md:h-20 md:w-20">
+            <CreativeThumbnail analysis={analysis} />
           </div>
 
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-text-secondary">
-            {verdict}
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              {isComparison && (
+                <span className="insight-chip text-[11px] font-semibold text-[#3b2b9f]">
+                  Comparison · {variantCount} variants
+                </span>
+              )}
+              <span className="insight-chip text-[11px] font-semibold">
+                Goal: {goalLabel}
+              </span>
+              <span className="insight-chip text-[11px] font-semibold text-accent">
+                {platforms}
+              </span>
+              <span className="text-[11px] text-white/40">
+                {formatAnalysisDateTime(analysis.created_at)}
+              </span>
+            </div>
+
+            <p className="mt-2.5 line-clamp-3 text-[14px] font-medium leading-relaxed text-white/80">
+              {verdict}
+            </p>
+          </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-4 md:gap-6">
-          <ScoreBadge
-            score={analysis.funnel_score}
-            label={isComparison ? "Winner Score" : "Funnel Score"}
-            prominent
-          />
-          {!isComparison && (
-            <ScoreBadge
-              score={analysis.conversion_score}
-              label="Conversion"
+        <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-6 sm:gap-8">
+            <ScoreStat
+              score={analysis.funnel_score}
+              label={isComparison ? "Winner score" : "Funnel score"}
+              showGrade
             />
-          )}
-        </div>
+            {!isComparison && (
+              <ScoreStat score={analysis.conversion_score} label="Conversion" />
+            )}
+          </div>
 
-        <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-stretch">
-          <Link
-            href={`/report/${analysis.id}`}
-            className="btn-premium md:min-w-[132px]"
-          >
-            View Report
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path
-                d="M3 7H11M8 4L11 7L8 10"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/report/${analysis.id}`}
+              className="btn-premium flex-1 sm:flex-none sm:min-w-[128px]"
+            >
+              View Report
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path
+                  d="M3 7H11M8 4L11 7L8 10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
 
-          <button
-            type="button"
-            onClick={() => onDelete(analysis)}
-            className="btn-ghost h-10 w-10 md:h-auto md:w-auto md:px-3 md:py-2"
-            aria-label={`Delete analysis from ${platforms}`}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path
-                d="M3 4.5H13M5.5 4.5V3.5C5.5 3.2 5.7 3 6 3H10C10.3 3 10.5 3.2 10.5 3.5V4.5M6.5 7V11M9.5 7V11M4.5 4.5L5 13C5 13.6 5.4 14 6 14H10C10.6 14 11 13.6 11 13L11.5 4.5"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="hidden md:ml-1.5 md:inline text-xs font-medium">
-              Delete
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onDelete(analysis)}
+              className="btn-ghost h-10 w-10 shrink-0 sm:w-auto sm:px-3"
+              aria-label={`Delete analysis from ${platforms}`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M3 4.5H13M5.5 4.5V3.5C5.5 3.2 5.7 3 6 3H10C10.3 3 10.5 3.2 10.5 3.5V4.5M6.5 7V11M9.5 7V11M4.5 4.5L5 13C5 13.6 5.4 14 6 14H10C10.6 14 11 13.6 11 13L11.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="hidden sm:ml-1.5 sm:inline text-xs font-medium">
+                Delete
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </motion.article>

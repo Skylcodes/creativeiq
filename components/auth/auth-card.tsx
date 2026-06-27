@@ -3,7 +3,7 @@ import { Logo } from "@/components/shared/logo";
 
 type AuthCardProps = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
 };
@@ -26,9 +26,11 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
             <h1 className="font-display text-2xl font-semibold tracking-[-0.04em] text-text-primary">
               {title}
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-              {subtitle}
-            </p>
+            {subtitle ? (
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
 
           {children}

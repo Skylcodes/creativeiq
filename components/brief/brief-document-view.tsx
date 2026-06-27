@@ -14,6 +14,7 @@ import {
   matchHookInLibrary,
 } from "@/components/hooks/hook-row-actions";
 import { useToast } from "@/components/shared/toast";
+import { PageShell } from "@/components/ui/page-shell";
 
 type BriefDocumentViewProps = {
   brief: CreativeBrief;
@@ -29,8 +30,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-b border-black/8 pb-10 last:border-0">
-      <h2 className="font-display text-xl font-semibold tracking-tight text-text-primary">
+    <section className="border-b border-white/[0.08] pb-10 last:border-0">
+      <h2 className="font-display text-xl font-semibold tracking-tight text-white">
         {title}
       </h2>
       <div className="mt-5">{children}</div>
@@ -38,10 +39,10 @@ function Section({
   );
 }
 
-const briefBody = "text-[15px] leading-[1.72] text-[#2a2836]";
-const briefSupport = "text-sm leading-relaxed text-[#3f3b4d]";
-const briefMeta = "text-xs text-[#5c5769]";
-const briefLabel = "text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6b6578]";
+const briefBody = "text-[15px] leading-[1.72] text-white/85";
+const briefSupport = "text-sm leading-relaxed text-white/55";
+const briefMeta = "text-xs text-white/45";
+const briefLabel = "text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40";
 
 export function BriefDocumentView({
   brief,
@@ -85,15 +86,13 @@ export function BriefDocumentView({
   }
 
   return (
-    <div className="relative min-h-full bg-[#fafaf9]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-linear-to-b from-white to-transparent" />
-
-      <div className="relative mx-auto max-w-5xl px-5 pb-24 pt-6 md:px-8 md:pt-10">
+    <PageShell grid={false} className="pb-24 print:bg-white print:p-0">
+      <div className="relative mx-auto max-w-5xl">
         {/* Toolbar */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 print:hidden">
           <Link
             href="/brief"
-            className="text-sm text-text-muted hover:text-text-primary"
+            className="text-sm text-white/45 hover:text-white"
           >
             ← All briefs
           </Link>
@@ -123,11 +122,11 @@ export function BriefDocumentView({
           animate={{ opacity: 1, y: 0 }}
           className="dash-card px-8 py-10 md:px-12 md:py-14 print:shadow-none"
         >
-          <header className="border-b border-black/8 pb-8">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d97706]">
+          <header className="border-b border-white/[0.08] pb-8">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400">
               Creative Brief · {workspaceName}
             </p>
-            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
+            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white md:text-4xl">
               {doc.angle.name}
             </h1>
             <p className={`mt-4 ${briefBody}`}>
@@ -158,15 +157,15 @@ export function BriefDocumentView({
             <Section title="The Angle">
               <p className={briefBody}>{doc.angle.explanation}</p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl border border-black/6 bg-[#f8f9fb] p-4">
+                <div className="app-inset rounded-xl p-4">
                   <p className={briefLabel}>Emotion</p>
-                  <p className="mt-1 text-sm font-medium text-[#2a2836]">
+                  <p className="mt-1 text-sm font-medium text-white/85">
                     {doc.angle.emotion}
                   </p>
                 </div>
-                <div className="rounded-xl border border-black/6 bg-[#f8f9fb] p-4">
+                <div className="app-inset rounded-xl p-4">
                   <p className={briefLabel}>Belief</p>
-                  <p className="mt-1 text-sm font-medium text-[#2a2836]">
+                  <p className="mt-1 text-sm font-medium text-white/85">
                     {doc.angle.belief}
                   </p>
                 </div>
@@ -180,7 +179,7 @@ export function BriefDocumentView({
                   return (
                     <div
                       key={h.rank}
-                      className="rounded-xl border border-black/6 bg-[#f8f9fb] p-5"
+                      className="app-inset rounded-xl p-5"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -188,12 +187,12 @@ export function BriefDocumentView({
                             {h.rank}
                           </span>
                           <div>
-                            <p className="font-medium text-[#2a2836]">
+                            <p className="font-medium text-white/85">
                               &ldquo;{h.hook}&rdquo;
                             </p>
                             {h.openingVisual && (
                               <p className={`mt-2 ${briefMeta}`}>
-                                <span className="font-semibold text-[#45415a]">
+                                <span className="font-semibold text-white/55">
                                   Opening frame:
                                 </span>{" "}
                                 {h.openingVisual}
@@ -223,13 +222,13 @@ export function BriefDocumentView({
                 {doc.shotList.map((s) => (
                   <li
                     key={s.shotNumber}
-                    className="flex gap-4 rounded-xl border border-black/6 bg-[#f8f9fb] p-4"
+                    className="flex gap-4 app-inset rounded-xl p-4"
                   >
                     <span className="font-display text-lg font-bold text-accent">
                       {s.shotNumber}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-[#2a2836]">
+                      <p className="text-sm font-medium text-white/85">
                         {s.onScreen}
                       </p>
                       {s.textOverlay && (
@@ -258,8 +257,8 @@ export function BriefDocumentView({
             </Section>
 
             <Section title="CTA Guidance">
-              <div className="rounded-xl border border-black/6 bg-[#f8f9fb] p-5">
-                <p className="text-sm font-semibold text-[#2a2836]">
+              <div className="app-inset rounded-xl p-5">
+                <p className="text-sm font-semibold text-white/85">
                   Primary: {doc.ctaGuidance.primary}
                 </p>
                 <p className={`mt-2 ${briefSupport}`}>
@@ -304,6 +303,6 @@ export function BriefDocumentView({
           </Link>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

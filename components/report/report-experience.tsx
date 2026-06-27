@@ -66,12 +66,7 @@ export function ReportExperience({
       chatOpen={chatOpen}
       onChatOpenChange={setChatOpen}
     >
-      <div className="relative mx-auto max-w-5xl px-5 pb-20 pt-4 md:px-8">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 overflow-hidden">
-          <div className="absolute inset-0 ambient-bg opacity-25" />
-          <div className="absolute inset-0 grid-pattern opacity-20" />
-        </div>
-
+      <div className="relative mx-auto max-w-5xl px-4 pb-16 pt-4 md:px-8 md:pb-20">
         <div className="relative">
           <ReportHeader
             analysis={analysis}

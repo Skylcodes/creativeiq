@@ -1,12 +1,14 @@
 import "server-only";
 import { tavily } from "@tavily/core";
 import { scrapePage } from "@/lib/ai/scrape";
+import { countAdvertiserActiveAds } from "@/lib/ai/meta-ads-library";
 import type {
   DeconstructionInput,
   EvidenceConfidence,
   EvidenceReport,
   EvidenceSignals,
 } from "@/lib/types/deconstruction";
+import type { CompetitorAd } from "@/lib/types/report";
 
 let _tavilyClient: ReturnType<typeof tavily> | null = null;
 
@@ -73,29 +75,20 @@ async function resolveAdvertiserFromLandingPage(
   }
 }
 
-async function countAdvertiserActiveAds(advertiserName: string): Promise<number> {
-  const token = process.env.META_AD_LIBRARY_TOKEN?.trim();
-  if (!token || !advertiserName.trim()) return 0;
+async function resolveAdvertiserAdSignals(
+  advertiserName: string
+): Promise<{ count: number; sampleCopy?: string; sampleAds: CompetitorAd[] }> {
+  if (!advertiserName.trim()) return { count: 0, sampleAds: [] };
 
   try {
-    const params = new URLSearchParams({
-      access_token: token,
-      ad_type: "ALL",
-      ad_reached_countries: '["US"]',
-      search_terms: advertiserName.trim(),
-      fields: "id",
-      limit: "25",
-      ad_active_status: "ACTIVE",
-    });
-
-    const url = `https://graph.facebook.com/v20.0/ads_archive?${params.toString()}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return 0;
-
-    const json = (await res.json()) as { data?: { id?: string }[] };
-    return Array.isArray(json.data) ? json.data.length : 0;
+    const { count, sampleAds } = await countAdvertiserActiveAds(advertiserName);
+    return {
+      count,
+      sampleCopy: sampleAds[0]?.copySnippet,
+      sampleAds,
+    };
   } catch {
-    return 0;
+    return { count: 0, sampleAds: [] };
   }
 }
 
@@ -133,7 +126,12 @@ function computeConfidence(signals: EvidenceSignals): EvidenceConfidence {
 function buildEvidenceReport(
   confidence: EvidenceConfidence,
   signals: EvidenceSignals,
-  opts: { advertiser?: string; unverifiedUpload: boolean }
+  opts: {
+    advertiser?: string;
+    unverifiedUpload: boolean;
+    adCopySnippet?: string;
+    sampleAds?: CompetitorAd[];
+  }
 ): EvidenceReport {
   const badges: string[] = [];
   const { advertiserAdCount, directPerformanceEvidence, establishedAdvertiser } = signals;
@@ -180,6 +178,8 @@ function buildEvidenceReport(
     signals,
     caveat,
     resolvedAdvertiser: opts.advertiser,
+    adCopySnippet: opts.adCopySnippet,
+    sampleAds: opts.sampleAds,
   };
 }
 
@@ -194,9 +194,11 @@ export async function verifyAdEvidence(
     return buildEvidenceReport("low", signals, { unverifiedUpload: true });
   }
 
-  const adCount = await countAdvertiserActiveAds(advertiser);
+  const { count: adCount, sampleCopy, sampleAds } =
+    await resolveAdvertiserAdSignals(advertiser);
   signals.advertiserAdCount = adCount;
   signals.establishedAdvertiser = adCount >= 3;
+  signals.metaAdFound = adCount > 0;
 
   // Meta Ad Library is sufficient for established brands — skip Tavily when 5+ active ads
   if (adCount < 5) {
@@ -218,5 +220,7 @@ export async function verifyAdEvidence(
   return buildEvidenceReport(confidence, signals, {
     advertiser,
     unverifiedUpload: true,
+    adCopySnippet: sampleCopy,
+    sampleAds,
   });
 }

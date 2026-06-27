@@ -92,5 +92,6 @@ export type ComparisonReport = {
     productionNote: string;
   };
   structuralDifferences: string;
+  competitiveInsights?: string[];
   rawComparativeAnalysis?: string;
 };

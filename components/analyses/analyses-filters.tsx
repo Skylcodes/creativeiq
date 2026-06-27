@@ -53,7 +53,7 @@ export function AnalysesFilters({
     <div className="space-y-3">
       <div className="relative">
         <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted"
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35"
           width="16"
           height="16"
           viewBox="0 0 16 16"
@@ -125,7 +125,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex min-w-[160px] flex-1 items-center gap-2 text-sm lg:flex-none">
-      <span className="shrink-0 text-text-muted">{label}</span>
+      <span className="shrink-0 text-white/40">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

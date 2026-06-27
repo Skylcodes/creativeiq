@@ -105,7 +105,7 @@ export function BriefAnglePicker({ brief, angles }: BriefAnglePickerProps) {
           type="button"
           onClick={handleDevelop}
           disabled={!selected || loading}
-          className="btn-premium min-w-[240px] disabled:opacity-40"
+          className="btn-premium w-full disabled:opacity-40 sm:w-auto sm:min-w-[240px]"
         >
           {loading ? "Generating full brief..." : "Develop This Angle"}
         </button>

@@ -176,7 +176,7 @@ export function EmptyDashboard({
   displayName,
 }: EmptyDashboardProps) {
   return (
-    <PageShell ambient={false} grid={false} className="px-4 pb-4 pt-5 md:px-7 md:pb-6 md:pt-6">
+    <PageShell ambient grid className="pb-4 md:pb-6">
       {/* Hero */}
       <div className="mx-auto grid max-w-6xl items-center gap-6 lg:grid-cols-2 lg:gap-10">
         <motion.div
@@ -187,12 +187,12 @@ export function EmptyDashboard({
         >
           <WorkspaceHeader workspace={workspace} compact />
 
-          <h1 className="mt-4 font-display text-[1.9rem] font-semibold tracking-tight text-text-primary sm:text-[2.1rem] lg:text-[2.5rem]">
+          <h1 className="mt-4 font-display text-[1.9rem] font-semibold leading-[1.05] tracking-[-0.05em] text-white sm:text-[2.1rem] lg:text-[2.65rem]">
             {displayName}, discover what your funnel is{" "}
-            <span className="text-accent">really saying</span>
+            <span className="text-gradient-accent">really saying</span>
           </h1>
 
-          <p className="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-text-secondary lg:mx-0 lg:text-base">
+          <p className="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-white/60 lg:mx-0 lg:text-base">
             One ad creative. One URL. A complete intelligence report — ad
             analysis, conversion score, ICP simulation, and a prioritized action
             plan before you spend on Meta or TikTok.
@@ -208,10 +208,7 @@ export function EmptyDashboard({
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
             {TRUST_PILLS.map((pill) => (
-              <span
-                key={pill}
-                className="rounded-full border border-black/6 bg-white px-3 py-1 text-[11px] font-medium text-text-secondary"
-              >
+              <span key={pill} className="app-chip text-[11px]">
                 {pill}
               </span>
             ))}
@@ -230,20 +227,20 @@ export function EmptyDashboard({
         transition={{ duration: 0.5, delay: 0.15 }}
         className="mx-auto mt-7 max-w-4xl"
       >
-        <motion.div className="dash-card relative flex items-center justify-between gap-3 px-5 py-4 md:px-8">
-          <div className="absolute left-[16%] right-[16%] top-1/2 hidden h-px bg-[#6947ff]/15 md:block" />
+        <motion.div className="dash-card noise-overlay relative flex items-center justify-between gap-3 px-5 py-4 md:px-8">
+          <div className="absolute left-[16%] right-[16%] top-1/2 hidden h-px bg-linear-to-r from-transparent via-accent/20 to-transparent md:block" />
           {STEPS.map((step) => (
             <div
               key={step.num}
               className="relative flex flex-1 flex-col items-center text-center"
             >
-              <div className="mb-1.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#6947ff]/10">
+              <div className="mb-1.5 flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/12">
                 {step.icon}
               </div>
               <span className="text-[10px] font-bold text-accent/60">
                 {step.num}
               </span>
-              <span className="text-xs font-medium text-text-primary">
+              <span className="text-xs font-medium text-white/88">
                 {step.label}
               </span>
             </div>
@@ -257,7 +254,7 @@ export function EmptyDashboard({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="mb-4 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted"
+          className="mb-4 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-white/40"
         >
           What you&apos;ll receive
         </motion.p>
@@ -272,7 +269,7 @@ export function EmptyDashboard({
             <motion.div
               key={card.title}
               variants={item}
-              className="dash-card dash-card-interactive group relative overflow-hidden p-5 md:p-6"
+              className="dash-card dash-card-interactive noise-overlay group relative overflow-hidden p-5 md:p-6"
               style={{ borderTop: `3px solid ${card.accent}` }}
             >
               <div className="relative">
@@ -289,10 +286,10 @@ export function EmptyDashboard({
                     {card.num}
                   </span>
                 </div>
-                <h3 className="font-display text-base font-semibold text-text-primary">
+                <h3 className="font-display text-base font-semibold text-white">
                   {card.title}
                 </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
+                <p className="mt-1.5 text-sm leading-relaxed text-white/55">
                   {card.description}
                 </p>
               </div>

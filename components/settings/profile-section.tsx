@@ -82,15 +82,15 @@ export function ProfileSection({
   return (
     <section id="profile" className="scroll-mt-24">
       <div className="mb-6">
-        <h2 className="font-display text-xl font-semibold text-text-primary">
+        <h2 className="font-display text-xl font-semibold tracking-[-0.03em] text-white">
           Profile
         </h2>
-        <p className="mt-1 text-sm text-text-secondary">
+        <p className="mt-1 text-sm text-white/55">
           Your personal account details across all workspaces.
         </p>
       </div>
 
-      <div className="space-y-6 dashboard-panel p-6 md:p-7">
+      <div className="dash-card space-y-6 p-6 md:p-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <UserAvatar
             name={fullName}
@@ -114,7 +114,7 @@ export function ProfileSection({
             >
               {uploadingAvatar ? "Uploading…" : "Upload photo"}
             </button>
-            <p className="mt-2 text-xs text-text-muted">
+            <p className="mt-2 text-xs text-white/40">
               JPG, PNG, or WebP. Max 5MB.
             </p>
           </div>
@@ -123,37 +123,38 @@ export function ProfileSection({
         <AuthInput
           label="Full name"
           name="fullName"
+          tone="app"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Alex Morgan"
         />
 
         <div>
-          <label className="mb-2 block text-sm font-medium text-text-primary">
+          <label className="mb-2 block text-sm font-medium text-white/75">
             Email address
           </label>
-          <div className="surface-inset rounded-xl px-4 py-3 text-sm text-text-primary">
+          <div className="app-inset rounded-xl px-4 py-3 text-sm text-white/85">
             {email}
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-text-muted">
+          <p className="mt-2 text-xs leading-relaxed text-white/40">
             Email changes require verification. Confirmation links are sent to
             both your current and new addresses.
           </p>
           <button
             type="button"
             onClick={() => setEmailModalOpen(true)}
-            className="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
+            className="mt-2 text-sm font-medium text-accent-tertiary hover:text-accent"
           >
             Change email
           </button>
         </div>
 
-        <div className="border-t border-[rgba(55,41,111,0.07)] pt-5">
+        <div className="border-t border-white/[0.08] pt-5">
           <button
             type="button"
             onClick={handleSaveName}
             disabled={!nameDirty || isSaving || uploadingAvatar}
-            className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(94, 80, 235,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-premium text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? "Saving…" : "Save changes"}
           </button>
@@ -236,28 +237,24 @@ export function SecuritySection() {
   return (
     <section id="security" className="scroll-mt-24">
       <div className="mb-6">
-        <h2 className="font-display text-xl font-semibold text-text-primary">
+        <h2 className="font-display text-xl font-semibold tracking-[-0.03em] text-white">
           Security
         </h2>
-        <p className="mt-1 text-sm text-text-secondary">
+        <p className="mt-1 text-sm text-white/55">
           Password and session controls for your account.
         </p>
       </div>
 
-      <div className="space-y-6">
-        <form
-          onSubmit={handlePasswordSubmit}
-          className="dashboard-panel p-6 md:p-7"
-        >
-          <h3 className="text-sm font-semibold text-text-primary">
-            Change password
-          </h3>
+      <div className="space-y-4">
+        <form onSubmit={handlePasswordSubmit} className="dash-card p-6 md:p-7">
+          <h3 className="text-sm font-semibold text-white">Change password</h3>
 
           <div className="mt-4 space-y-4">
             <AuthInput
               label="Current password"
               name="currentPassword"
               type="password"
+              tone="app"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               autoComplete="current-password"
@@ -267,6 +264,7 @@ export function SecuritySection() {
               label="New password"
               name="newPassword"
               type="password"
+              tone="app"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
@@ -276,6 +274,7 @@ export function SecuritySection() {
               label="Confirm new password"
               name="confirmPassword"
               type="password"
+              tone="app"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"
@@ -284,36 +283,32 @@ export function SecuritySection() {
           </div>
 
           {passwordError && (
-            <p className="mt-3 text-sm text-red-500">{passwordError}</p>
+            <p className="mt-3 text-sm text-red-400">{passwordError}</p>
           )}
 
           <button
             type="submit"
             disabled={isChangingPassword}
-            className="mt-5 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            className="btn-premium mt-5 text-sm disabled:opacity-60"
           >
             {isChangingPassword ? "Updating…" : "Update password"}
           </button>
         </form>
 
-        <div className="dashboard-panel p-6 md:p-7">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Active sessions
-          </h3>
-          <p className="mt-1 text-sm text-text-secondary">
+        <div className="dash-card p-6 md:p-7">
+          <h3 className="text-sm font-semibold text-white">Active sessions</h3>
+          <p className="mt-1 text-sm text-white/55">
             Supabase tracks active auth sessions per device. You can sign out
             everywhere except this browser.
           </p>
 
-          <div className="surface-inset mt-4 rounded-xl px-4 py-3">
+          <div className="app-inset mt-4 rounded-xl px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-text-primary">
-                  {parseUserAgent()}
-                </p>
-                <p className="text-xs text-text-muted">Active now · this session</p>
+                <p className="text-sm font-medium text-white">{parseUserAgent()}</p>
+                <p className="text-xs text-white/40">Active now · this session</p>
               </div>
-              <span className="rounded-full bg-accent-secondary/10 px-2.5 py-1 text-[11px] font-semibold text-accent-secondary">
+              <span className="rounded-full border border-teal-400/25 bg-teal-400/10 px-2.5 py-1 text-[11px] font-semibold text-teal-300">
                 Current
               </span>
             </div>

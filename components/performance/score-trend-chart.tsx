@@ -53,12 +53,12 @@ export function ScoreTrendChart({ points, averageScore }: ScoreTrendChartProps) 
   const hoveredCoord = hovered !== null ? plot.coords[hovered] : null;
 
   return (
-    <div className="relative w-full overflow-x-auto">
+    <div className="relative w-full">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="min-w-[320px]"
+        className="w-full"
       >
         <svg
           viewBox={`0 0 ${CHART_W} ${CHART_H}`}

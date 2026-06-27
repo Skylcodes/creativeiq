@@ -110,7 +110,12 @@ export async function evaluateCreative(
           onScreenText: input.videoContext.onScreenText,
           transcriptAvailable: input.videoContext.transcriptAvailable,
           visualDescription: input.videoContext.visualDescription,
+          visualTimeline: input.videoContext.visualTimeline,
+          frameTimestamps: input.videoContext.frameTimestamps,
           frameCount: input.videoContext.frameCount,
+          analyzedDurationSec: input.videoContext.analyzedDurationSec,
+          videoDurationSec: input.videoContext.videoDurationSec,
+          visualAnalysisMode: input.videoContext.visualAnalysisMode,
           processingNotes: input.videoContext.processingNotes,
         }
       : undefined,

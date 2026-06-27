@@ -2,10 +2,16 @@ import "server-only";
 import { NextResponse } from "next/server";
 import {
   countTrialUsage,
+  countAccountUsage,
   evaluateAccountState,
   setAccountStatus,
 } from "@/lib/billing/account";
-import { TRIAL_HARDWALL_FEATURES, TRIAL_LIMITS } from "@/lib/billing/config";
+import { getTrialConfig } from "@/lib/billing/trial-limits";
+import {
+  getAccountFeatureLimit,
+  getAccountLimitOverride,
+  isUnlimitedLimit,
+} from "@/lib/billing/feature-limits";
 import {
   ACCOUNT_BLOCKED_CODE,
   type AccountBlockedPayload,
@@ -34,6 +40,8 @@ function messageFor(reason: BlockReason, feature: ActionFeature): string {
       return `You've used your free trial allowance. Upgrade to keep running ${label}s.`;
     case "trial_expired":
       return `Your free trial has ended. Upgrade to keep running ${label}s.`;
+    case "plan_limit":
+      return `You've reached your plan's ${label} limit for this period. Upgrade for more capacity.`;
     case "paywalled":
     default:
       return `Upgrade your plan to run ${label}s.`;
@@ -60,8 +68,20 @@ export async function assertActionAllowed(
   if (state.isAdmin) return { allowed: true };
 
   switch (state.account_status) {
-    case "active":
+    case "active": {
+      if (!countTrial) return { allowed: true };
+
+      const limit = await getAccountFeatureLimit(userId, feature);
+      if (isUnlimitedLimit(limit)) return { allowed: true };
+      if (limit <= 0) {
+        return { allowed: false, reason: "plan_limit", feature };
+      }
+      const used = await countAccountUsage(userId, feature);
+      if (used >= limit) {
+        return { allowed: false, reason: "plan_limit", feature };
+      }
       return { allowed: true };
+    }
 
     case "paywalled":
       return { allowed: false, reason: "paywalled", feature };
@@ -72,19 +92,20 @@ export async function assertActionAllowed(
     case "trialing": {
       if (!countTrial) return { allowed: true };
 
-      const limit = TRIAL_LIMITS[feature] ?? 0;
+      const override = await getAccountLimitOverride(userId, feature);
+      const trialConfig = await getTrialConfig();
+      const limit =
+        override ?? trialConfig.limits[feature] ?? 0;
 
       if (limit === -1) return { allowed: true };
 
       if (limit === 0) {
-        // Feature is not part of the trial at all → straight to upgrade prompt.
         return { allowed: false, reason: "trial_limit", feature };
       }
 
       const used = await countTrialUsage(userId, feature);
       if (used >= limit) {
-        // Exhausting a headline trial allowance ends the trial entirely.
-        if (TRIAL_HARDWALL_FEATURES.includes(feature)) {
+        if (trialConfig.hardwallFeatures.includes(feature)) {
           await setAccountStatus(userId, "paywalled");
         }
         return { allowed: false, reason: "trial_limit", feature };

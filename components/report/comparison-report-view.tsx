@@ -78,9 +78,20 @@ function VariantTabPanel({
                 "Analysis complete — review the tabs below for strategic direction."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-              <span className="insight-chip">
-                Creative: {variantReport.creativeStrengthScore}/100
-              </span>
+              {variantReport.creativeScoreBreakdown ? (
+                <>
+                  <span className="insight-chip">
+                    Strategic: {variantReport.creativeScoreBreakdown.strategicScore}/100
+                  </span>
+                  <span className="insight-chip">
+                    Retention: {variantReport.creativeScoreBreakdown.retentionScore}/100
+                  </span>
+                </>
+              ) : (
+                <span className="insight-chip">
+                  Creative: {variantReport.creativeStrengthScore}/100
+                </span>
+              )}
               <span className="insight-chip">
                 Conversion: {variantReport.conversionScore.total}/100
               </span>

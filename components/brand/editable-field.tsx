@@ -22,18 +22,13 @@ export function EditableField({
   error,
 }: EditableFieldProps) {
   const sharedClassName =
-    "input-field px-3.5 py-2.5 disabled:cursor-not-allowed disabled:opacity-60";
+    "input-field w-full disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
-    <label className="group block">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-text-primary">{label}</span>
-        {!disabled && (
-          <span className="text-[11px] font-medium text-text-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-            Editable
-          </span>
-        )}
-      </div>
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-white/75">
+        {label}
+      </span>
 
       {multiline ? (
         <textarea
@@ -42,7 +37,7 @@ export function EditableField({
           placeholder={placeholder}
           disabled={disabled}
           rows={4}
-          className={`${sharedClassName} min-h-[112px] resize-y leading-relaxed`}
+          className={`${sharedClassName} min-h-[112px] leading-relaxed`}
         />
       ) : (
         <input
@@ -56,9 +51,9 @@ export function EditableField({
       )}
 
       {hint && !error && (
-        <p className="mt-2 text-xs leading-relaxed text-text-muted">{hint}</p>
+        <p className="mt-2 text-xs leading-relaxed text-white/40">{hint}</p>
       )}
-      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
     </label>
   );
 }

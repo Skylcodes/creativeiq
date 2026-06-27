@@ -1,24 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import type { WorkspaceOverride } from "@/components/admin/types";
+import type { AccountLimitOverride } from "@/components/admin/types";
 import { FEATURE_LABELS } from "@/lib/billing/feature-keys";
 
 type Props = {
-  initialOverrides: WorkspaceOverride[];
+  initialOverrides: AccountLimitOverride[];
 };
 
-type WorkspaceOption = { id: string; name: string; subscription_tier_key: string };
+type UserOption = {
+  id: string;
+  email: string;
+  label: string;
+  subscription_tier_key: string | null;
+};
 
-function workspaceName(override: WorkspaceOverride): string {
-  const ws = override.workspaces;
-  if (!ws) return override.workspace_id.slice(0, 8);
-  if (Array.isArray(ws)) return ws[0]?.name ?? override.workspace_id.slice(0, 8);
-  return ws.name;
+function accountLabel(override: AccountLimitOverride): string {
+  if (override.account_email) return override.account_email;
+  return override.user_id.slice(0, 8);
 }
 
 export function OverridesPanel({ initialOverrides }: Props) {
-  const [overrides, setOverrides] = useState<WorkspaceOverride[]>(initialOverrides);
+  const [overrides, setOverrides] = useState<AccountLimitOverride[]>(initialOverrides);
   const [showForm, setShowForm] = useState(false);
 
   async function handleDelete(id: string) {
@@ -30,7 +33,7 @@ export function OverridesPanel({ initialOverrides }: Props) {
     }
   }
 
-  function handleCreated(override: WorkspaceOverride) {
+  function handleCreated(override: AccountLimitOverride) {
     setOverrides((prev) => [override, ...prev]);
     setShowForm(false);
   }
@@ -39,9 +42,10 @@ export function OverridesPanel({ initialOverrides }: Props) {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Workspace Overrides</h1>
+          <h1 className="text-xl font-semibold text-white">Account Overrides</h1>
           <p className="mt-1 text-sm text-white/40">
-            Comp beta testers or grant custom limits without changing tiers.
+            Grant custom limits to a user account. Overrides apply across all their
+            workspaces (account-wide pooled usage).
           </p>
         </div>
         <button
@@ -68,13 +72,14 @@ export function OverridesPanel({ initialOverrides }: Props) {
       <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] overflow-hidden">
         {overrides.length === 0 ? (
           <div className="py-16 text-center text-sm text-white/30">
-            No active overrides. Add one to comp a beta tester.
+            No active overrides. Add one to comp a beta tester or lift caps for a
+            specific account.
           </div>
         ) : (
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Workspace</th>
+                <th>Account</th>
                 <th>Feature</th>
                 <th>Override Limit</th>
                 <th>Reason</th>
@@ -87,7 +92,7 @@ export function OverridesPanel({ initialOverrides }: Props) {
                 <tr key={o.id}>
                   <td>
                     <span className="font-medium text-white/80">
-                      {workspaceName(o)}
+                      {accountLabel(o)}
                     </span>
                   </td>
                   <td>{FEATURE_LABELS[o.feature_key] ?? o.feature_key}</td>
@@ -132,12 +137,12 @@ function AddOverrideForm({
   onCreated,
   onCancel,
 }: {
-  onCreated: (o: WorkspaceOverride) => void;
+  onCreated: (o: AccountLimitOverride) => void;
   onCancel: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceOption | null>(null);
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
   const [featureKey, setFeatureKey] = useState("");
   const [limitValue, setLimitValue] = useState("0");
   const [reason, setReason] = useState("");
@@ -146,18 +151,18 @@ function AddOverrideForm({
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
-  async function searchWorkspaces(q: string) {
+  async function searchUsers(q: string) {
     setQuery(q);
     if (!q.trim()) {
-      setWorkspaces([]);
+      setUsers([]);
       return;
     }
     setSearching(true);
     try {
-      const res = await fetch(`/api/admin/workspaces?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`);
       if (res.ok) {
-        const { workspaces: results } = (await res.json()) as { workspaces: WorkspaceOption[] };
-        setWorkspaces(results);
+        const { users: results } = (await res.json()) as { users: UserOption[] };
+        setUsers(results);
       }
     } finally {
       setSearching(false);
@@ -165,7 +170,7 @@ function AddOverrideForm({
   }
 
   async function handleSubmit() {
-    if (!selectedWorkspace || !featureKey || limitValue === "") return;
+    if (!selectedUser || !featureKey || limitValue === "") return;
 
     setSaving(true);
     setError(null);
@@ -174,15 +179,18 @@ function AddOverrideForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        workspace_id: selectedWorkspace.id,
+        user_id: selectedUser.id,
         feature_key: featureKey,
-        override_limit_value: parseInt(limitValue) || 0,
+        override_limit_value: parseInt(limitValue, 10) || 0,
         reason,
         expires_at: expiresAt || null,
       }),
     });
 
-    const data = (await res.json()) as { override?: WorkspaceOverride; error?: string };
+    const data = (await res.json()) as {
+      override?: AccountLimitOverride;
+      error?: string;
+    };
 
     if (!res.ok || !data.override) {
       setError(data.error ?? "Failed to create override");
@@ -197,17 +205,19 @@ function AddOverrideForm({
 
   return (
     <div className="mb-4 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5">
-      <h3 className="mb-4 text-sm font-semibold text-white/70">Add Workspace Override</h3>
+      <h3 className="mb-4 text-sm font-semibold text-white/70">Add Account Override</h3>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* Workspace search */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-white/40">Workspace</label>
-          {selectedWorkspace ? (
+          <label className="text-xs font-medium text-white/40">Account</label>
+          {selectedUser ? (
             <div className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2">
-              <span className="text-sm text-white/80">{selectedWorkspace.name}</span>
+              <div>
+                <p className="text-sm text-white/80">{selectedUser.email}</p>
+                <p className="text-xs text-white/35">{selectedUser.label}</p>
+              </div>
               <button
-                onClick={() => setSelectedWorkspace(null)}
+                onClick={() => setSelectedUser(null)}
                 className="text-xs text-white/30 hover:text-white/60"
               >
                 Change
@@ -218,25 +228,28 @@ function AddOverrideForm({
               <input
                 type="text"
                 value={query}
-                onChange={(e) => searchWorkspaces(e.target.value)}
-                placeholder="Search by name…"
+                onChange={(e) => searchUsers(e.target.value)}
+                placeholder="Search by email or brand name…"
                 className="admin-input"
               />
-              {workspaces.length > 0 && (
+              {users.length > 0 && (
                 <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-white/[0.07] bg-[#121214] py-1 shadow-xl">
-                  {workspaces.map((ws) => (
+                  {users.map((user) => (
                     <button
-                      key={ws.id}
+                      key={user.id}
                       onClick={() => {
-                        setSelectedWorkspace(ws);
-                        setWorkspaces([]);
+                        setSelectedUser(user);
+                        setUsers([]);
                         setQuery("");
                       }}
-                      className="flex w-full items-center justify-between px-3 py-2 text-sm text-white/70 hover:bg-white/[0.04] hover:text-white"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-white/[0.04]"
                     >
-                      <span>{ws.name}</span>
-                      <span className="text-xs text-white/30">
-                        {ws.subscription_tier_key}
+                      <span className="text-sm text-white/80">{user.email}</span>
+                      <span className="text-xs text-white/35">
+                        {user.label}
+                        {user.subscription_tier_key
+                          ? ` · ${user.subscription_tier_key}`
+                          : ""}
                       </span>
                     </button>
                   ))}
@@ -249,7 +262,6 @@ function AddOverrideForm({
           )}
         </div>
 
-        {/* Feature key */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-white/40">Feature</label>
           <select
@@ -266,7 +278,6 @@ function AddOverrideForm({
           </select>
         </div>
 
-        {/* Limit value */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-white/40">
             Override Limit <span className="text-white/20">(-1 = unlimited)</span>
@@ -280,7 +291,6 @@ function AddOverrideForm({
           />
         </div>
 
-        {/* Expires at */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-white/40">
             Expires At <span className="text-white/20">(leave blank = permanent)</span>
@@ -293,7 +303,6 @@ function AddOverrideForm({
           />
         </div>
 
-        {/* Reason */}
         <div className="col-span-full flex flex-col gap-1.5">
           <label className="text-xs font-medium text-white/40">
             Reason <span className="text-white/20">(internal note)</span>
@@ -319,10 +328,10 @@ function AddOverrideForm({
         </button>
         <button
           onClick={handleSubmit}
-          disabled={saving || !selectedWorkspace || !featureKey}
+          disabled={saving || !selectedUser || !featureKey}
           className={[
             "rounded-xl px-5 py-2 text-sm font-semibold transition-all",
-            saving || !selectedWorkspace || !featureKey
+            saving || !selectedUser || !featureKey
               ? "cursor-not-allowed bg-white/[0.05] text-white/30"
               : "bg-white text-black hover:bg-white/90",
           ].join(" ")}

@@ -6,6 +6,7 @@ import {
   extractScriptRewriteFromAgent,
   isValidScriptRewrite,
   resolveScriptRewrite,
+  sanitizeScriptRewrite,
 } from "@/lib/report/script-rewrite";
 import type { HookVariant } from "@/lib/types/report";
 
@@ -15,9 +16,10 @@ ${SCRIPT_REWRITE_EXPERTISE}
 
 OUTPUT FORMAT:
 - Write ONLY the deliverable — no preamble, no analysis, no markdown headers.
+- NEVER write market commentary (e.g. "Winning ad in this niche", "Creator-led UGC debunking", format briefs). Write words the creator SPEAKS on camera.
 - First lines: the full spoken script (80–150 words): hook → body → proof → offer → CTA.
 - Final line ONLY: Production note: [format]. [visual style]. Opening frame: [first 2 seconds].
-- Never output only a production note.`;
+- Never output only a production note. Never end mid-sentence.`;
 
 type GenerateScriptRewriteInput = {
   synthesis?: string;
@@ -81,27 +83,15 @@ export async function ensureScriptRewrite(
       "",
       "Write the full spoken script now, then one Production note line.",
     ].join("\n"),
-    maxTokens: 900,
+    maxTokens: 1200,
     temperature: 0.75,
     model: CLAUDE_JSON_MODEL,
   });
 
-  const trimmed = generated.trim();
+  const trimmed = sanitizeScriptRewrite(generated);
   if (isValidScriptRewrite(trimmed)) {
     return trimmed;
   }
 
-  if (wordCount(trimmed) >= 20) {
-    return trimmed;
-  }
-
   return "";
-}
-
-function wordCount(text: string): number {
-  return text
-    .replace(/\n*Production note:[\s\S]*$/i, "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
 }

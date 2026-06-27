@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ensureScriptRewrite } from "@/lib/ai/script-rewrite-fallback";
+import { sanitizeScriptRewrite } from "@/lib/report/script-rewrite";
 import type { FunnelReportRaw } from "@/lib/ai/funnel-grading";
 import type { RawCriteria } from "@/lib/ai/criteria";
 import { hydrateFunnelReportFields } from "@/lib/report/enrich-report";
@@ -12,6 +13,14 @@ import type {
   IcpSimulation,
   IntelligenceBrief,
 } from "@/lib/types/report";
+
+import { resolveCreativeScores } from "@/lib/report/creative-scores";
+import {
+  applySeverityWeightedScores,
+  normalizeCriteriaSeverities,
+  stripSeverityFromChecklist,
+  type RawCriteriaCheckItem,
+} from "@/lib/report/severity-scoring";
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(n)));
@@ -76,13 +85,40 @@ export async function buildFunnelAnalysisReport(
   const conversionScore = normalizeConversion(
     input.reportRaw.conversionCategories ?? []
   );
-  const creativeStrengthScore = clamp(
-    input.reportRaw.creativeStrengthScore ?? 0,
-    0,
-    100
+
+  const normalizedChecklist = normalizeCriteriaSeverities(
+    input.reportRaw.criteriaChecklist as RawCriteriaCheckItem[] | undefined
   );
+
+  const severityAdjusted = applySeverityWeightedScores({
+    strategicScore: input.reportRaw.strategicScore ?? 0,
+    retentionScore: input.reportRaw.retentionScore ?? 0,
+    conversionTotal: conversionScore.total,
+    checklist: normalizedChecklist,
+    criteriaList: input.criteriaList,
+  });
+
+  const hadCriteriaFailures =
+    normalizedChecklist?.some((item) => item.pass === false) ?? false;
+
+  const creativeScores = resolveCreativeScores(
+    {
+      strategicScore: severityAdjusted.strategicScore,
+      retentionScore: severityAdjusted.retentionScore,
+      creativeStrengthScore: hadCriteriaFailures
+        ? undefined
+        : input.reportRaw.creativeStrengthScore,
+      retentionVerdict: input.reportRaw.retentionVerdict,
+    },
+    input.creativeKind
+  );
+  const creativeStrengthScore = creativeScores.creativeStrengthScore;
+  const adjustedConversionScore: ConversionScore = {
+    ...conversionScore,
+    total: severityAdjusted.conversionTotal,
+  };
   const overallFunnelScore = clamp(
-    (conversionScore.total + creativeStrengthScore) / 2,
+    (adjustedConversionScore.total + creativeStrengthScore) / 2,
     0,
     100
   );
@@ -109,12 +145,11 @@ export async function buildFunnelAnalysisReport(
       : undefined;
 
   const criteriaList = input.criteriaList ?? [];
+  const checklistForUi = stripSeverityFromChecklist(normalizedChecklist);
   const criteriaChecklist: CriteriaChecklistItem[] | undefined =
-    criteriaList.length > 0 && Array.isArray(input.reportRaw.criteriaChecklist)
+    criteriaList.length > 0 && Array.isArray(checklistForUi)
       ? criteriaList.map((raw) => {
-          const aiResult = input.reportRaw.criteriaChecklist!.find(
-            (r) => r.id === raw.id
-          );
+          const aiResult = checklistForUi!.find((r) => r.id === raw.id);
           return {
             id: raw.id,
             category: raw.category,
@@ -128,22 +163,29 @@ export async function buildFunnelAnalysisReport(
         })
       : undefined;
 
-  const scriptRewrite = await ensureScriptRewrite({
-    synthesis: input.reportRaw.scriptRewrite,
-    drCritic: input.drCritic,
-    drRewriteSeed: input.drRewriteSeed,
-    hookVariants: input.reportRaw.hookVariants ?? [],
-    creativeContext: input.creativeText,
-    platformText: input.platformText,
-    brandProfileText: input.brandProfileText,
-  });
+  const scriptRewrite = sanitizeScriptRewrite(
+    await ensureScriptRewrite({
+      synthesis: input.reportRaw.scriptRewrite,
+      drCritic: input.drCritic,
+      drRewriteSeed: input.drRewriteSeed,
+      hookVariants: input.reportRaw.hookVariants ?? [],
+      creativeContext: input.creativeText,
+      platformText: input.platformText,
+      brandProfileText: input.brandProfileText,
+    })
+  );
 
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     overallFunnelScore,
     creativeStrengthScore,
-    conversionScore,
+    creativeScoreBreakdown: {
+      strategicScore: creativeScores.strategicScore,
+      retentionScore: creativeScores.retentionScore,
+      retentionVerdict: creativeScores.retentionVerdict,
+    },
+    conversionScore: adjustedConversionScore,
     headline: input.reportRaw.headline ?? "",
     angleTags: input.reportRaw.angleTags ?? [],
     agentFindings: hydrated.agentFindings,
@@ -155,6 +197,15 @@ export async function buildFunnelAnalysisReport(
     ...(icpSimulation ? { icpSimulation } : {}),
     ...(input.intelligenceBrief ? { intelligenceBrief: input.intelligenceBrief } : {}),
     ...(criteriaChecklist ? { criteriaChecklist } : {}),
+    ...(input.reportRaw.competitiveInsights?.length ||
+    input.intelligenceBrief?.competitiveInsights?.length
+      ? {
+          competitiveInsights: [
+            ...(input.reportRaw.competitiveInsights ?? []),
+            ...(input.intelligenceBrief?.competitiveInsights ?? []),
+          ].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 5),
+        }
+      : {}),
     flags: {
       landingPagePartial: input.landingPageStatus === "partial",
       landingPageFailed: input.landingPageStatus === "failed",

@@ -15,7 +15,13 @@ export function PageSkeleton({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={`px-5 py-6 md:px-8 ${className}`}>{children}</div>;
+  return (
+    <div
+      className={`mx-auto w-full max-w-6xl px-6 py-7 sm:px-8 md:px-10 md:py-8 lg:px-12 xl:max-w-7xl ${className}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function DashboardSkeleton() {

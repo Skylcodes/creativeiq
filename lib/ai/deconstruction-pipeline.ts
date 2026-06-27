@@ -6,6 +6,7 @@ import {
   DECONSTRUCTION_SYSTEM,
   HONEST_ANALYSIS_SYSTEM,
 } from "@/lib/ai/deconstruction-prompts";
+import { buildDeconstructionMarketContext } from "@/lib/ai/intelligence";
 import { getOrGenerateBrandProfile } from "@/lib/ai/brand-profile";
 import { formatBrandProfileForPrompt } from "@/lib/ai/brand-profile-prompt";
 import {
@@ -20,6 +21,7 @@ import {
 import { buildVideoBrief, processVideoCreative } from "@/lib/ai/video";
 import { scrapePage } from "@/lib/ai/scrape";
 import type { AdDeconstruction, DeconstructionReport } from "@/lib/types/deconstruction";
+import type { CompetitorAd } from "@/lib/types/report";
 import type { Workspace } from "@/lib/types/workspace";
 
 type DeconstructionAIResult = {
@@ -27,6 +29,8 @@ type DeconstructionAIResult = {
   structuralFramework: { role: string; description: string }[];
   offerMechanics: string;
   visualProduction: string;
+  marketComparison?: string;
+  competitiveInsights?: string[];
   brandTranslation: {
     hook: string;
     structuralOutline: { role: string; description: string }[];
@@ -115,9 +119,22 @@ export async function runDeconstructionPipeline(
   const brandProfile = await getOrGenerateBrandProfile(supabase, workspace);
   const brandProfileText = formatBrandProfileForPrompt(brandProfile);
 
-  const [creative, competitorLp] = await Promise.all([
+  const advertiserForMarket =
+    evidence.resolvedAdvertiser ?? brandProfile.category ?? brandProfile.brandName;
+
+  const [creative, competitorLp, marketCtx] = await Promise.all([
     buildCreativeFromInput(supabase, row),
     scrapePage(row.input.landingPageUrl).catch(() => null),
+    buildDeconstructionMarketContext(
+      advertiserForMarket,
+      brandProfile.category || undefined,
+      evidence.sampleAds
+    ).catch(() => ({
+      marketContextText: "",
+      competitorAds: [] as CompetitorAd[],
+      patternsSummary: undefined as string | undefined,
+      competitiveInsights: [] as string[],
+    })),
   ]);
 
   const criteriaList = await getOrBuildCriteria(supabase, workspace.id, null).catch(
@@ -139,9 +156,22 @@ export async function runDeconstructionPipeline(
     `Summary: ${evidence.summary}`,
     evidence.badges.length ? `Signals: ${evidence.badges.join("; ")}` : "",
     evidence.resolvedAdvertiser ? `Advertiser: ${evidence.resolvedAdvertiser}` : "",
+    marketCtx.marketContextText || "",
   ]
     .filter(Boolean)
     .join("\n");
+
+  const marketContextBlock = {
+    advertiser: evidence.resolvedAdvertiser,
+    category: brandProfile.category || undefined,
+    competitorAdCount: marketCtx.competitorAds.length,
+    patternsSummary: marketCtx.patternsSummary,
+    competitiveInsights: marketCtx.competitiveInsights,
+    sampleCompetitorHooks: marketCtx.competitorAds
+      .filter((a) => a.hookPattern)
+      .map((a) => a.hookPattern!)
+      .slice(0, 5),
+  };
 
   let report: DeconstructionReport;
 
@@ -162,6 +192,9 @@ export async function runDeconstructionPipeline(
       generatedAt: new Date().toISOString(),
       mode: "honest_analysis",
       evidence,
+      marketContext: marketContextBlock.competitorAdCount
+        ? marketContextBlock
+        : undefined,
       honestAnalysis: {
         headline: honest.headline,
         strengths: honest.strengths ?? [],
@@ -203,11 +236,16 @@ export async function runDeconstructionPipeline(
       generatedAt: new Date().toISOString(),
       mode: "deconstruction",
       evidence,
+      marketContext: marketContextBlock.competitorAdCount
+        ? marketContextBlock
+        : undefined,
       deconstruction: {
         psychologicalTrigger: result.psychologicalTrigger,
         structuralFramework: result.structuralFramework ?? [],
         offerMechanics: result.offerMechanics,
         visualProduction: result.visualProduction,
+        marketComparison: result.marketComparison,
+        competitiveInsights: result.competitiveInsights,
       },
       brandTranslation: result.brandTranslation,
     };

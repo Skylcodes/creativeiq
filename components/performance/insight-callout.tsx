@@ -10,16 +10,16 @@ type InsightCalloutProps = {
 
 const TONE_STYLES = {
   positive: {
-    surface: "dashboard-panel border-[rgba(13,148,136,0.16)] bg-[rgba(13,148,136,0.04)]",
-    icon: "#0d9488",
+    surface: "border-teal-400/20 bg-teal-400/[0.06]",
+    icon: "#2dd4bf",
   },
   coaching: {
-    surface: "dashboard-panel-accent",
-    icon: "#6947ff",
+    surface: "border-accent/25 bg-accent/[0.08]",
+    icon: "#a78bfa",
   },
   neutral: {
-    surface: "dashboard-panel",
-    icon: "#71717a",
+    surface: "border-white/10 bg-white/[0.04]",
+    icon: "#a1a1aa",
   },
 };
 
@@ -31,7 +31,7 @@ export function InsightCallout({ insight, index = 0 }: InsightCalloutProps) {
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.08, duration: 0.4 }}
-      className={`flex gap-4 p-5 ${style.surface}`}
+      className={`flex gap-4 rounded-2xl border p-5 backdrop-blur-xl ${style.surface}`}
     >
       <div
         className="icon-badge flex h-10 w-10 shrink-0 items-center justify-center"
@@ -46,9 +46,7 @@ export function InsightCallout({ insight, index = 0 }: InsightCalloutProps) {
           />
         </svg>
       </div>
-      <p className="text-sm leading-relaxed text-text-primary">
-        {insight.message}
-      </p>
+      <p className="text-sm leading-relaxed text-white/80">{insight.message}</p>
     </motion.div>
   );
 }

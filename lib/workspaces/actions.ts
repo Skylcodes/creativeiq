@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Workspace } from "@/lib/types/workspace";
 import { normalizeBrandUrl, validateWorkspaceInput } from "@/lib/workspaces/validation";
+import { evaluateAccountState, countAccountWorkspaces } from "@/lib/billing/account";
+import {
+  getAccountWorkspaceLimit,
+  isUnlimitedLimit,
+} from "@/lib/billing/feature-limits";
 
 export type WorkspaceActionResult =
   | { success: true; workspace: Workspace }
@@ -28,6 +33,27 @@ export async function createWorkspace(
 
   if (!user) {
     return { success: false, error: "You must be signed in." };
+  }
+
+  const state = await evaluateAccountState(user.id);
+  if (!state.isAdmin) {
+    const workspaceLimit = await getAccountWorkspaceLimit(
+      user.id,
+      state.account_status,
+      state.stripe_subscription_id
+    );
+    if (!isUnlimitedLimit(workspaceLimit)) {
+      const owned = await countAccountWorkspaces(user.id);
+      if (owned >= workspaceLimit) {
+        const message =
+          state.account_status === "trialing"
+            ? `Your free trial includes ${workspaceLimit} workspace${workspaceLimit === 1 ? "" : "s"}. Upgrade to add more brands.`
+            : state.account_status === "active"
+              ? `Your plan includes ${workspaceLimit} workspace${workspaceLimit === 1 ? "" : "s"}. Upgrade to add more brands.`
+              : "Upgrade your plan to add more brand workspaces.";
+        return { success: false, error: message };
+      }
+    }
   }
 
   const normalizedUrl = normalizeBrandUrl(brandUrl);

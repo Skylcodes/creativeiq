@@ -24,7 +24,6 @@ export default async function BriefsPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Production"
         title="Creative Briefs"
         description="Production-ready briefs for your next ad — before you film anything"
         action={

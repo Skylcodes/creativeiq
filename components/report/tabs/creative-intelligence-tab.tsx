@@ -11,6 +11,7 @@ import { CopyButton } from "../shared/copy-button";
 import { HookRowActions, matchHookInLibrary, type HookSaveContext } from "@/components/hooks/hook-row-actions";
 import { PremiumCard } from "@/components/ui/premium-card";
 import { CriteriaChecklist } from "../shared/criteria-checklist";
+import { CreativeScoreBreakdownCard } from "../shared/creative-score-breakdown";
 
 type CreativeIntelligenceTabProps = {
   report: AnalysisReport;
@@ -96,7 +97,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
                 ))}
                 {sources.metaEnabled && (
                   <span className="rounded-full bg-[#1877f2]/10 px-2.5 py-1 font-medium text-[#1877f2]">
-                    Meta Ad Library
+                    Meta Ad Library{sources.apifyEnabled ? " (Apify)" : ""}
                   </span>
                 )}
                 {sources.tavilyEnabled && (
@@ -120,6 +121,11 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
                             {ad.runningDays != null && (
                               <span>{ad.runningDays}d running</span>
                             )}
+                            {ad.qualitySignal === "high" && (
+                              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700">
+                                high-signal
+                              </span>
+                            )}
                             {ad.cta && (
                               <span className="rounded-full bg-black/[0.05] px-2 py-0.5 font-medium">
                                 {ad.cta.replace(/_/g, " ")}
@@ -135,6 +141,31 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {(brief.competitiveInsights?.length ||
+                brief.marketPatterns?.saturationNotes?.length) && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                    Competitive intelligence
+                  </p>
+                  <ul className="space-y-1.5">
+                    {(
+                      brief.competitiveInsights ??
+                      brief.marketPatterns?.saturationNotes ??
+                      []
+                    )
+                      .slice(0, 4)
+                      .map((insight, i) => (
+                        <li
+                          key={i}
+                          className="dashboard-panel px-3.5 py-2.5 text-xs leading-relaxed text-text-secondary !shadow-none"
+                        >
+                          {insight}
+                        </li>
+                      ))}
+                  </ul>
                 </div>
               )}
 
@@ -174,7 +205,7 @@ function IntelligenceSources({ report }: { report: AnalysisReport }) {
               )}
 
               <p className="text-[10px] text-text-muted">
-                Intelligence refreshes every 24 hours per category. Gathered {ageLabel}.
+                Intelligence refreshes every 7 days per category. Gathered {ageLabel}.
               </p>
             </div>
           </motion.div>
@@ -199,7 +230,28 @@ export function CreativeIntelligenceTab({
 
   return (
     <div className="space-y-6">
+      {report.creativeScoreBreakdown && (
+        <CreativeScoreBreakdownCard
+          breakdown={report.creativeScoreBreakdown}
+          blendedScore={report.creativeStrengthScore}
+        />
+      )}
       <IntelligenceSources report={report} />
+      {report.competitiveInsights && report.competitiveInsights.length > 0 && (
+        <PremiumCard padding="md">
+          <h2 className="font-display text-lg font-semibold text-text-primary">
+            Competitive Intelligence
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {report.competitiveInsights.map((insight, i) => (
+              <li key={i} className="flex gap-2 text-sm text-text-secondary">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                <span className="leading-relaxed">{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </PremiumCard>
+      )}
       {report.criteriaChecklist && report.criteriaChecklist.length > 0 && (
         <CriteriaChecklist items={report.criteriaChecklist} />
       )}
@@ -235,12 +287,12 @@ export function CreativeIntelligenceTab({
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className={`font-semibold ${isFeatured ? "text-accent" : "text-text-primary"}`}>
+                      <p className={`font-semibold ${isFeatured ? "text-accent-tertiary" : "text-text-primary"}`}>
                         {agent.name}
                       </p>
                       {isFeatured && (
-                        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                          Final Verdict
+                        <span className="rounded-md border border-accent/25 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-tertiary">
+                          Final verdict
                         </span>
                       )}
                     </div>
@@ -269,8 +321,8 @@ export function CreativeIntelligenceTab({
                 key={agent.id}
                 layout
                 padding="none"
-                variant={isFeatured ? "accent" : "default"}
-                className={`overflow-hidden ${isFeatured ? "shadow-[0_12px_40px_rgba(94, 80, 235,0.12)]" : ""}`}
+                variant="default"
+                className="overflow-hidden"
               >
                 {hasExpandableContent ? (
                   <button
@@ -408,9 +460,6 @@ export function CreativeIntelligenceTab({
             <h2 className="font-display text-xl font-semibold text-text-primary">
               Full Script Rewrite
             </h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              A complete deliverable incorporating the top recommendations.
-            </p>
           </div>
           {report.scriptRewrite ? (
             <CopyButton text={report.scriptRewrite} label="Copy script" />

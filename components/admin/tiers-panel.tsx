@@ -2,16 +2,35 @@
 
 import { useState } from "react";
 import { TierCard } from "@/components/admin/tier-card";
-import type { SubscriptionTier, TierFeatureLimit } from "@/components/admin/types";
+import { TrialCard } from "@/components/admin/trial-card";
+import type {
+  SubscriptionTier,
+  TierFeatureLimit,
+  TrialFeatureLimit,
+  TrialSettings,
+} from "@/components/admin/types";
 
 type Props = {
   initialTiers: SubscriptionTier[];
   initialLimits: TierFeatureLimit[];
+  initialTrialSettings: TrialSettings | null;
+  initialTrialLimits: TrialFeatureLimit[];
 };
 
-export function TiersPanel({ initialTiers, initialLimits }: Props) {
+export function TiersPanel({
+  initialTiers,
+  initialLimits,
+  initialTrialSettings,
+  initialTrialLimits,
+}: Props) {
   const [tiers, setTiers] = useState<SubscriptionTier[]>(initialTiers);
   const [limits, setLimits] = useState<TierFeatureLimit[]>(initialLimits);
+  const [trialSettings, setTrialSettings] = useState<TrialSettings | null>(
+    initialTrialSettings
+  );
+  const [trialLimits, setTrialLimits] = useState<TrialFeatureLimit[]>(
+    initialTrialLimits
+  );
 
   function getLimitsForTier(tierId: string) {
     return limits.filter((l) => l.tier_id === tierId);
@@ -26,13 +45,20 @@ export function TiersPanel({ initialTiers, initialLimits }: Props) {
   }
 
   function handleFeaturedChange(tierId: string) {
-    // Automatically unfeature all other tiers in local state when one is featured
     setTiers((prev) =>
       prev.map((t) => ({
         ...t,
         is_featured: t.id === tierId ? true : false,
       }))
     );
+  }
+
+  function handleTrialSaved(
+    settings: TrialSettings | null,
+    newLimits: TrialFeatureLimit[]
+  ) {
+    setTrialSettings(settings);
+    setTrialLimits(newLimits);
   }
 
   async function handleAddTier() {
@@ -67,9 +93,10 @@ export function TiersPanel({ initialTiers, initialLimits }: Props) {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Subscription Tiers</h1>
+          <h1 className="text-xl font-semibold text-white">Plans & Limits</h1>
           <p className="mt-1 text-sm text-white/40">
-            Manage pricing tiers and feature limits. Changes take effect immediately.
+            Manage the free trial and paid subscription tiers. Changes take effect
+            immediately.
           </p>
         </div>
         <button
@@ -88,6 +115,16 @@ export function TiersPanel({ initialTiers, initialLimits }: Props) {
           New Tier
         </button>
       </div>
+
+      <TrialCard
+        initialSettings={trialSettings}
+        initialLimits={trialLimits}
+        onSaved={handleTrialSaved}
+      />
+
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/35">
+        Paid tiers
+      </h2>
 
       <div className="flex flex-col gap-4">
         {tiers.map((tier) => (

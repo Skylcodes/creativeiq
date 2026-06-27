@@ -44,7 +44,7 @@ export function BulletListEditor({
 
   function handleKeyDown(
     index: number,
-    event: React.KeyboardEvent<HTMLInputElement>
+    event: React.KeyboardEvent<HTMLInputElement>,
   ) {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -54,11 +54,7 @@ export function BulletListEditor({
       return;
     }
 
-    if (
-      event.key === "Backspace" &&
-      !items[index] &&
-      items.length > 1
-    ) {
+    if (event.key === "Backspace" && !items[index] && items.length > 1) {
       event.preventDefault();
       removeItem(index);
       requestAnimationFrame(() => {
@@ -71,13 +67,11 @@ export function BulletListEditor({
 
   return (
     <div>
-      <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-text-primary">{label}</p>
+          <p className="text-sm font-medium text-white/75">{label}</p>
           {description && (
-            <p className="mt-1 text-xs leading-relaxed text-text-muted">
-              {description}
-            </p>
+            <p className="mt-1 text-xs text-white/40">{description}</p>
           )}
         </div>
         {!disabled && (
@@ -85,9 +79,9 @@ export function BulletListEditor({
             type="button"
             onClick={addItem}
             disabled={visibleItems.length >= maxItems}
-            className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/8 disabled:cursor-not-allowed disabled:opacity-40"
+            className="app-chip shrink-0 text-[11px] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Add point
+            Add
           </button>
         )}
       </div>
@@ -95,7 +89,7 @@ export function BulletListEditor({
       <div className="space-y-2">
         {visibleItems.map((item, index) => (
           <div key={index} className="group flex items-center gap-2">
-            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent/50" />
+            <span className="h-1 w-1 shrink-0 rounded-full bg-white/25" />
             <input
               ref={(el) => {
                 inputRefs.current[index] = el;
@@ -106,13 +100,13 @@ export function BulletListEditor({
               onKeyDown={(e) => handleKeyDown(index, e)}
               placeholder={placeholder}
               disabled={disabled}
-              className="input-field w-full disabled:cursor-not-allowed disabled:opacity-60"
+              className="input-field w-full min-w-0 disabled:cursor-not-allowed disabled:opacity-60"
             />
             {!disabled && visibleItems.length > 1 && (
               <button
                 type="button"
                 onClick={() => removeItem(index)}
-                className="dropdown-item flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-text-muted opacity-0 group-hover:opacity-100"
+                className="dropdown-item flex h-8 w-8 shrink-0 items-center justify-center rounded-lg opacity-0 transition-opacity group-hover:opacity-100"
                 aria-label="Remove point"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
@@ -123,13 +117,6 @@ export function BulletListEditor({
           </div>
         ))}
       </div>
-
-      {!disabled && (
-        <p className="mt-2 text-[11px] text-text-muted">
-          Press Enter to add another point. Backspace on an empty line to remove.
-          {maxItems ? ` Max ${maxItems}.` : ""}
-        </p>
-      )}
     </div>
   );
 }

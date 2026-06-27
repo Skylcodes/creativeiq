@@ -9,34 +9,34 @@ export function EmptyDashboardVisual() {
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="premium-card premium-card-elevated relative overflow-hidden rounded-2xl"
+        className="landing-preview-frame-dark relative overflow-hidden rounded-[26px]"
       >
-        <div className="flex items-center gap-2 border-b border-black/[0.04] px-4 py-2.5">
+        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
           <div className="flex gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[#ff5f57]" />
             <span className="h-2 w-2 rounded-full bg-[#febc2e]" />
             <span className="h-2 w-2 rounded-full bg-[#28c840]" />
           </div>
-          <span className="mx-auto text-[11px] text-text-muted">
+          <span className="mx-auto text-[11px] text-white/45">
             Funnel Intelligence
           </span>
         </div>
 
         <div className="space-y-2.5 p-4">
           <div className="flex gap-2.5">
-            <div className="flex-1 rounded-xl bg-black/[0.03] p-2.5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            <div className="flex-1 rounded-xl app-inset p-2.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">
                 Brand
               </p>
-              <p className="mt-1 text-sm font-semibold text-text-primary">
+              <p className="mt-1 text-sm font-semibold text-white/90">
                 yourbrand.com
               </p>
             </div>
-            <div className="flex-1 rounded-xl bg-accent/8 p-2.5 ring-1 ring-accent/10">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-accent">
+            <div className="flex-1 rounded-xl border border-accent/20 bg-accent/10 p-2.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-accent-tertiary">
                 Creative
               </p>
-              <div className="mt-1.5 flex h-12 items-center justify-center rounded-lg border border-black/[0.08] bg-surface-muted">
+              <div className="mt-1.5 flex h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
                 <svg
                   width="16"
                   height="16"
@@ -51,8 +51,8 @@ export function EmptyDashboardVisual() {
             </div>
           </div>
 
-          <div className="rounded-xl bg-black/[0.02] p-2.5">
-            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          <div className="rounded-xl app-inset p-2.5">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">
               Agent debate
             </p>
             <div className="flex flex-wrap gap-2">
@@ -76,16 +76,16 @@ export function EmptyDashboardVisual() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-accent/10 bg-accent/[0.03] p-2.5">
+          <div className="rounded-xl border border-accent/15 bg-accent/[0.06] p-2.5">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-accent">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-accent-tertiary">
                 Funnel Score
               </p>
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1 }}
-                className="font-display text-xl font-bold text-accent"
+                className="font-display text-xl font-bold text-accent-tertiary"
               >
                 78
               </motion.span>
@@ -102,10 +102,10 @@ export function EmptyDashboardVisual() {
                 transition={{ delay: 0.8 + i * 0.1 }}
                 className="mb-2 last:mb-0"
               >
-                <div className="mb-1 flex justify-between text-[10px] text-text-muted">
+                <div className="mb-1 flex justify-between text-[10px] text-white/40">
                   <span>{bar.label}</span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.05]">
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
                   <motion.div
                     className="h-full rounded-full bg-accent"
                     initial={{ width: 0 }}

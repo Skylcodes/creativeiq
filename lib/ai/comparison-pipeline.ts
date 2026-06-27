@@ -334,6 +334,14 @@ export async function runComparisonPipeline(
         null,
         2
       ),
+      ...(intelligenceBriefText
+        ? [
+            "",
+            intelligenceBriefText,
+            "",
+            "Benchmark variants against market intelligence above. Which variant is most likely to outperform competitors on hook, style, and positioning?",
+          ]
+        : []),
       "",
       "Produce the head-to-head comparison report JSON. Do not change scores.",
     ].join("\n"),
@@ -370,6 +378,9 @@ export async function runComparisonPipeline(
       individualResults.every((r) => r.score < 65),
     recommendedHybrid: synthesis.recommendedHybrid,
     structuralDifferences: synthesis.structuralDifferences ?? "",
+    competitiveInsights: synthesis.competitiveInsights?.length
+      ? synthesis.competitiveInsights
+      : intelligenceBrief?.competitiveInsights,
   };
 
   const winner = rankings.find((r) => r.rank === 1) ?? rankings[0];

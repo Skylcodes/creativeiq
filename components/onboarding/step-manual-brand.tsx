@@ -87,7 +87,7 @@ export function StepManualBrand({
           onChange={(e) => setDescription(e.target.value)}
           rows={7}
           placeholder="Example: We sell premium cold-press skincare for women 30–50 who want clean ingredients without luxury markup. Our hero product is a $48 vitamin C serum. We compete on transparency and dermatologist-backed formulas…"
-          className="input-field w-full resize-none text-sm leading-relaxed"
+          className="input-field text-sm leading-relaxed"
         />
         <p className="mt-2 text-xs text-text-muted">
           Minimum 50 characters · Be specific about product, audience, and positioning

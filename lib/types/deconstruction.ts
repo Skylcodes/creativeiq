@@ -1,3 +1,5 @@
+import type { CompetitorAd } from "@/lib/types/report";
+
 export type DeconstructionStatus = "processing" | "completed" | "failed";
 
 export type EvidenceConfidence = "high" | "medium" | "low";
@@ -31,6 +33,8 @@ export type EvidenceReport = {
   caveat?: string;
   /** Meta ad copy snippet when fetched from Ad Library */
   adCopySnippet?: string;
+  /** Sample ads from advertiser lookup — reused for market context */
+  sampleAds?: CompetitorAd[];
   resolvedAdvertiser?: string;
 };
 
@@ -44,6 +48,9 @@ export type DeconstructionAnalysis = {
   structuralFramework: StructuralBeat[];
   offerMechanics: string;
   visualProduction: string;
+  /** How this ad compares to active market patterns */
+  marketComparison?: string;
+  competitiveInsights?: string[];
 };
 
 export type BrandTranslation = {
@@ -67,11 +74,21 @@ export type HonestAnalysis = {
   }[];
 };
 
+export type DeconstructionMarketContext = {
+  advertiser?: string;
+  category?: string;
+  competitorAdCount: number;
+  patternsSummary?: string;
+  competitiveInsights: string[];
+  sampleCompetitorHooks: string[];
+};
+
 export type DeconstructionReport = {
   schemaVersion: 1;
   generatedAt: string;
   mode: "deconstruction" | "honest_analysis";
   evidence: EvidenceReport;
+  marketContext?: DeconstructionMarketContext;
   /** Present when mode is deconstruction (high/medium) */
   deconstruction?: DeconstructionAnalysis;
   brandTranslation?: BrandTranslation;

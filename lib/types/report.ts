@@ -93,12 +93,22 @@ export type CriteriaChecklistItem = {
   note?: string;          // evidence for pass/fail or N/A reason
 };
 
+export type CreativeScoreBreakdown = {
+  strategicScore: number;
+  retentionScore: number;
+  /** Why attention/retention differs from strategic quality */
+  retentionVerdict?: string;
+};
+
 export type AnalysisReport = {
   schemaVersion: 1;
   generatedAt: string;
 
   overallFunnelScore: number;
+  /** Blended creative grade (strategy + retention) */
   creativeStrengthScore: number;
+  /** Strategic messaging quality vs watchability/retention */
+  creativeScoreBreakdown?: CreativeScoreBreakdown;
   conversionScore: ConversionScore;
 
   headline: string; // one-line executive summary
@@ -131,6 +141,9 @@ export type AnalysisReport = {
   // Evaluation criteria checklist — pass/fail per item for this analysis
   criteriaChecklist?: CriteriaChecklistItem[];
 
+  /** Market-grounded competitive notes (from intelligence + synthesis) */
+  competitiveInsights?: string[];
+
   // Raw agent transcripts (kept for transparency / future re-render)
   rawAgents: Record<string, string>;
 };
@@ -148,6 +161,8 @@ export type IcpSimulation = {
   personas: IcpPersona[];
 };
 
+export type CompetitorAdQuality = "high" | "medium" | "low";
+
 export type CompetitorAd = {
   advertiser: string;
   /** First ~300 chars of ad copy */
@@ -155,6 +170,53 @@ export type CompetitorAd = {
   cta: string;
   /** Days the ad has been running (undefined if unavailable) */
   runningDays?: number;
+  headline?: string;
+  platforms?: string[];
+  /** Inferred creative format signals (UGC-native, offer-led, etc.) */
+  formatSignals?: string[];
+  /** First-line hook pattern extracted from copy */
+  hookPattern?: string;
+  /** Estimated success signal — NOT proof of performance */
+  qualitySignal?: CompetitorAdQuality;
+  qualityNote?: string;
+  /** How many ads this advertiser has in the scraped set */
+  advertiserAdCount?: number;
+};
+
+/** Internal severity tier for confirmed checklist flaws — not shown in report UI */
+export type CriteriaSeverityTier = "critical" | "moderate" | "minor";
+
+export type ToleranceImperfection =
+  | "no_in_ad_price"
+  | "no_text_overlay"
+  | "simple_production"
+  | "no_urgency"
+  | "minimal_in_ad_social_proof"
+  | "no_quantified_proof"
+  | "soft_cta";
+
+/** Which checklist-style gaps successful competitor ads routinely tolerate */
+export type ToleranceSignal = {
+  imperfection: ToleranceImperfection;
+  label: string;
+  prevalence: "commonly_tolerated" | "inconsistent" | "rare_among_winners";
+  evidence: string;
+};
+
+export type MarketPatterns = {
+  dominantHooks: string[];
+  dominantAngles: string[];
+  commonCtas: string[];
+  longRunningAdCount: number;
+  heavyAdvertiserCount: number;
+  saturationNotes: string[];
+  differentiationOpportunities: string[];
+  /** What scaled ads in this niche look like for engagement */
+  engagementBenchmarks?: string[];
+  /** Imperfections commonly present even in high-signal ads */
+  toleranceSignals?: ToleranceSignal[];
+  /** Compact block for agent prompts */
+  summary: string;
 };
 
 export type IntelligenceBrief = {
@@ -177,10 +239,19 @@ export type IntelligenceBrief = {
   nicheSophistication?: string;
   /** Meta Ad Library: active competitor ads (empty if API not configured) */
   competitorAds: CompetitorAd[];
+  /** Deterministic patterns from scraped ads — no extra AI call */
+  marketPatterns?: MarketPatterns;
+  /** Pre-computed competitive insight lines for reports/UI */
+  competitiveInsights?: string[];
+  /** Category tolerance calibration — which flaws winners routinely have */
+  toleranceSignals?: ToleranceSignal[];
   sources: {
     tavilyEnabled: boolean;
     metaEnabled: boolean;
+    apifyEnabled?: boolean;
+    metaSource?: "apify" | "graph_api" | "none";
     adsFound: number;
+    adsHighQuality?: number;
     searchesRun: number;
   };
 };
@@ -192,14 +263,24 @@ export type VideoContext = {
   primaryMessaging?: string;
   /** Background music, lyrics, trending audio, SFX — not brand copy */
   backgroundAudioNote?: string;
-  /** Quoted on-screen text/captions from visual frame */
+  /** Quoted on-screen text/captions from sampled frames */
   onScreenText?: string;
   /** False when Whisper failed, API key missing, or file too large */
   transcriptAvailable: boolean;
-  /** Claude-generated description of the thumbnail frame */
+  /** Claude-generated description across sampled frames */
   visualDescription: string;
-  /** Number of frames that were analyzed (currently 0 or 1 via thumbnail) */
+  /** Per-frame chronological notes when multi-frame sampling succeeded */
+  visualTimeline?: string[];
+  /** Approximate capture times for sampled frames */
+  frameTimestamps?: string[];
+  /** Number of evenly spaced frames analyzed across the video */
   frameCount: number;
+  /** Seconds of video covered by visual sampling */
+  analyzedDurationSec?: number;
+  /** Total video duration in seconds when known */
+  videoDurationSec?: number;
+  /** timeline_sampling = ffmpeg frames; gemini_vertex = native full video; thumbnail_fallback = limited */
+  visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
   /** Non-fatal warnings from the video processing pipeline */
   processingNotes: string[];
 };

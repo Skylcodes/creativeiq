@@ -12,7 +12,21 @@ export function formatBrandProfileForPrompt(profile: BrandProfile): string {
   for (const key of PROMPT_OMIT_KEYS) {
     delete slim[key];
   }
-  return JSON.stringify(slim, null, 2);
+
+  const contextHeader = [
+    profile.category ? `Product category: ${profile.category}` : "",
+    profile.offerStructure ? `Offer structure: ${profile.offerStructure}` : "",
+    profile.offerGuarantee ? `Stated guarantee / risk reversal: ${profile.offerGuarantee}` : "",
+    profile.pricePointSignals ? `Price tier signals: ${profile.pricePointSignals}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (!contextHeader) {
+    return JSON.stringify(slim, null, 2);
+  }
+
+  return `${contextHeader}\n\n${JSON.stringify(slim, null, 2)}`;
 }
 
 /** Shorter landing page text for persona agents; conversion scorer gets the full page. */

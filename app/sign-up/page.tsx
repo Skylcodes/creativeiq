@@ -21,12 +21,13 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/dashboard");
+      router.replace("/onboarding");
     }
   }, [authLoading, user, router]);
 
@@ -37,7 +38,7 @@ export default function SignUpPage() {
     const { error: oauthError } = await createClient().auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
       },
     });
 
@@ -75,7 +76,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
       },
     });
 
@@ -86,13 +87,14 @@ export default function SignUpPage() {
     }
 
     if (data.user && !data.session) {
-      setError("");
+      setSuccessMessage(
+        "Account created! Check your email for a confirmation link, then sign in."
+      );
       setLoading(false);
-      router.push("/sign-in?message=check_email");
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/onboarding");
     router.refresh();
   }
 
@@ -107,7 +109,6 @@ export default function SignUpPage() {
   return (
     <AuthCard
       title="Create your account"
-      subtitle="Start stress-testing your ad funnels before you spend."
       footer={
         <p className="text-sm text-text-secondary">
           Already have an account?{" "}
@@ -129,6 +130,11 @@ export default function SignUpPage() {
         <AuthDivider />
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {successMessage && (
+            <div className="rounded-xl border border-accent-secondary/20 bg-accent-secondary/5 px-4 py-3 text-sm text-accent-secondary">
+              {successMessage}
+            </div>
+          )}
           <AuthInput
             label="Email"
             type="email"
@@ -163,7 +169,9 @@ export default function SignUpPage() {
           />
 
           <AuthError message={error} />
-          <SubmitButton loading={loading}>Create account</SubmitButton>
+          <SubmitButton loading={loading} disabled={Boolean(successMessage)}>
+            Create account
+          </SubmitButton>
         </form>
 
         <p className="text-center text-xs text-text-muted">

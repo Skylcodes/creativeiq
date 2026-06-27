@@ -45,18 +45,18 @@ export function DashboardActionCards() {
         >
           <Link
             href={card.href}
-            className="dash-action-card dash-card-interactive group flex h-full flex-col p-5"
+            className="dash-action-card dash-card-interactive group flex h-full flex-col p-5 md:p-6"
             style={{ borderTop: `3px solid ${card.accent}` }}
           >
             <div
-              className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${card.accentBg}`}
+              className={`mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 ${card.accentBg}`}
             >
               {card.icon}
             </div>
-            <h3 className="font-display text-[15px] font-semibold tracking-[-0.02em] text-text-primary">
+            <h3 className="font-display text-[15px] font-semibold tracking-[-0.02em] text-white">
               {card.title}
             </h3>
-            <p className="mt-1 flex-1 text-[13px] leading-relaxed text-text-secondary">
+            <p className="mt-1 flex-1 text-[13px] leading-relaxed text-white/55">
               {card.subtitle}
             </p>
             <span

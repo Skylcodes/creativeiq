@@ -260,7 +260,7 @@ export function NewAnalysisWizard({
               <button
                 type="button"
                 onClick={goBack}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-black/[0.04] hover:text-text-primary"
+                className="wizard-ghost-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium"
               >
                 <svg
                   width="14"
@@ -291,7 +291,7 @@ export function NewAnalysisWizard({
             <button
               type="button"
               onClick={() => setShowCancelModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-black/[0.04] hover:text-text-primary"
+              className="wizard-ghost-btn flex h-9 w-9 items-center justify-center rounded-full"
               aria-label="Cancel analysis"
             >
               <svg
@@ -420,7 +420,7 @@ export function NewAnalysisWizard({
                   disabled={isSubmitting}
                   whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                   whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
-                  className="group relative inline-flex w-full max-w-md items-center justify-center gap-3 overflow-hidden rounded-2xl bg-accent px-10 py-5 text-lg font-semibold text-white shadow-[0_12px_48px_rgba(105, 71, 255, 0.12)] transition-all duration-300 hover:shadow-[0_16px_56px_rgba(105, 71, 255, 0.12)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group relative inline-flex w-full max-w-md items-center justify-center gap-3 overflow-hidden rounded-2xl btn-premium px-10 py-5 text-lg font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   {isSubmitting ? (
@@ -455,7 +455,7 @@ export function NewAnalysisWizard({
                     </>
                   )}
                 </motion.button>
-                <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-text-muted">
+                <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/45">
                   Multiple AI agents will stress-test your full funnel. Full
                   report ready in under 3 minutes.
                 </p>

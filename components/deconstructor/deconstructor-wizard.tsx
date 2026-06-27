@@ -150,7 +150,6 @@ export function DeconstructorWizard({ workspace }: DeconstructorWizardProps) {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Intelligence"
         title="Winning Ad Deconstructor"
         description="Paste the competitor's product landing page and upload their ad. We verify evidence first, then break down why it works — and translate the strategy to your brand."
       />

@@ -1,9 +1,9 @@
 /**
  * Billing config — client-safe constants (no server-only imports).
  *
- * Trial limits are intentionally NOT sourced from the tier system. They are
- * fixed product-led-growth allowances, overridable via env so they can be
- * tuned without a deploy.
+ * Trial limits and duration are admin-configurable in the database
+ * (Admin → Plans & Limits). Env vars below are fallbacks when the DB
+ * tables are unavailable or not yet migrated.
  */
 
 import type { ActionFeature } from "@/lib/billing/account-types";
@@ -17,6 +17,9 @@ function envInt(name: string, fallback: number): number {
 
 /** Length of the free trial in days. */
 export const TRIAL_DURATION_DAYS = envInt("TRIAL_DURATION_DAYS", 14);
+
+/** Brand workspaces allowed during the free trial (lifetime cap). */
+export const TRIAL_WORKSPACE_LIMIT = envInt("TRIAL_WORKSPACE_LIMIT", 1);
 
 /** Grace period (days) after a failed renewal before messaging hardens. */
 export const PAYMENT_GRACE_DAYS = envInt("PAYMENT_GRACE_DAYS", 5);

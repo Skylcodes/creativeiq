@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import type { AnalysisReport } from "@/lib/types/report";
 import {
   effortLabel,
@@ -52,12 +51,9 @@ export function ActionPlanTab({ report }: ActionPlanTabProps) {
         ) : (
           <div className="mt-5 space-y-3">
             {masterList.map((item, i) => (
-              <motion.div
+              <div
                 key={i}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05, duration: 0.35 }}
-                className="premium-card rounded-2xl p-5"
+                className="dash-card rounded-xl p-4 md:p-5"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 font-display text-lg font-bold text-accent">
@@ -85,18 +81,20 @@ export function ActionPlanTab({ report }: ActionPlanTabProps) {
                     )}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
       </section>
 
-      <section className="premium-card premium-card-accent rounded-3xl p-8">
-        <p className="text-eyebrow-accent">Strategic Next Step</p>
-        <h2 className="mt-2 font-display text-2xl font-semibold text-text-primary">
+      <section className="dash-card rounded-xl p-5 md:p-6">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
+          Strategic next step
+        </p>
+        <h2 className="mt-2 text-lg font-semibold text-white">
           What to test next
         </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-text-secondary">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
           {hint}
         </p>
         <div className="mt-6">

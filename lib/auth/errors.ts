@@ -8,7 +8,18 @@ export function getAuthErrorMessage(error: unknown): string {
       ? error.message
       : "";
 
+  const code =
+    "code" in error && typeof error.code === "string" ? error.code : "";
+
   const lower = message.toLowerCase();
+  const lowerCode = code.toLowerCase();
+
+  if (
+    lowerCode.includes("over_email_send_rate_limit") ||
+    lower.includes("over_email_send_rate_limit")
+  ) {
+    return "Too many confirmation emails were sent. Wait a few minutes, check your inbox, or sign in if you already created an account.";
+  }
 
   if (lower.includes("invalid login credentials")) {
     return "Invalid email or password. Please try again.";
@@ -35,7 +46,13 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 
   if (lower.includes("rate limit") || lower.includes("too many requests")) {
-    return "Too many attempts. Please wait a moment and try again.";
+    if (
+      lower.includes("email") ||
+      lower.includes("over_email_send_rate_limit")
+    ) {
+      return "Too many confirmation emails were sent. Wait a few minutes, check your inbox, or sign in if you already created an account.";
+    }
+    return "Too many attempts. Please wait a few minutes and try again.";
   }
 
   if (lower.includes("same password")) {

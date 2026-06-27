@@ -28,15 +28,21 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
 
   const isProtected = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
+
+  // Skip Auth API calls on public pages that don't need session checks.
+  if (!isProtected && !isAuthRoute) {
+    return supabaseResponse;
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();

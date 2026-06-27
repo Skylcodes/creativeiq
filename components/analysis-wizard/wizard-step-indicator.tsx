@@ -16,21 +16,26 @@ type WizardStepIndicatorProps = {
 
 export function WizardStepIndicator({ currentStep, steps = DEFAULT_STEPS }: WizardStepIndicatorProps) {
   return (
-    <div className="flex items-center justify-center gap-2 md:gap-3">
+    <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-3">
       {steps.map((step, index) => {
         const isComplete = currentStep > step.num;
         const isActive = currentStep === step.num;
 
         return (
-          <div key={step.num} className="flex items-center gap-2 md:gap-3">
+          <div key={step.num} className="flex items-center gap-1 sm:gap-2 md:gap-3">
             <div className="flex flex-col items-center gap-1">
               <motion.div
                 animate={{
                   scale: isActive ? 1.05 : 1,
-                  backgroundColor: isComplete || isActive ? "#6947ff" : "rgba(0,0,0,0.04)",
+                  backgroundColor:
+                    isComplete || isActive
+                      ? "#6947ff"
+                      : "rgba(255, 255, 255, 0.08)",
                 }}
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                  isComplete || isActive ? "text-white shadow-[0_4px_12px_rgba(94, 80, 235,0.35)]" : "text-text-muted"
+                  isComplete || isActive
+                    ? "text-white shadow-[0_4px_12px_rgba(94,80,235,0.35)]"
+                    : "text-white/40"
                 }`}
               >
                 {isComplete ? (
@@ -43,7 +48,11 @@ export function WizardStepIndicator({ currentStep, steps = DEFAULT_STEPS }: Wiza
               </motion.div>
               <span
                 className={`hidden text-[10px] font-medium sm:block ${
-                  isActive ? "text-accent" : isComplete ? "text-text-secondary" : "text-text-muted"
+                  isActive
+                    ? "text-accent-tertiary"
+                    : isComplete
+                      ? "text-white/55"
+                      : "text-white/40"
                 }`}
               >
                 {step.label}
@@ -51,7 +60,7 @@ export function WizardStepIndicator({ currentStep, steps = DEFAULT_STEPS }: Wiza
             </div>
 
             {index < steps.length - 1 && (
-              <div className="relative h-px w-6 overflow-hidden bg-black/[0.06] md:w-10">
+              <div className="relative h-px w-3 overflow-hidden bg-white/[0.08] sm:w-6 md:w-10">
                 <motion.div
                   className="absolute inset-y-0 left-0 bg-accent"
                   initial={{ width: "0%" }}

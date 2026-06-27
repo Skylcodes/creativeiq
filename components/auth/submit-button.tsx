@@ -2,14 +2,15 @@
 
 type SubmitButtonProps = {
   loading: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
 };
 
-export function SubmitButton({ loading, children }: SubmitButtonProps) {
+export function SubmitButton({ loading, disabled, children }: SubmitButtonProps) {
   return (
     <button
       type="submit"
-      disabled={loading}
+      disabled={loading || disabled}
       className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
     >
       {loading ? (

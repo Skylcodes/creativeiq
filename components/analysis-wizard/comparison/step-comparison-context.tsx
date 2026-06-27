@@ -59,10 +59,8 @@ export function StepComparisonContext({
       </p>
 
       <div className="mt-8 space-y-6">
-        <div>
-          <label className="text-sm font-medium text-text-primary">
-            Landing page URL
-          </label>
+        <div className="field-stack">
+          <label className="field-label">Landing page URL</label>
           <input
             type="url"
             value={landingPageUrl}
@@ -71,7 +69,7 @@ export function StepComparisonContext({
               onLandingError(null);
             }}
             placeholder="https://yourbrand.com/landing-page"
-            className={`input-field mt-2 px-4 py-3.5 text-sm ${
+            className={`input-field text-sm ${
               landingError ? "border-[#ef4444] focus:border-[#ef4444]" : ""
             }`}
           />

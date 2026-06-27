@@ -66,10 +66,10 @@ export function BriefExperience({
   if (brief.status === "failed") {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-6 text-center">
-        <h1 className="font-display text-xl font-semibold text-text-primary">
+        <h1 className="font-display text-xl font-semibold text-white">
           Brief generation failed
         </h1>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-white/55">
           {brief.error_message ?? "Something went wrong."}
         </p>
         <button type="button" onClick={handleRetry} className="btn-premium mt-6 text-sm">

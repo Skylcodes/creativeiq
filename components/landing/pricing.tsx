@@ -51,23 +51,36 @@ export async function Pricing({
   }
 
   return (
-    <section id="pricing" className="relative py-24 md:py-32">
+    <section
+      id="pricing"
+      className="landing-section-pricing relative overflow-x-clip py-24 md:py-32"
+    >
+      {/* Subtle grid */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
+          backgroundSize: "32px 32px",
+        }}
+      />
+
       {/* Ambient glow */}
       <div
         className="pointer-events-none absolute left-1/2 top-0 h-[28rem] w-[44rem] -translate-x-1/2 rounded-full"
-        style={{ background: "radial-gradient(ellipse, rgba(105,71,255,0.12) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(ellipse, rgba(105,71,255,0.18) 0%, transparent 70%)" }}
       />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-8">
         {/* Header */}
         <div className="mx-auto mb-16 max-w-xl text-center">
-          <span className="mb-4 inline-flex rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-accent/80">
+          <span className="mb-4 inline-flex rounded-full border border-accent/25 bg-accent/12 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-accent-tertiary">
             Pricing
           </span>
           <h2 className="font-display text-4xl font-semibold tracking-[-0.045em] text-white md:text-5xl">
             Simple, transparent pricing
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-white/50">
+          <p className="mt-4 text-base leading-relaxed text-white/60">
             One price. No per-seat fees. Cancel anytime.
           </p>
         </div>

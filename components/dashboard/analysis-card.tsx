@@ -83,9 +83,9 @@ export function AnalysisCard({
       >
         <Link
           href={`/report/${analysis.id}`}
-          className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[#fafbfc] md:px-6"
+          className="group flex items-center gap-4 px-5 py-4 transition-all duration-250 hover:bg-white/[0.04] md:px-6"
         >
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-black/6 bg-white">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
             <CreativeThumbnail analysis={analysis} />
           </div>
 
@@ -139,9 +139,9 @@ export function AnalysisCard({
       transition={{ duration: 0.45, delay: index * 0.08, ease: EASE_PREMIUM }}
       className="group"
     >
-      <div className="dash-card dash-card-interactive overflow-hidden">
+      <div className="dash-card dash-card-interactive noise-overlay overflow-hidden">
         <div className="flex items-start gap-4 p-4 md:p-5">
-          <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl border border-black/6">
+          <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
             <CreativeThumbnail analysis={analysis} />
           </div>
 
@@ -173,10 +173,10 @@ export function AnalysisCard({
           </div>
         </div>
 
-        <div className="border-t border-black/5 px-4 pb-4 pt-3 md:px-5">
+        <div className="border-t border-white/[0.06] px-4 pb-4 pt-3 md:px-5">
           <Link
             href={`/report/${analysis.id}`}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#f6f7fb] py-2.5 text-[13px] font-semibold text-text-primary transition-all duration-200 group-hover:bg-[#6947ff]/10 group-hover:text-[#4c3d8f]"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-[13px] font-semibold text-white/88 backdrop-blur-sm transition-all duration-250 group-hover:border-accent/28 group-hover:bg-accent/12 group-hover:text-white"
           >
             View Report
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>

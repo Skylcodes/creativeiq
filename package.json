@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@google/genai": "^2.10.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "@tavily/core": "^0.7.5",

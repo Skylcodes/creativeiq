@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 
-type WorkspaceStat = {
-  workspace_id: string;
-  workspace_name: string;
+type AccountStat = {
+  account_id: string;
+  account_label: string;
+  workspace_count: number;
   subscription_tier_key: string;
   usage: Record<string, number>;
   limits: Record<string, number>;
@@ -13,17 +14,17 @@ type WorkspaceStat = {
 type Props = {
   tiers: { id: string; key: string; display_name: string }[];
   tierCounts: Record<string, number>;
-  workspaceStats: WorkspaceStat[];
+  accountStats: AccountStat[];
   featureLabels: Record<string, string>;
 };
 
-export function UsageDashboard({ tiers, tierCounts, workspaceStats, featureLabels }: Props) {
+export function UsageDashboard({ tiers, tierCounts, accountStats, featureLabels }: Props) {
   const [filterTier, setFilterTier] = useState<string>("all");
 
   const filtered =
     filterTier === "all"
-      ? workspaceStats
-      : workspaceStats.filter((w) => w.subscription_tier_key === filterTier);
+      ? accountStats
+      : accountStats.filter((a) => a.subscription_tier_key === filterTier);
 
   const featureKeys = Object.keys(featureLabels);
 
@@ -32,11 +33,10 @@ export function UsageDashboard({ tiers, tierCounts, workspaceStats, featureLabel
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-white">Usage Dashboard</h1>
         <p className="mt-1 text-sm text-white/40">
-          Read-only view of platform usage this period. If everyone is hitting their limit, revisit the tier pricing.
+          Account-wide usage (pooled across all brand workspaces). Limits reset monthly or daily per feature.
         </p>
       </div>
 
-      {/* Tier subscriber counts */}
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {tiers.map((t) => (
           <button
@@ -52,7 +52,7 @@ export function UsageDashboard({ tiers, tierCounts, workspaceStats, featureLabel
             <p className="text-2xl font-semibold text-white">
               {tierCounts[t.key] ?? 0}
             </p>
-            <p className="mt-1 text-xs text-white/40">{t.display_name} workspaces</p>
+            <p className="mt-1 text-xs text-white/40">{t.display_name} subscribers</p>
           </button>
         ))}
         <button
@@ -64,24 +64,21 @@ export function UsageDashboard({ tiers, tierCounts, workspaceStats, featureLabel
               : "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]",
           ].join(" ")}
         >
-          <p className="text-2xl font-semibold text-white">
-            {workspaceStats.length}
-          </p>
-          <p className="mt-1 text-xs text-white/40">Total workspaces</p>
+          <p className="text-2xl font-semibold text-white">{accountStats.length}</p>
+          <p className="mt-1 text-xs text-white/40">Active accounts (usage)</p>
         </button>
       </div>
 
-      {/* Per-workspace usage */}
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-white/[0.06] py-16 text-center text-sm text-white/30">
-          No workspaces found.
+          No usage this period.
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {filtered.map((ws) => (
-            <WorkspaceUsageCard
-              key={ws.workspace_id}
-              ws={ws}
+          {filtered.map((account) => (
+            <AccountUsageCard
+              key={account.account_id}
+              account={account}
               featureKeys={featureKeys}
               featureLabels={featureLabels}
             />
@@ -92,36 +89,40 @@ export function UsageDashboard({ tiers, tierCounts, workspaceStats, featureLabel
   );
 }
 
-function WorkspaceUsageCard({
-  ws,
+function AccountUsageCard({
+  account,
   featureKeys,
   featureLabels,
 }: {
-  ws: WorkspaceStat;
+  account: AccountStat;
   featureKeys: string[];
   featureLabels: Record<string, string>;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  // Check if any feature is at or near limit
   const hasAlert = featureKeys.some((k) => {
-    const limit = ws.limits[k];
-    const used = ws.usage[k] ?? 0;
+    const limit = account.limits[k];
+    const used = account.usage[k] ?? 0;
     if (!limit || limit === -1) return false;
     return used / limit >= 0.8;
   });
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
       <button
         className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-white/[0.02]"
         onClick={() => setExpanded((e) => !e)}
       >
         <div className="flex items-center gap-3">
-          <span className="font-medium text-white/80">{ws.workspace_name}</span>
+          <span className="font-medium text-white/80">{account.account_label}</span>
           <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-xs text-white/30">
-            {ws.subscription_tier_key}
+            {account.subscription_tier_key}
           </span>
+          {account.workspace_count > 1 && (
+            <span className="text-xs text-white/30">
+              {account.workspace_count} workspaces
+            </span>
+          )}
           {hasAlert && (
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
               Near limit
@@ -146,8 +147,8 @@ function WorkspaceUsageCard({
         <div className="border-t border-white/[0.04] px-5 pb-5 pt-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {featureKeys.map((k) => {
-              const limit = ws.limits[k];
-              const used = ws.usage[k] ?? 0;
+              const limit = account.limits[k];
+              const used = account.usage[k] ?? 0;
               const unlimited = limit === -1;
               const pct = unlimited || !limit ? 0 : Math.min(100, (used / limit) * 100);
               const isHigh = pct >= 80;

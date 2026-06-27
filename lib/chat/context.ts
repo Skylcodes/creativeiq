@@ -58,6 +58,7 @@ function funnelReportBlock(report: AnalysisReport): string {
     {
       overallFunnelScore: report.overallFunnelScore,
       creativeStrengthScore: report.creativeStrengthScore,
+      creativeScoreBreakdown: report.creativeScoreBreakdown,
       conversionScore: report.conversionScore,
       headline: report.headline,
       agentFindings: report.agentFindings,

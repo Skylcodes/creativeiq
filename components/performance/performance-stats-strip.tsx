@@ -30,18 +30,18 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay, ease: EASE_PREMIUM }}
     >
-      <PremiumCard padding="md">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted">
+      <PremiumCard padding="md" className="dash-card !border-white/10 !bg-white/[0.04] p-5 md:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
           {label}
         </p>
         <p
-          className="mt-2 font-display text-3xl font-bold tracking-tight"
+          className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-white"
           style={accent ? { color: accent } : undefined}
         >
           {value}
         </p>
         {sub && (
-          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-text-secondary">
+          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/55">
             {sub}
           </p>
         )}

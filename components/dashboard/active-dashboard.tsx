@@ -30,19 +30,24 @@ export function ActiveDashboard({
   testQueueCount,
 }: ActiveDashboardProps) {
   return (
-    <PageShell ambient={false} grid={false} className="px-4 pb-10 pt-5 md:px-7 md:pb-12 md:pt-6">
+    <PageShell ambient grid>
       <FadeUp>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[12px] font-medium text-text-muted">
+            <div className="app-eyebrow">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-tertiary opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-tertiary" />
+              </span>
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
               })}
-            </p>
-            <h1 className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-text-primary md:text-[1.75rem]">
-              Welcome back, {displayName}
+            </div>
+            <h1 className="mt-3 font-display text-2xl font-semibold tracking-[-0.045em] text-white md:text-[2rem]">
+              Welcome back,{" "}
+              <span className="text-gradient-accent">{displayName}</span>
             </h1>
           </div>
           <WorkspaceHeader workspace={workspace} compact />

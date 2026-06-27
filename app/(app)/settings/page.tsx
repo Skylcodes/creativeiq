@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { DashboardError } from "@/components/dashboard/dashboard-error";
+import { getAccountUsageSummary } from "@/lib/billing/usage-summary";
 import { getAccountSettingsData } from "@/lib/settings/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,9 +16,13 @@ export default async function AccountSettingsPage() {
   if (!user) redirect("/sign-in?redirectTo=/settings");
 
   let data;
+  let usageSummary;
 
   try {
-    data = await getAccountSettingsData(user);
+    [data, usageSummary] = await Promise.all([
+      getAccountSettingsData(user),
+      getAccountUsageSummary(user.id),
+    ]);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to load settings.";
@@ -31,6 +36,7 @@ export default async function AccountSettingsPage() {
       avatarUrl={data.avatarUrl}
       workspaces={data.workspaces}
       activeWorkspaceId={data.activeWorkspaceId}
+      usageSummary={usageSummary}
     />
   );
 }

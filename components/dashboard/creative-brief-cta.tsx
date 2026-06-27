@@ -17,7 +17,7 @@ export function CreativeBriefCta({
       <motion.div whileHover={{ y: -2 }} className={className}>
         <Link
           href="/brief/new"
-          className="group flex h-full flex-col dashboard-panel p-5 transition-all hover:bg-white hover:shadow-[0_12px_36px_rgba(217,119,6,0.12)] hover:ring-[#d97706]/20"
+          className="group flex h-full flex-col dash-action-card dash-card-interactive p-5 md:p-6"
         >
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#d97706]/10">
             <svg
@@ -79,7 +79,7 @@ export function CreativeBriefCta({
       <motion.div whileHover={{ scale: 1.02 }} className={className}>
         <Link
           href="/brief/new"
-          className="group flex flex-col items-center rounded-2xl border-2 border-[#d97706]/25 bg-white px-8 py-5 text-center shadow-[0_4px_24px_rgba(217,119,6,0.08)] transition-all hover:border-[#d97706]/40"
+          className="group flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-5 text-center backdrop-blur-xl transition-all duration-350 hover:-translate-y-0.5 hover:border-[#d97706]/28 hover:bg-white/[0.07] hover:shadow-[0_0_48px_rgba(217,119,6,0.12)]"
         >
           <span className="inline-flex items-center gap-2 font-semibold text-[#d97706]">
             <svg
@@ -119,7 +119,7 @@ export function CreativeBriefCta({
     <div className={`flex flex-col items-start gap-1 ${className}`}>
       <Link
         href="/brief/new"
-        className="inline-flex items-center gap-2 rounded-full border-2 border-[#d97706]/30 bg-white px-5 py-2.5 text-[13px] font-semibold text-[#d97706] shadow-sm transition-all hover:border-[#d97706]/50 hover:bg-[#d97706]/[0.03]"
+        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[13px] font-semibold text-[#f59e0b] backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-[#d97706]/28 hover:bg-white/[0.07]"
       >
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
           <rect

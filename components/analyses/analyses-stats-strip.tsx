@@ -10,9 +10,10 @@ type AnalysesStatsStripProps = {
 
 export function AnalysesStatsStrip({ metrics }: AnalysesStatsStripProps) {
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3.5 sm:grid-cols-3">
       <MetricTile
         label="Total Analyses"
+        tone="orange"
         value={<AnimatedNumber value={metrics.totalAnalyses} />}
         delay={0}
         icon={
@@ -23,6 +24,7 @@ export function AnalysesStatsStrip({ metrics }: AnalysesStatsStripProps) {
       />
       <MetricTile
         label="Avg. Funnel Score"
+        tone="purple"
         value={
           metrics.averageFunnelScore !== null ? (
             <AnimatedNumber value={metrics.averageFunnelScore} />
@@ -41,6 +43,7 @@ export function AnalysesStatsStrip({ metrics }: AnalysesStatsStripProps) {
       />
       <MetricTile
         label="Highest Score"
+        tone="teal"
         value={
           metrics.highestFunnelScore !== null ? (
             <AnimatedNumber value={metrics.highestFunnelScore} />

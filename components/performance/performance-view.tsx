@@ -35,7 +35,6 @@ export function PerformanceView({ data, workspaceId }: PerformanceViewProps) {
     return (
       <PageShell>
         <PageHeader
-          eyebrow="Analytics"
           title="Creative Performance"
           description={data.workspaceName}
         />
@@ -47,7 +46,6 @@ export function PerformanceView({ data, workspaceId }: PerformanceViewProps) {
   return (
     <PageShell className={`transition-opacity ${switching ? "opacity-60" : "opacity-100"}`}>
       <PageHeader
-        eyebrow="Analytics"
         title="Creative Performance"
         description={`Track score trends and creative evolution for ${data.workspaceName}`}
       />
@@ -66,11 +64,11 @@ export function PerformanceView({ data, workspaceId }: PerformanceViewProps) {
         )}
 
         <FadeUp delay={0.15}>
-          <PremiumCard variant="elevated" padding="lg">
-            <h2 className="font-display text-lg font-semibold text-text-primary">
+          <PremiumCard variant="elevated" padding="lg" className="dash-card">
+            <h2 className="font-display text-lg font-semibold text-white">
               Score Trend
             </h2>
-            <p className="mt-1 text-[13px] text-text-secondary">
+            <p className="mt-1 text-[13px] text-white/55">
               Every analysis score over time — hover for details
             </p>
             <div className="relative mt-8">

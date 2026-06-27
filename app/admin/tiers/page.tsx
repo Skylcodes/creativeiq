@@ -6,21 +6,29 @@ export const dynamic = "force-dynamic";
 export default async function AdminTiersPage() {
   const db = createAdminClient();
 
-  const [tiersRes, limitsRes] = await Promise.all([
-    db
-      .from("subscription_tiers")
-      .select("*")
-      .order("sort_order", { ascending: true }),
-    db
-      .from("tier_feature_limits")
-      .select("*")
-      .order("feature_key", { ascending: true }),
-  ]);
+  const [tiersRes, limitsRes, trialSettingsRes, trialLimitsRes] =
+    await Promise.all([
+      db
+        .from("subscription_tiers")
+        .select("*")
+        .order("sort_order", { ascending: true }),
+      db
+        .from("tier_feature_limits")
+        .select("*")
+        .order("feature_key", { ascending: true }),
+      db.from("trial_settings").select("*").limit(1).maybeSingle(),
+      db
+        .from("trial_feature_limits")
+        .select("*")
+        .order("feature_key", { ascending: true }),
+    ]);
 
   return (
     <TiersPanel
       initialTiers={tiersRes.data ?? []}
       initialLimits={limitsRes.data ?? []}
+      initialTrialSettings={trialSettingsRes.data ?? null}
+      initialTrialLimits={trialLimitsRes.data ?? []}
     />
   );
 }

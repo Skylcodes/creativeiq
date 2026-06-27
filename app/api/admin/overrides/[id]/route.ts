@@ -14,7 +14,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   const db = createAdminClient();
 
   const { error } = await db
-    .from("workspace_limit_overrides")
+    .from("account_limit_overrides")
     .delete()
     .eq("id", id);
 

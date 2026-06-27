@@ -2,7 +2,6 @@
 
 import { BulletListEditor } from "@/components/brand/bullet-list-editor";
 import { EditableField } from "@/components/brand/editable-field";
-import { PremiumCard } from "@/components/ui/premium-card";
 import type { BrandProfileForm } from "@/lib/brand-profile/form";
 
 type BrandProfileFormSectionsProps = {
@@ -12,27 +11,20 @@ type BrandProfileFormSectionsProps = {
   disabled?: boolean;
 };
 
-function Section({
+function SectionBlock({
   title,
-  description,
   children,
 }: {
   title: string;
-  description?: string;
   children: React.ReactNode;
 }) {
   return (
-    <PremiumCard padding="lg">
-      <div className="mb-6 border-b border-[rgba(55,41,111,0.07)] pb-4">
-        <h2 className="font-display text-lg font-semibold text-text-primary">
-          {title}
-        </h2>
-        {description && (
-          <p className="mt-1.5 text-sm text-text-secondary">{description}</p>
-        )}
-      </div>
-      <div className="space-y-5">{children}</div>
-    </PremiumCard>
+    <section className="px-6 py-7 md:px-8 md:py-8">
+      <h2 className="font-display text-base font-semibold tracking-[-0.02em] text-white">
+        {title}
+      </h2>
+      <div className="mt-5 space-y-5">{children}</div>
+    </section>
   );
 }
 
@@ -47,11 +39,8 @@ export function BrandProfileFormSections({
   }
 
   return (
-    <div className="space-y-5">
-      <Section
-        title="Brand Basics"
-        description="Core identity signals every analysis agent reads first."
-      >
+    <div className="dash-card divide-y divide-white/[0.08] overflow-hidden">
+      <SectionBlock title="Brand basics">
         <div className="grid gap-5 md:grid-cols-2">
           <EditableField
             label="Brand name"
@@ -75,7 +64,7 @@ export function BrandProfileFormSections({
           value={form.websiteUrl}
           onChange={(websiteUrl) => patch({ websiteUrl })}
           placeholder="https://yourbrand.com"
-          hint="Changing this and clicking Refresh from website will scrape the new URL."
+          hint="Use Refresh from website after changing this URL."
           disabled={disabled}
           error={fieldErrors?.websiteUrl}
         />
@@ -84,34 +73,28 @@ export function BrandProfileFormSections({
           label="Brand tone"
           value={form.toneOfVoice}
           onChange={(toneOfVoice) => patch({ toneOfVoice })}
-          placeholder="Bold and direct, Warm and educational, Premium and aspirational…"
+          placeholder="Bold and direct, Warm and educational…"
           disabled={disabled}
         />
-      </Section>
+      </SectionBlock>
 
-      <Section
-        title="Core Value Propositions"
-        description="The key reasons a customer should choose you over alternatives."
-      >
+      <SectionBlock title="Value propositions">
         <BulletListEditor
-          label="Value propositions"
+          label="Key value props"
           items={form.coreValuePropositions}
           onChange={(coreValuePropositions) => patch({ coreValuePropositions })}
-          placeholder="Ships in 24 hours, dermatologist-formulated, clinically proven results…"
+          placeholder="Ships in 24 hours, dermatologist-formulated…"
           maxItems={8}
           disabled={disabled}
         />
-      </Section>
+      </SectionBlock>
 
-      <Section
-        title="Target Customer"
-        description="Who you're selling to and what they're struggling with."
-      >
+      <SectionBlock title="Target customer">
         <EditableField
           label="Customer description"
           value={form.targetCustomer}
           onChange={(targetCustomer) => patch({ targetCustomer })}
-          placeholder="Health-conscious women 28–45 who've tried drugstore skincare without results…"
+          placeholder="Health-conscious women 28–45 who've tried drugstore skincare…"
           multiline
           disabled={disabled}
         />
@@ -125,38 +108,35 @@ export function BrandProfileFormSections({
         />
 
         <BulletListEditor
-          label="Key pain points"
+          label="Pain points"
           items={form.targetCustomerPainPoints}
           onChange={(targetCustomerPainPoints) =>
             patch({ targetCustomerPainPoints })
           }
-          placeholder="Adult acne that won't go away, wasted money on products that don't work…"
+          placeholder="Adult acne that won't go away…"
           disabled={disabled}
         />
 
         <BulletListEditor
-          label="Key desires"
+          label="Desires"
           items={form.targetCustomerDesires}
           onChange={(targetCustomerDesires) => patch({ targetCustomerDesires })}
-          placeholder="Clear skin without a 10-step routine, confidence in photos again…"
+          placeholder="Clear skin without a 10-step routine…"
           disabled={disabled}
         />
-      </Section>
+      </SectionBlock>
 
-      <Section
-        title="Offer Structure"
-        description="How your offer is priced, packaged, and de-risked."
-      >
+      <SectionBlock title="Offer">
         <div className="grid gap-5 md:grid-cols-2">
           <EditableField
             label="Price point"
             value={form.offerPricePoint}
             onChange={(offerPricePoint) => patch({ offerPricePoint })}
-            placeholder="$49 one-time, $29/month subscription…"
+            placeholder="$49 one-time, $29/month…"
             disabled={disabled}
           />
           <EditableField
-            label="Guarantee or risk reversal"
+            label="Guarantee"
             value={form.offerGuarantee}
             onChange={(offerGuarantee) => patch({ offerGuarantee })}
             placeholder="30-day money back guarantee"
@@ -165,36 +145,33 @@ export function BrandProfileFormSections({
         </div>
 
         <BulletListEditor
-          label="Key offer elements"
+          label="Offer elements"
           items={form.offerKeyElements}
           onChange={(offerKeyElements) => patch({ offerKeyElements })}
-          placeholder="Free shipping, Bundle discount, Limited time bonus…"
+          placeholder="Free shipping, Bundle discount…"
           disabled={disabled}
         />
-      </Section>
+      </SectionBlock>
 
-      <Section
-        title="Social Proof"
-        description="Trust signals and proof points your agents can reference."
-      >
+      <SectionBlock title="Social proof">
         <EditableField
-          label="Social proof availability"
+          label="Proof available"
           value={form.socialProofAvailability}
           onChange={(socialProofAvailability) =>
             patch({ socialProofAvailability })
           }
-          placeholder="500+ verified reviews, 4.8 stars, featured in Vogue…"
+          placeholder="500+ verified reviews, 4.8 stars…"
           disabled={disabled}
         />
 
         <BulletListEditor
-          label="Notable claims or results"
+          label="Notable claims"
           items={form.notableClaims}
           onChange={(notableClaims) => patch({ notableClaims })}
-          placeholder="94% saw clearer skin in 30 days, 50,000+ customers…"
+          placeholder="94% saw clearer skin in 30 days…"
           disabled={disabled}
         />
-      </Section>
+      </SectionBlock>
     </div>
   );
 }

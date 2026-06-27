@@ -292,7 +292,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
               <button
                 type="button"
                 onClick={goBack}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-black/[0.04] hover:text-text-primary"
+                className="wizard-ghost-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium"
               >
                 <svg
                   width="14"
@@ -323,7 +323,7 @@ export function ComparisonWizard({ workspace }: ComparisonWizardProps) {
             <button
               type="button"
               onClick={() => setShowCancelModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-black/[0.04] hover:text-text-primary"
+              className="wizard-ghost-btn flex h-9 w-9 items-center justify-center rounded-full"
               aria-label="Cancel comparison"
             >
               <svg

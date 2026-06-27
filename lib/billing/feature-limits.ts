@@ -1,6 +1,12 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAdminWorkspace, isAdminUserId } from "@/lib/admin/auth";
+import { isAdminUserId } from "@/lib/admin/auth";
+import {
+  countAccountWorkspaces,
+  countAccountUsage,
+} from "@/lib/billing/account";
+import type { AccountStatus } from "@/lib/billing/account-types";
+import { getTrialWorkspaceLimit } from "@/lib/billing/trial-limits";
 import { FEATURE_LABELS } from "@/lib/billing/feature-keys";
 export type { FeatureKey } from "@/lib/billing/feature-keys";
 export { FEATURE_LABELS, FEATURE_RESET_PERIODS } from "@/lib/billing/feature-keys";
@@ -12,105 +18,169 @@ export function isUnlimitedLimit(limit: number): boolean {
   return limit === UNLIMITED;
 }
 
-/** Use for account-level limits (e.g. workspaces per user). */
-export async function getAccountFeatureLimit(
-  userId: string,
-  workspaceId: string,
-  featureKey: string
-): Promise<number> {
-  if (await isAdminUserId(userId)) {
-    return UNLIMITED;
-  }
-  return getFeatureLimit(workspaceId, featureKey);
+const POOLED_USAGE_FEATURES = new Set([
+  "funnel_analyses",
+  "variant_comparisons",
+  "creative_briefs",
+  "ad_deconstructions",
+  "chat_messages",
+]);
+
+function isPooledFeature(featureKey: string): boolean {
+  return POOLED_USAGE_FEATURES.has(featureKey);
 }
 
-// ─── Core limit lookup ────────────────────────────────────────────────────────
-
-/**
- * Returns the effective limit for (workspaceId, featureKey).
- *
- * Resolution order:
- *   0. Admin workspace owner (ADMIN_USER_EMAIL) → unlimited (-1)
- *   1. workspace_limit_overrides (if not expired)
- *   2. workspace.subscription_limit_snapshot[featureKey] (set at last renewal)
- *   3. Live tier_feature_limits for the workspace's subscription_tier_key
- *   4. Hard fallback: 0 (never silently allows unlimited access)
- *
- * -1 means unlimited everywhere in this system.
- */
-export async function getFeatureLimit(
-  workspaceId: string,
-  featureKey: string
-): Promise<number> {
-  if (await isAdminWorkspace(workspaceId)) {
-    return UNLIMITED;
-  }
-
+async function loadProfileLimitSnapshot(
+  userId: string
+): Promise<{ tierKey: string; snapshot: Record<string, number> | null }> {
   const db = createAdminClient();
-
-  // Step 1: Check workspace_limit_overrides
-  const { data: override } = await db
-    .from("workspace_limit_overrides")
-    .select("override_limit_value, expires_at")
-    .eq("workspace_id", workspaceId)
-    .eq("feature_key", featureKey)
-    .maybeSingle();
-
-  if (override) {
-    // Check if not expired
-    if (!override.expires_at || new Date(override.expires_at) > new Date()) {
-      return override.override_limit_value as number;
-    }
-  }
-
-  // Step 2 & 3: Get workspace + tier info in one query
-  const { data: workspace } = await db
-    .from("workspaces")
+  const { data: profile } = await db
+    .from("profiles")
     .select("subscription_tier_key, subscription_limit_snapshot")
-    .eq("id", workspaceId)
+    .eq("id", userId)
     .maybeSingle();
 
-  if (!workspace) return 0;
+  if (!profile) return { tierKey: "starter", snapshot: null };
 
-  // Step 2: Check the snapshot (limits locked in at last renewal)
-  const snapshot = workspace.subscription_limit_snapshot as Record<string, number> | null;
-  if (snapshot && Object.prototype.hasOwnProperty.call(snapshot, featureKey)) {
-    return snapshot[featureKey];
-  }
+  return {
+    tierKey: (profile.subscription_tier_key as string) || "starter",
+    snapshot: profile.subscription_limit_snapshot as Record<string, number> | null,
+  };
+}
 
-  // Step 3: Live tier limits
-  const tierKey = (workspace.subscription_tier_key as string) || "starter";
+async function liveTierLimits(tierKey: string): Promise<Record<string, number>> {
+  const db = createAdminClient();
   const { data: tier } = await db
     .from("subscription_tiers")
     .select("id")
     .eq("key", tierKey)
     .maybeSingle();
 
-  if (!tier) return 0;
+  if (!tier) return {};
 
-  const { data: featureLimit } = await db
+  const { data: rows } = await db
     .from("tier_feature_limits")
-    .select("limit_value")
-    .eq("tier_id", tier.id)
+    .select("feature_key, limit_value")
+    .eq("tier_id", tier.id);
+
+  const limits: Record<string, number> = {};
+  for (const row of rows ?? []) {
+    limits[row.feature_key] = row.limit_value as number;
+  }
+  return limits;
+}
+
+async function loadAccountOverride(
+  userId: string,
+  featureKey: string
+): Promise<number | null> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("account_limit_overrides")
+    .select("override_limit_value, expires_at")
+    .eq("user_id", userId)
     .eq("feature_key", featureKey)
     .maybeSingle();
 
-  if (featureLimit) {
-    return featureLimit.limit_value as number;
+  if (!data) return null;
+
+  const expiresAt = data.expires_at as string | null;
+  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+    return null;
   }
 
-  // Step 4: Hard fallback — never silently allow unlimited access
-  return 0;
+  return data.override_limit_value as number;
+}
+
+/** Admin override for an account (null if none or expired). */
+export async function getAccountLimitOverride(
+  userId: string,
+  featureKey: string
+): Promise<number | null> {
+  return loadAccountOverride(userId, featureKey);
 }
 
 /**
- * Returns ALL feature limits for a workspace at once (batched, 1 round trip each step).
- * More efficient than calling getFeatureLimit() for each key individually.
+ * Effective limit for an account — pooled across all workspaces.
+ * Admin account_limit_overrides take precedence over tier/snapshot limits.
  */
-export async function getAllFeatureLimits(
-  workspaceId: string
+export async function getAccountFeatureLimit(
+  userId: string,
+  featureKey: string
+): Promise<number> {
+  if (await isAdminUserId(userId)) {
+    return UNLIMITED;
+  }
+
+  const override = await loadAccountOverride(userId, featureKey);
+  if (override !== null) {
+    return override;
+  }
+
+  const { tierKey, snapshot } = await loadProfileLimitSnapshot(userId);
+
+  let limit: number | undefined;
+  if (snapshot && Object.prototype.hasOwnProperty.call(snapshot, featureKey)) {
+    limit = snapshot[featureKey];
+  } else {
+    const live = await liveTierLimits(tierKey);
+    limit = live[featureKey];
+  }
+
+  if (limit === undefined) return 0;
+  return limit;
+}
+
+/**
+ * Lifetime workspace cap for an account (trial, paid tier, or blocked).
+ */
+export async function getAccountWorkspaceLimit(
+  userId: string,
+  accountStatus: AccountStatus,
+  stripeSubscriptionId?: string | null
+): Promise<number> {
+  if (await isAdminUserId(userId)) {
+    return UNLIMITED;
+  }
+
+  const override = await loadAccountOverride(userId, "workspaces");
+  if (override !== null) {
+    return override;
+  }
+
+  if (
+    accountStatus === "trialing" ||
+    (accountStatus === "paywalled" && !stripeSubscriptionId)
+  ) {
+    return getTrialWorkspaceLimit();
+  }
+
+  if (accountStatus === "active" || accountStatus === "payment_failed") {
+    return getAccountFeatureLimit(userId, "workspaces");
+  }
+
+  return 0;
+}
+
+/** Pooled usage for AI features; workspace count for `workspaces` key. */
+export async function getAccountFeatureUsage(
+  userId: string,
+  featureKey: string
+): Promise<number> {
+  if (featureKey === "workspaces" || featureKey === "user_seats") {
+    return countAccountWorkspaces(userId);
+  }
+  if (isPooledFeature(featureKey)) {
+    return countAccountUsage(userId, featureKey);
+  }
+  return 0;
+}
+
+/** All effective account-wide limits (includes admin overrides). */
+export async function getAllAccountFeatureLimits(
+  userId: string
 ): Promise<Record<string, number>> {
-  if (await isAdminWorkspace(workspaceId)) {
+  if (await isAdminUserId(userId)) {
     const unlimited: Record<string, number> = {};
     for (const key of Object.keys(FEATURE_LABELS)) {
       unlimited[key] = UNLIMITED;
@@ -118,116 +188,40 @@ export async function getAllFeatureLimits(
     return unlimited;
   }
 
-  const db = createAdminClient();
+  const { tierKey, snapshot } = await loadProfileLimitSnapshot(userId);
+  const live = await liveTierLimits(tierKey);
 
-  // Get workspace + overrides + tier in parallel
-  const [workspaceRes, overridesRes] = await Promise.all([
-    db
-      .from("workspaces")
-      .select("subscription_tier_key, subscription_limit_snapshot")
-      .eq("id", workspaceId)
-      .maybeSingle(),
-    db
-      .from("workspace_limit_overrides")
-      .select("feature_key, override_limit_value, expires_at")
-      .eq("workspace_id", workspaceId),
-  ]);
-
-  const workspace = workspaceRes.data;
-  if (!workspace) return {};
-
-  // Build override map (skip expired)
-  const overrideMap: Record<string, number> = {};
-  for (const ov of overridesRes.data ?? []) {
-    if (!ov.expires_at || new Date(ov.expires_at) > new Date()) {
-      overrideMap[ov.feature_key] = ov.override_limit_value as number;
-    }
-  }
-
-  // Get live tier limits
-  const tierKey = (workspace.subscription_tier_key as string) || "starter";
-  const { data: tier } = await db
-    .from("subscription_tiers")
-    .select("id")
-    .eq("key", tierKey)
-    .maybeSingle();
-
-  const liveLimits: Record<string, number> = {};
-  if (tier) {
-    const { data: rows } = await db
-      .from("tier_feature_limits")
-      .select("feature_key, limit_value")
-      .eq("tier_id", tier.id);
-
-    for (const row of rows ?? []) {
-      liveLimits[row.feature_key] = row.limit_value as number;
-    }
-  }
-
-  const snapshot = workspace.subscription_limit_snapshot as Record<string, number> | null;
-
-  // Merge: overrides > snapshot > live > 0
   const allKeys = new Set([
-    ...Object.keys(overrideMap),
     ...Object.keys(snapshot ?? {}),
-    ...Object.keys(liveLimits),
+    ...Object.keys(live),
     ...Object.keys(FEATURE_LABELS),
   ]);
 
   const result: Record<string, number> = {};
   for (const key of allKeys) {
-    if (Object.prototype.hasOwnProperty.call(overrideMap, key)) {
-      result[key] = overrideMap[key];
-    } else if (snapshot && Object.prototype.hasOwnProperty.call(snapshot, key)) {
-      result[key] = snapshot[key];
-    } else if (Object.prototype.hasOwnProperty.call(liveLimits, key)) {
-      result[key] = liveLimits[key];
-    } else {
-      result[key] = 0;
-    }
+    result[key] = await getAccountFeatureLimit(userId, key);
   }
 
   return result;
 }
 
 /**
- * Snapshots the current live tier limits onto a workspace's subscription record.
- * Call this at signup and renewal to lock in the tier's current limits.
+ * Snapshots tier limits onto the account profile after subscribe / plan change.
  */
-export async function snapshotTierLimitsForWorkspace(
-  workspaceId: string
+export async function snapshotTierLimitsForAccount(
+  userId: string,
+  tierKey: string
 ): Promise<void> {
   const db = createAdminClient();
-
-  const { data: workspace } = await db
-    .from("workspaces")
-    .select("subscription_tier_key")
-    .eq("id", workspaceId)
-    .maybeSingle();
-
-  if (!workspace) return;
-
-  const tierKey = (workspace.subscription_tier_key as string) || "starter";
-  const { data: tier } = await db
-    .from("subscription_tiers")
-    .select("id")
-    .eq("key", tierKey)
-    .maybeSingle();
-
-  if (!tier) return;
-
-  const { data: rows } = await db
-    .from("tier_feature_limits")
-    .select("feature_key, limit_value")
-    .eq("tier_id", tier.id);
-
-  const snapshot: Record<string, number> = {};
-  for (const row of rows ?? []) {
-    snapshot[row.feature_key] = row.limit_value as number;
-  }
+  const live = await liveTierLimits(tierKey);
+  if (!Object.keys(live).length) return;
 
   await db
-    .from("workspaces")
-    .update({ subscription_limit_snapshot: snapshot })
-    .eq("id", workspaceId);
+    .from("profiles")
+    .update({
+      subscription_limit_snapshot: live,
+      subscription_tier_key: tierKey,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
 }

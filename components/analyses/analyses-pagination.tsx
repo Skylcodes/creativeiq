@@ -41,9 +41,9 @@ export function AnalysesPagination({
 
   return (
     <div
-      className={`flex flex-col items-center justify-between gap-4 border-t border-[rgba(55,41,111,0.08)] pt-6 sm:flex-row ${isPending ? "opacity-70" : ""}`}
+      className={`flex flex-col items-center justify-between gap-4 border-t border-white/[0.08] pt-6 sm:flex-row ${isPending ? "opacity-70" : ""}`}
     >
-      <p className="text-sm text-text-muted">
+      <p className="text-sm text-white/45">
         Showing {from}–{to} of {totalCount} analyses
       </p>
 
@@ -58,7 +58,7 @@ export function AnalysesPagination({
 
         {pages.map((page, i) =>
           page === "…" ? (
-            <span key={`ellipsis-${i}`} className="px-2 text-sm text-text-muted">
+            <span key={`ellipsis-${i}`} className="px-2 text-sm text-white/40">
               …
             </span>
           ) : (
@@ -108,7 +108,7 @@ function PaginationButton({
       className={`flex h-9 min-w-9 items-center justify-center rounded-[var(--radius-sm)] px-2.5 text-sm font-medium transition-all ${
         active
           ? "nav-pill-active text-accent shadow-[var(--shadow-soft)]"
-          : "nav-pill text-text-secondary"
+          : "nav-pill text-white/55"
       } disabled:cursor-not-allowed disabled:opacity-40`}
     >
       {children}

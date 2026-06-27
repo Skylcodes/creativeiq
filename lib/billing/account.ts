@@ -175,12 +175,89 @@ export async function countTrialUsage(
   return count ?? 0;
 }
 
+function monthStartIso(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+}
+
+function todayStartIso(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString();
+}
+
 /**
- * Propagates the account's paid tier + a fresh limit snapshot down to every
- * workspace the user owns, so the existing per-workspace getFeatureLimit lookup
- * keeps working. Called from webhook handlers at checkout / renewal / plan change.
+ * Pooled usage for a paying account — summed across ALL workspaces.
+ * Monthly features reset on calendar month; chat resets daily.
  */
-export async function applyTierToUserWorkspaces(
+export async function countAccountUsage(
+  userId: string,
+  feature: ActionFeature
+): Promise<number> {
+  const db = createAdminClient();
+
+  if (feature === "funnel_analyses" || feature === "variant_comparisons") {
+    let query = db
+      .from("analyses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", monthStartIso());
+
+    query =
+      feature === "variant_comparisons"
+        ? query.eq("analysis_mode", "comparison")
+        : query.neq("analysis_mode", "comparison");
+
+    const { count } = await query;
+    return count ?? 0;
+  }
+
+  if (feature === "creative_briefs") {
+    const { count } = await db
+      .from("creative_briefs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", monthStartIso());
+    return count ?? 0;
+  }
+
+  if (feature === "ad_deconstructions") {
+    const { count } = await db
+      .from("ad_deconstructions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", monthStartIso());
+    return count ?? 0;
+  }
+
+  const { count } = await db
+    .from("creative_director_messages")
+    .select("id, creative_director_chats!inner(user_id)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("role", "user")
+    .eq("creative_director_chats.user_id", userId)
+    .gte("created_at", todayStartIso());
+
+  return count ?? 0;
+}
+
+/** How many brand workspaces this account has created. */
+export async function countAccountWorkspaces(userId: string): Promise<number> {
+  const db = createAdminClient();
+  const { count } = await db
+    .from("workspaces")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  return count ?? 0;
+}
+
+/**
+ * Applies tier + limit snapshot to the account profile.
+ * AI feature limits are enforced once per account (pooled), not per workspace.
+ */
+export async function applyTierToAccount(
   userId: string,
   tierKey: string,
   options?: { resnapshot?: boolean }
@@ -206,8 +283,20 @@ export async function applyTierToUserWorkspaces(
     }
   }
 
-  const update: Record<string, unknown> = { subscription_tier_key: tierKey };
-  if (snapshot) update.subscription_limit_snapshot = snapshot;
+  const profileUpdate: Record<string, unknown> = {
+    subscription_tier_key: tierKey,
+    updated_at: new Date().toISOString(),
+  };
+  if (snapshot) profileUpdate.subscription_limit_snapshot = snapshot;
 
-  await db.from("workspaces").update(update).eq("user_id", userId);
+  await db.from("profiles").update(profileUpdate).eq("id", userId);
+
+  // Keep workspace tier_key in sync for display only (limits live on profile).
+  await db
+    .from("workspaces")
+    .update({ subscription_tier_key: tierKey })
+    .eq("user_id", userId);
 }
+
+/** @deprecated Use applyTierToAccount */
+export const applyTierToUserWorkspaces = applyTierToAccount;

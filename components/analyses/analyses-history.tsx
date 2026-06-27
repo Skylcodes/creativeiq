@@ -84,16 +84,15 @@ export function AnalysesHistory({
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Intelligence Library"
         title="Analyses"
         description="Every funnel intelligence report for your workspace"
         action={
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <NewAnalysisCta label="New Analysis" size="compact" />
             <CompareVariantsCta size="compact" />
             <Link
               href="/brief"
-              className="text-[13px] font-medium text-[#d97706] hover:underline"
+              className="text-[13px] font-medium text-accent-tertiary hover:text-accent"
             >
               Creative Briefs →
             </Link>
@@ -124,11 +123,11 @@ export function AnalysesHistory({
           className={`mt-6 space-y-4 transition-opacity duration-200 ${isLoading ? "opacity-60" : "opacity-100"}`}
         >
           {showNoResults ? (
-            <PremiumCard padding="lg" className="text-center">
-              <p className="font-display text-lg font-semibold text-text-primary">
+            <PremiumCard padding="lg" className="dash-card text-center">
+              <p className="font-display text-lg font-semibold text-white">
                 No analyses match your filters
               </p>
-              <p className="mt-2 text-[13px] text-text-secondary">
+              <p className="mt-2 text-[13px] text-white/55">
                 Try adjusting your search, platform, or type filters.
               </p>
               {hasActiveFilters && (

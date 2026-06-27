@@ -60,6 +60,8 @@ export type ClaudeCallOptions = {
    */
   cachedContext?: string;
   image?: ImageInput;
+  /** Multiple frames in chronological order (video sampling). Takes precedence over `image`. */
+  images?: ImageInput[];
   maxTokens?: number;
   temperature?: number;
   timeoutMs?: number;
@@ -70,21 +72,32 @@ export type ClaudeCallOptions = {
   grading?: boolean;
 };
 
+function resolveImages(
+  image?: ImageInput,
+  images?: ImageInput[]
+): ImageInput[] {
+  if (images?.length) return images;
+  return image ? [image] : [];
+}
+
 function buildUserContent(
   prompt: string,
   image?: ImageInput,
-  cachedContext?: string
+  cachedContext?: string,
+  images?: ImageInput[]
 ): Anthropic.MessageParam["content"] {
+  const resolvedImages = resolveImages(image, images);
+
   if (cachedContext) {
     const blocks: Anthropic.ContentBlockParam[] = [];
 
-    if (image) {
+    for (const frame of resolvedImages) {
       blocks.push({
         type: "image",
         source: {
           type: "base64",
-          media_type: image.mediaType,
-          data: image.base64Data,
+          media_type: frame.mediaType,
+          data: frame.base64Data,
         },
       });
     }
@@ -105,18 +118,18 @@ function buildUserContent(
     return blocks;
   }
 
-  if (!image) return prompt;
+  if (resolvedImages.length === 0) return prompt;
 
   return [
-    {
-      type: "image",
+    ...resolvedImages.map((frame) => ({
+      type: "image" as const,
       source: {
-        type: "base64",
-        media_type: image.mediaType,
-        data: image.base64Data,
+        type: "base64" as const,
+        media_type: frame.mediaType,
+        data: frame.base64Data,
       },
-    },
-    { type: "text", text: prompt },
+    })),
+    { type: "text" as const, text: prompt },
   ];
 }
 
@@ -137,6 +150,7 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
     prompt,
     cachedContext,
     image,
+    images,
     maxTokens = 2400,
     temperature = 0.7,
     prefill,
@@ -149,7 +163,7 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: buildUserContent(prompt, image, cachedContext),
+      content: buildUserContent(prompt, image, cachedContext, images),
     },
   ];
   if (prefill) {

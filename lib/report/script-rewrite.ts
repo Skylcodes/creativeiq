@@ -6,21 +6,114 @@ const SECTION_STOP_RE =
 const REWRITE_HEADER_RE =
   /(?:^|\n)\s*(?:\d+\.\s*)?REWRITE:?\s*(?:\([^)\n]*\))?[\s\-—:]*/i;
 
-/** Spoken script body without production note or section labels. */
+/** Market/analysis copy that sometimes leaks into scriptRewrite from synthesis. */
+const META_SCRIPT_PATTERNS = [
+  /^\*\*[^*]+\*\*:?/,
+  /winning ad in this niche/i,
+  /be first in line when we open the doors/i,
+  /no credit card\.\s*no commitment/i,
+  /just early access to funnel intelligence/i,
+  /credibility anchor/i,
+  /creator-led ugc/i,
+  /\bfast cuts,?\s+(?:desk|work)/i,
+  /^\[.+\]\s*—\s*hook:/i,
+  /competitor(?:s)? (?:in this|are running)/i,
+  /scaled advertisers in this niche/i,
+  /pattern interrupt energy/i,
+  /^\s*format:\s/i,
+  /opening (?:frame|visual):\s/i,
+];
+
+const WAITLIST_SCRIPT_BLOCK_RE =
+  /^(?:\*\*[^*]+\*\*:?\s*)?(?:Be first in line when we open the doors\.\s*)?(?:No credit card\.\s*No commitment\.\s*)?(?:Just early access to funnel intelligence before you spend on ads\.\s*)+/i;
+
+const MIN_SPOKEN_WORDS = 50;
+
+/** Remove marketing / waitlist preambles that leak into scriptRewrite. */
+export function sanitizeScriptRewrite(text: string): string {
+  let trimmed = text.trim();
+  if (!trimmed) return "";
+
+  trimmed = trimmed.replace(WAITLIST_SCRIPT_BLOCK_RE, "").trim();
+
+  for (let i = 0; i < 4; i += 1) {
+    const next = trimmed
+      .replace(
+        /^(?:\*\*[^*]+\*\*:?|Be first in line[^\n]*|No credit card[^\n]*|Just early access[^\n]*)\s*\n?/i,
+        ""
+      )
+      .trim();
+    if (next === trimmed) break;
+    trimmed = next;
+  }
+
+  return trimmed;
+}
+
+/** Spoken script body without production note, labels, or marketing preambles. */
 export function spokenScriptBody(text: string): string {
-  return text
+  return sanitizeScriptRewrite(text)
     .replace(/^REWRITE:\s*/i, "")
     .replace(/\n*Production note:[\s\S]*$/i, "")
     .trim();
 }
 
-/** Spoken script body must have substance — not just a production note. */
-export function isValidScriptRewrite(text: string): boolean {
-  const body = spokenScriptBody(text);
-  const words = body.split(/\s+/).filter(Boolean).length;
+function scriptWordCount(text: string): number {
+  return spokenScriptBody(text).split(/\s+/).filter(Boolean).length;
+}
 
-  if (words < 25) return false;
-  if (/^production note:/i.test(text.trim()) && words < 15) return false;
+function isTruncatedScript(body: string): boolean {
+  const trimmed = body.trim();
+  if (!trimmed) return true;
+
+  // Ends mid-phrase — classic token-limit truncation
+  if (/\b(and|or|the|a|an|with|for|to|in|on|at|that|this)\s+a?\s*$/i.test(trimmed)) {
+    return true;
+  }
+  if (/[,;:\-—]\s*$/.test(trimmed)) return true;
+
+  const words = scriptWordCount(trimmed);
+  const lastLine = trimmed.split("\n").pop()?.trim() ?? "";
+  const endsCleanly = /[.!?"']$/.test(lastLine);
+
+  // Short body without a finished sentence is almost always truncated synthesis
+  if (words < 70 && !endsCleanly) return true;
+
+  return false;
+}
+
+function looksLikeMarketAnalysis(body: string): boolean {
+  const trimmed = body.trim();
+  if (!trimmed) return true;
+
+  const hits = META_SCRIPT_PATTERNS.filter((p) => p.test(trimmed)).length;
+  if (hits >= 1 && scriptWordCount(trimmed) < 80) return true;
+  if (hits >= 2) return true;
+
+  // Descriptive third-person brief with no spoken lines
+  const hasDialogue =
+    /\b(I'|I'm|I've|I'd|my |you |your |we're |we've )\b/i.test(body) ||
+    /"[^"]{12,}"/.test(body);
+  const hasBriefingTone =
+    /\b(debunking|anchor|fast cuts|desk\/work|niche right now|creator-led)\b/i.test(
+      body
+    );
+
+  return hasBriefingTone && !hasDialogue;
+}
+
+/** Spoken script body must be a complete deliverable — not analysis or a truncated fragment. */
+export function isValidScriptRewrite(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  const body = spokenScriptBody(trimmed);
+  const words = scriptWordCount(trimmed);
+
+  if (words < MIN_SPOKEN_WORDS) return false;
+  if (/^production note:/i.test(trimmed) && words < 20) return false;
+  if (isTruncatedScript(body)) return false;
+  if (looksLikeMarketAnalysis(body)) return false;
 
   return true;
 }
@@ -87,10 +180,6 @@ type ResolveScriptRewriteInput = {
   hookVariants?: HookVariant[];
 };
 
-function wordCount(text: string): number {
-  return spokenScriptBody(text).split(/\s+/).filter(Boolean).length;
-}
-
 function pickBestCandidate(candidates: string[]): string {
   const unique = [...new Set(candidates.map((c) => c.trim()).filter(Boolean))];
 
@@ -100,41 +189,29 @@ function pickBestCandidate(candidates: string[]): string {
     }
   }
 
-  const ranked = unique
-    .map((c) => ({ text: c, words: wordCount(c) }))
-    .filter((c) => c.words >= 20)
-    .sort((a, b) => b.words - a.words);
-
-  if (ranked[0]) return ranked[0].text.trim();
-
   return "";
 }
 
 /**
- * Picks the best full script rewrite, rejecting production-note-only outputs.
+ * Picks the best full script rewrite, rejecting production-note-only outputs,
+ * market-analysis leaks, and token-truncated fragments.
  */
 export function resolveScriptRewrite(input: ResolveScriptRewriteInput): string {
   const seed =
     input.drRewriteSeed?.trim() || extractScriptRewriteFromAgent(input.drCritic);
 
-  const candidates = [
-    input.synthesis?.trim(),
-    seed,
-  ].filter(Boolean) as string[];
+  const candidates = [input.synthesis?.trim(), seed]
+    .map((c) => (c ? sanitizeScriptRewrite(c) : c))
+    .filter(Boolean) as string[];
 
   const resolved = pickBestCandidate(candidates);
   if (resolved) return resolved;
 
-  const topHook = [...(input.hookVariants ?? [])]
-    .sort((a, b) => a.rank - b.rank)[0]?.hook?.trim();
-
-  if (topHook && seed) {
-    const seedBody = spokenScriptBody(seed);
-    if (
-      seedBody.toLowerCase().includes(topHook.toLowerCase().slice(0, 24)) ||
-      wordCount(seed) >= 20
-    ) {
-      return seed.trim();
+  // Only accept seed alone when it is a complete spoken script
+  if (seed) {
+    const cleaned = sanitizeScriptRewrite(seed);
+    if (cleaned && isValidScriptRewrite(cleaned)) {
+      return cleaned.trim();
     }
   }
 

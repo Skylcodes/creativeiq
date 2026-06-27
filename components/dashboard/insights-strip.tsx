@@ -39,9 +39,9 @@ export function InsightsStrip() {
   const insight = INSIGHTS[index];
 
   return (
-    <div className="dash-card p-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#6947ff]/10">
+    <div className="dash-card noise-overlay p-5 md:p-6">
+      <div className="flex items-start gap-3.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent/12">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
             <path
               d="M8 1.5L9.5 6H14L10.5 8.5L12 13L8 10.5L4 13L5.5 8.5L2 6H6.5L8 1.5Z"
@@ -54,10 +54,10 @@ export function InsightsStrip() {
 
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-center gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6947ff]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent-tertiary">
               Intelligence Tip
             </p>
-            <span className="text-[10px] text-text-muted">
+            <span className="text-[10px] text-white/38">
               · {insight.category}
             </span>
           </div>
@@ -70,7 +70,7 @@ export function InsightsStrip() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
-                className="text-[13px] leading-relaxed text-text-secondary"
+                className="text-[13px] leading-relaxed text-white/62"
               >
                 {insight.tip}
               </motion.p>
@@ -85,8 +85,8 @@ export function InsightsStrip() {
                 onClick={() => setIndex(i)}
                 className={`h-1 rounded-full transition-all duration-300 ${
                   i === index
-                    ? "w-5 bg-[#6947ff]"
-                    : "w-1.5 bg-black/10 hover:bg-black/20"
+                    ? "w-5 bg-accent shadow-[0_0_12px_rgba(105,71,255,0.5)]"
+                    : "w-1.5 bg-white/12 hover:bg-white/22"
                 }`}
                 aria-label={`Show insight ${i + 1}`}
               />

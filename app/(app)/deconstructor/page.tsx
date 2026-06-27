@@ -20,7 +20,6 @@ export default async function DeconstructorPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Intelligence"
         title="Ad Deconstructor"
         description="Paste a competitor landing page and upload their ad — we verify evidence, then deconstruct and translate the strategy to your brand."
         action={

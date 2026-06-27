@@ -22,11 +22,11 @@ export function PerformanceSnapshotWidget({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.2, ease: EASE_PREMIUM }}
       >
-        <div className="dash-card p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted">
+        <div className="dash-card noise-overlay p-5 md:p-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
             Performance Snapshot
           </p>
-          <p className="mt-3 text-[13px] leading-relaxed text-text-secondary">
+          <p className="mt-3 text-[13px] leading-relaxed text-white/55">
             Run 2 or more analyses to start tracking your creative performance
             trends.
           </p>
@@ -51,21 +51,21 @@ export function PerformanceSnapshotWidget({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: 0.2, ease: EASE_PREMIUM }}
     >
-      <div className="dash-card p-5">
+      <div className="dash-card noise-overlay p-5 md:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
               Performance Snapshot
             </p>
             {snapshot.averageScore !== null && (
-              <div className="mt-2 flex items-baseline gap-1.5">
+              <div className="mt-2.5 flex items-baseline gap-1.5">
                 <span
-                  className="font-display text-3xl font-bold tracking-tight"
+                  className="font-display text-3xl font-semibold tracking-[-0.04em]"
                   style={{ color: getReportScoreColor(snapshot.averageScore) }}
                 >
                   {snapshot.averageScore}
                 </span>
-                <span className="text-sm text-text-muted">avg score</span>
+                <span className="text-sm text-white/45">avg score</span>
               </div>
             )}
           </div>
@@ -79,14 +79,14 @@ export function PerformanceSnapshotWidget({
         </div>
 
         {snapshot.insight && (
-          <p className="mt-4 text-[13px] leading-relaxed text-text-secondary">
+          <p className="mt-4 text-[13px] leading-relaxed text-white/55">
             {snapshot.insight}
           </p>
         )}
 
         <Link
           href="/performance"
-          className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-[#4c3d8f] hover:text-accent"
+          className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-accent-tertiary transition-colors hover:text-accent"
         >
           View full performance
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>

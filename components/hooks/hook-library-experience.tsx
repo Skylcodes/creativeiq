@@ -145,7 +145,6 @@ export function HookLibraryExperience({
   return (
     <PageShell className="pb-28 md:pb-16">
       <PageHeader
-        eyebrow={workspace.name}
         title="Hook Library"
         description="Your growing collection of hooks — auto-captured and hand-picked"
         action={

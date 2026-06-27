@@ -27,31 +27,30 @@ export function StepLandingPage({
       </p>
 
       <div className="mt-8">
-        <label
-          htmlFor="landing-url"
-          className="text-sm font-medium text-text-primary"
-        >
-          Landing page URL
-        </label>
-        <input
-          id="landing-url"
-          type="url"
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            if (error) onError(null);
-          }}
-          onBlur={() => onError(validateLandingPageUrl(value))}
-          placeholder="https://yourbrand.com"
-          className={`input-field mt-2 px-4 py-3.5 text-sm ${
-            error ? "border-[#ef4444]/50 focus:border-[#ef4444]" : ""
-          }`}
-        />
-        {error && (
-          <p className="mt-2 text-sm text-[#ef4444]" role="alert">
-            {error}
-          </p>
-        )}
+        <div className="field-stack">
+          <label htmlFor="landing-url" className="field-label">
+            Landing page URL
+          </label>
+          <input
+            id="landing-url"
+            type="url"
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              if (error) onError(null);
+            }}
+            onBlur={() => onError(validateLandingPageUrl(value))}
+            placeholder="https://yourbrand.com"
+            className={`input-field text-sm ${
+              error ? "border-[#ef4444]/50 focus:border-[#ef4444]" : ""
+            }`}
+          />
+          {error && (
+            <p className="mt-2 text-sm text-[#ef4444]" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="surface-inset mt-5 flex gap-3 px-4 py-3.5">

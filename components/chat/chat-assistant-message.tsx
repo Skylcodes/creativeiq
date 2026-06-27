@@ -32,7 +32,7 @@ export function ChatAssistantMessage({
       className="w-full"
     >
       <div className="mb-3 flex items-center gap-2.5">
-        <div className="icon-badge h-8 w-8 shrink-0 rounded-xl">
+        <div className="icon-badge flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/[0.1]">
           <svg
             width="14"
             height="14"
@@ -49,10 +49,10 @@ export function ChatAssistantMessage({
           </svg>
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-text-primary">
+          <p className="text-sm font-semibold text-white">
             Creative Director
           </p>
-          <p className="truncate text-[11px] text-text-muted">
+          <p className="truncate text-[11px] text-white/45">
             Based on {contextLabel}
           </p>
         </div>
@@ -62,7 +62,7 @@ export function ChatAssistantMessage({
         {isStreaming && !streamText ? (
           <ChatThinkingIndicator />
         ) : showCursor ? (
-          <div className="text-sm leading-[1.7] text-text-secondary">
+          <div className="text-sm leading-[1.7] text-white/75">
             <p className="whitespace-pre-wrap">
               {displayContent}
               <span className="ml-0.5 inline-block h-[1.05em] w-0.5 animate-pulse bg-accent/60 align-text-bottom" />
@@ -100,7 +100,7 @@ function ChatThinkingIndicator() {
           />
         ))}
       </div>
-      <span className="text-xs text-text-muted">
+      <span className="text-xs text-white/45">
         Analyzing your creative context…
       </span>
     </div>

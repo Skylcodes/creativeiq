@@ -14,7 +14,8 @@ export type BlockReason =
   | "paywalled"
   | "payment_failed"
   | "trial_limit"
-  | "trial_expired";
+  | "trial_expired"
+  | "plan_limit";
 
 /** Attached to server-action results when an action is blocked by billing. */
 export type ActionBlocked = { reason: BlockReason; feature: ActionFeature };

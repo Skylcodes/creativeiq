@@ -49,10 +49,8 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
       viewport={{ once: true }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       className={[
-        "relative flex flex-col rounded-[22px] border p-6",
-        tier.is_featured
-          ? "border-accent/30 bg-gradient-to-b from-accent/[0.08] to-transparent shadow-[0_0_60px_rgba(105,71,255,0.15)]"
-          : "border-white/[0.07] bg-white/[0.03]",
+        "relative flex flex-col rounded-[22px] p-6",
+        tier.is_featured ? "landing-pricing-card-featured" : "landing-pricing-card",
       ].join(" ")}
     >
       {/* Featured badge */}
@@ -67,7 +65,7 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
       {/* Tier name + description */}
       <div>
         <h3 className="font-display text-xl font-semibold text-white">{tier.display_name}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-white/45">{tier.description}</p>
+        <p className="mt-1 text-sm leading-relaxed text-white/55">{tier.description}</p>
       </div>
 
       {/* Billing toggle */}
@@ -77,8 +75,8 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
           className={[
             "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
             !annual
-              ? "bg-white/[0.08] text-white"
-              : "text-white/35 hover:text-white/60",
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white/75",
           ].join(" ")}
         >
           Monthly
@@ -88,8 +86,8 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
           className={[
             "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
             annual
-              ? "bg-white/[0.08] text-white"
-              : "text-white/35 hover:text-white/60",
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white/75",
           ].join(" ")}
         >
           Annual
@@ -105,7 +103,7 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
           <span className="font-display text-4xl font-semibold text-white">
             ${price % 1 === 0 ? price.toFixed(0) : price.toFixed(2)}
           </span>
-          <span className="mb-1.5 text-sm text-white/40">/mo</span>
+          <span className="mb-1.5 text-sm text-white/50">/mo</span>
         </div>
         {annual && (
           <p className="mt-1 text-xs text-white/30">
@@ -137,12 +135,12 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
         onClick={handleSubscribe}
         disabled={isCurrent || loading}
         className={[
-          "mt-6 block w-full rounded-xl py-3 text-center text-sm font-semibold transition-all",
+          "mt-6 block w-full text-center text-sm font-semibold transition-all",
           isCurrent
-            ? "cursor-default border border-white/[0.12] bg-white/[0.04] text-white/40"
+            ? "cursor-default rounded-xl border border-white/[0.12] bg-white/[0.04] py-3 text-white/40"
             : tier.is_featured
-              ? "bg-accent text-white hover:bg-accent-hover shadow-[0_4px_20px_rgba(105,71,255,0.3)]"
-              : "border border-white/[0.12] bg-white/[0.05] text-white/80 hover:bg-white/[0.08] hover:text-white",
+              ? "btn-primary !rounded-xl !py-3 shadow-[0_10px_28px_rgba(105,71,255,0.35)]"
+              : "rounded-xl border border-white/14 bg-white/8 py-3 text-white hover:border-accent/30 hover:bg-accent/12",
           loading ? "opacity-70" : "",
         ].join(" ")}
       >
@@ -157,7 +155,7 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
       )}
 
       {/* Divider */}
-      <div className="my-5 h-px w-full bg-white/[0.06]" />
+      <div className="my-5 h-px w-full bg-white/10" />
 
       {/* Feature limits */}
       <ul className="flex flex-col gap-3">
@@ -170,11 +168,11 @@ export function PricingCard({ tier, limitLookup, ctaLabel, currentTierKey }: Pro
 
           return (
             <li key={key} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-white/45">{label}</span>
+              <span className="text-sm text-white/55">{label}</span>
               <span
                 className={[
                   "text-sm font-semibold",
-                  isUnlimited ? "text-green-400" : "text-white/80",
+                  isUnlimited ? "text-green-400" : "text-white",
                 ].join(" ")}
               >
                 {formatted}

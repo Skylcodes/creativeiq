@@ -94,6 +94,7 @@ export function ChangeEmailModal({
                 label="New email address"
                 name="newEmail"
                 type="email"
+                tone="app"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="you@company.com"

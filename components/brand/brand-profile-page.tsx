@@ -20,7 +20,6 @@ import {
 } from "@/lib/brand-profile/form";
 import { saveBrandProfile } from "@/lib/workspaces/brand-profile-actions";
 import { PageShell, PageHeader } from "@/components/ui/page-shell";
-import { PremiumCard } from "@/components/ui/premium-card";
 import type {
   BrandProfile,
   BrandProfileProgress,
@@ -280,16 +279,15 @@ export function BrandProfilePage({
   return (
     <PageShell>
       <PageHeader
-        eyebrow={workspaceName}
         title="Brand Profile"
-        description={`Last updated ${formatBrandProfileUpdatedAt(lastUpdated)}`}
+        description={`Foundation for every analysis · Updated ${formatBrandProfileUpdatedAt(lastUpdated)}`}
         action={
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={handleRefreshClick}
               disabled={refreshing || isSaving || switching}
-              className="btn-ghost gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-surface gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               <svg
                 width="15"
@@ -327,17 +325,8 @@ export function BrandProfilePage({
         }
       />
 
-      <PremiumCard variant="accent" padding="sm" className="mt-2">
-        <p className="text-sm leading-relaxed text-text-secondary">
-          <span className="font-medium text-text-primary">
-            Your brand profile is the foundation of every analysis.
-          </span>{" "}
-          Keep it accurate for the best results.
-        </p>
-      </PremiumCard>
-
       {(refreshing || refreshError) && (
-        <div className="mt-5">
+        <div className="mb-6">
           <RefreshProgressBanner
             message={refreshMessage}
             progress={refreshProgress}
@@ -347,7 +336,7 @@ export function BrandProfilePage({
       )}
 
       <div
-        className={`mt-6 space-y-5 transition-opacity duration-200 ${
+        className={`transition-opacity duration-200 ${
           refreshing || switching
             ? "pointer-events-none opacity-60"
             : "opacity-100"

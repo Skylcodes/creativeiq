@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/admin/tiers", label: "Subscription Tiers" },
-  { href: "/admin/overrides", label: "Workspace Overrides" },
+  { href: "/admin/tiers", label: "Plans & Limits" },
+  { href: "/admin/overrides", label: "Account Overrides" },
   { href: "/admin/usage", label: "Usage Dashboard" },
 ] as const;
 
