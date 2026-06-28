@@ -1,8 +1,5 @@
 import "server-only";
-import {
-  buildToleranceSignalsFromAds,
-  enrichToleranceFromResearch,
-} from "@/lib/ai/tolerance-signals";
+import { buildToleranceSignalsFromAds } from "@/lib/ai/tolerance-signals";
 import type { CompetitorAd, MarketPatterns } from "@/lib/types/report";
 
 // ---------------------------------------------------------------------------

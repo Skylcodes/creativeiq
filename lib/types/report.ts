@@ -263,24 +263,14 @@ export type VideoContext = {
   primaryMessaging?: string;
   /** Background music, lyrics, trending audio, SFX — not brand copy */
   backgroundAudioNote?: string;
-  /** Quoted on-screen text/captions from sampled frames */
+  /** Quoted on-screen text/captions from visual frame */
   onScreenText?: string;
   /** False when Whisper failed, API key missing, or file too large */
   transcriptAvailable: boolean;
-  /** Claude-generated description across sampled frames */
+  /** Claude-generated description of the thumbnail frame */
   visualDescription: string;
-  /** Per-frame chronological notes when multi-frame sampling succeeded */
-  visualTimeline?: string[];
-  /** Approximate capture times for sampled frames */
-  frameTimestamps?: string[];
-  /** Number of evenly spaced frames analyzed across the video */
+  /** Number of frames that were analyzed (currently 0 or 1 via thumbnail) */
   frameCount: number;
-  /** Seconds of video covered by visual sampling */
-  analyzedDurationSec?: number;
-  /** Total video duration in seconds when known */
-  videoDurationSec?: number;
-  /** timeline_sampling = ffmpeg frames; gemini_vertex = native full video; thumbnail_fallback = limited */
-  visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
   /** Non-fatal warnings from the video processing pipeline */
   processingNotes: string[];
 };

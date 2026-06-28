@@ -182,7 +182,7 @@ function hydrateAgentFindings(
 
     const existingFindings = (existing?.keyFindings ?? []).filter(Boolean);
     const keyFindings =
-      existingFindings.length >= 3
+      existingFindings.length >= 2
         ? existingFindings
         : raw
           ? extractKeyFindings(raw)
@@ -204,7 +204,8 @@ function hydrateAgentFindings(
 function hydratePriorityActions(
   actions: PriorityAction[],
   topBlockers: ConversionBlocker[],
-  categories: ConversionCategory[]
+  categories: ConversionCategory[],
+  options?: { conversionTotal?: number; skipLpHydration?: boolean }
 ): PriorityAction[] {
   const result: PriorityAction[] = actions
     .filter((a) => a.action?.trim())
@@ -224,6 +225,10 @@ function hydratePriorityActions(
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(action);
+  }
+
+  if (options?.skipLpHydration || (options?.conversionTotal ?? 0) >= 72) {
+    return result.slice(0, 8);
   }
 
   const sortedCategories = [...categories].sort(
@@ -261,7 +266,11 @@ export function hydrateFunnelReportFields(
   const priorityActions = hydratePriorityActions(
     fields.priorityActions,
     fields.topBlockers,
-    fields.conversionScore.categories ?? []
+    fields.conversionScore.categories ?? [],
+    {
+      conversionTotal: fields.conversionScore.total,
+      skipLpHydration: fields.topBlockers.length === 0,
+    }
   );
 
   const scriptRewriteFallback = rawAgents.direct_response

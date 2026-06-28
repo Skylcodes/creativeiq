@@ -14,7 +14,6 @@ const HARD_CTA_PATTERN =
 
 function imperfectionPresent(ad: CompetitorAd, kind: ToleranceSignal["imperfection"]): boolean {
   const copy = `${ad.copySnippet} ${ad.headline ?? ""}`.trim();
-  const lower = copy.toLowerCase();
   const cta = (ad.cta ?? "").toLowerCase();
 
   switch (kind) {

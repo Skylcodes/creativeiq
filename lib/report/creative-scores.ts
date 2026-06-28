@@ -1,54 +1,37 @@
-import type { AnalysisReport } from "@/lib/types/report";
-
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(n)));
 }
 
-/** How much retention vs strategy weights the blended creative score. */
-export function retentionWeightForKind(
-  kind: AnalysisReport["flags"]["creativeKind"]
-): number {
-  switch (kind) {
-    case "video":
-      return 0.58;
-    case "image":
-      return 0.52;
-    case "script":
-      return 0.42;
-    default:
-      return 0.5;
-  }
-}
-
 /**
- * Blends strategic + retention into creativeStrengthScore.
- * Low retention with strong messaging cannot produce a high blended score.
+ * Deterministic blend of strategic + retention into creativeStrengthScore.
+ * Applied in application code — never ask the model to compute this.
  */
-export function blendCreativeStrength(
+export function computeCreativeStrengthScore(
   strategicScore: number,
-  retentionScore: number,
-  kind: AnalysisReport["flags"]["creativeKind"]
+  retentionScore: number
 ): number {
-  const wR = retentionWeightForKind(kind);
-  const wS = 1 - wR;
-  let blended = strategicScore * wS + retentionScore * wR;
+  const strategic = clamp(strategicScore, 0, 100);
+  const retention = clamp(retentionScore, 0, 100);
+  const gap = strategic - retention;
 
-  // Strong copy + boring execution — classic failure mode (video; still applies to weak static frames)
-  if (retentionScore < 50 && strategicScore >= 70) {
-    blended = Math.min(blended, strategicScore * 0.55 + retentionScore * 0.45);
+  if (gap >= 30) {
+    return retention >= 50
+      ? clamp(Math.round(strategic * 0.35 + retention * 0.65), 0, 100)
+      : clamp(
+          Math.min(68, Math.round(strategic * 0.3 + retention * 0.7)),
+          0,
+          100
+        );
   }
-
-  // Video-only: critically low watchability caps the creative grade
-  if (kind === "video" && retentionScore < 40) {
-    blended = Math.min(blended, 62);
+  if (gap >= 15) {
+    return clamp(Math.round(strategic * 0.45 + retention * 0.55), 0, 100);
   }
-
-  // Strong retention cannot fully rescue broken messaging
-  if (strategicScore < 45 && retentionScore >= 75) {
-    blended = Math.min(blended, strategicScore * 0.65 + retentionScore * 0.35);
+  if (gap <= -15) {
+    return strategic < 45
+      ? clamp(Math.round(strategic * 0.6 + retention * 0.4), 0, 100)
+      : clamp(Math.round(strategic * 0.5 + retention * 0.5), 0, 100);
   }
-
-  return clamp(blended, 0, 100);
+  return clamp(Math.round(strategic * 0.5 + retention * 0.5), 0, 100);
 }
 
 export type ResolvedCreativeScores = {
@@ -58,28 +41,21 @@ export type ResolvedCreativeScores = {
   retentionVerdict?: string;
 };
 
-/** Resolve scores from AI output with deterministic blending fallback. */
-export function resolveCreativeScores(
-  raw: {
-    strategicScore?: number;
-    retentionScore?: number;
-    creativeStrengthScore?: number;
-    retentionVerdict?: string;
-  },
-  kind: AnalysisReport["flags"]["creativeKind"]
-): ResolvedCreativeScores {
+/** Resolve scores from AI output — blend is always computed deterministically. */
+export function resolveCreativeScores(raw: {
+  strategicScore?: number;
+  retentionScore?: number;
+  creativeStrengthScore?: number;
+  retentionVerdict?: string;
+}): ResolvedCreativeScores {
   const legacy = clamp(raw.creativeStrengthScore ?? 0, 0, 100);
   const strategic = clamp(raw.strategicScore ?? legacy, 0, 100);
   const retention = clamp(raw.retentionScore ?? legacy, 0, 100);
 
-  const hasSplit =
-    raw.strategicScore != null &&
-    raw.retentionScore != null &&
-    Math.abs(strategic - retention) >= 3;
-
-  const creativeStrengthScore = hasSplit
-    ? blendCreativeStrength(strategic, retention, kind)
-    : legacy || blendCreativeStrength(strategic, retention, kind);
+  const creativeStrengthScore = computeCreativeStrengthScore(
+    strategic,
+    retention
+  );
 
   return {
     strategicScore: strategic,

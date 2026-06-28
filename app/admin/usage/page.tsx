@@ -103,7 +103,7 @@ export default async function AdminUsagePage() {
   const overridesByUser: Record<string, Record<string, number>> = {};
   for (const row of overridesRes.data ?? []) {
     const expiresAt = row.expires_at as string | null;
-    if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) continue;
+    if (expiresAt && new Date(expiresAt).getTime() <= now.getTime()) continue;
     const userId = row.user_id as string;
     if (!overridesByUser[userId]) overridesByUser[userId] = {};
     overridesByUser[userId][row.feature_key as string] = row.override_limit_value as number;

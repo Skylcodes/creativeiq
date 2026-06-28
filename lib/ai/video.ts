@@ -5,15 +5,6 @@ import path from "path";
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON, type ImageInput } from "@/lib/ai/client";
-import {
-  analyzeVideoWithGeminiVertex,
-  isGeminiVertexConfigured,
-} from "@/lib/ai/gemini-vertex-video";
-import type {
-  VideoAnalysisResult,
-  VisualAnalysisMode,
-} from "@/lib/ai/video-analysis-types";
-import { VIDEO_ANALYSIS_JSON_SCHEMA } from "@/lib/ai/video-analysis-types";
 import type { Analysis } from "@/lib/types/analysis";
 
 // Whisper API hard limit is 25MB. Use 24MB to give a safe margin.
@@ -26,74 +17,25 @@ export type VideoCreativeContext = {
   primaryMessaging: string;
   /** Background music, song lyrics, trending audio, ambient SFX */
   backgroundAudioNote: string;
-  /** On-screen text/captions quoted from sampled frames */
+  /** On-screen text/captions quoted from the frame */
   onScreenText: string;
   /** How primary vs background layers were separated */
-  messagingSource:
-    | "gemini_vertex"
-    | "ai_layers"
-    | "heuristic"
-    | "speech_only"
-    | "visual_only";
+  messagingSource: "ai_layers" | "heuristic" | "speech_only" | "visual_only";
   transcriptAvailable: boolean;
   visualDescription: string;
-  /** Chronological notes from video analysis */
-  visualTimeline?: string[];
-  /** Approximate timestamps when frames were captured (frame fallback mode) */
-  frameTimestamps?: string[];
   frameCount: number;
-  /** Portion of the video covered by visual analysis (seconds) */
-  analyzedDurationSec?: number;
-  videoDurationSec?: number;
-  /** How visuals were processed for downstream agents */
-  visualAnalysisMode?: VisualAnalysisMode;
   processingNotes: string[];
 };
 
-const MAX_GEMINI_INLINE_BYTES = 18 * 1024 * 1024;
-const MAX_VIDEO_FRAMES = readEnvInt("VIDEO_MAX_FRAMES", 12, 4, 16);
-const MIN_VIDEO_FRAMES = 4;
-/** Most paid social ads finish within 90s — cap visual sampling to control cost. */
-const MAX_ANALYSIS_DURATION_SEC = readEnvInt("VIDEO_MAX_DURATION_SEC", 90, 15, 180);
-/** Smaller frames = fewer vision tokens (480px ≈ 40% cheaper than 640px per frame). */
-const VIDEO_FRAME_WIDTH = readEnvInt("VIDEO_FRAME_WIDTH", 480, 320, 768);
-
-function readEnvInt(
-  name: string,
-  fallback: number,
-  min: number,
-  max: number
-): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
-}
-
-function framePlan(durationSec: number): {
-  analyzedDurationSec: number;
-  frameCount: number;
-  intervalSec: number;
-} {
-  const analyzedDurationSec = Math.min(
-    Math.max(durationSec, 3),
-    MAX_ANALYSIS_DURATION_SEC
-  );
-  const frameCount = Math.min(
-    MAX_VIDEO_FRAMES,
-    Math.max(MIN_VIDEO_FRAMES, Math.ceil(analyzedDurationSec / 3))
-  );
-  return {
-    analyzedDurationSec,
-    frameCount,
-    intervalSec: analyzedDurationSec / frameCount,
-  };
-}
+type VideoAnalysisResult = {
+  visualDescription: string;
+  primaryMessaging: string;
+  backgroundAudioNote: string;
+  onScreenText: string;
+  separationNotes?: string;
+};
 
 const VIDEO_CREATIVE_ANALYSIS_SYSTEM = `You analyze video advertisements for a creative intelligence platform. Raw audio transcripts from Whisper often mix PRIMARY AD MESSAGING with BACKGROUND AUDIO — you must separate them.
-
-You may receive MULTIPLE video frames in chronological order sampled across the FULL ad timeline (not a single thumbnail). Treat them as a lightweight substitute for watching the whole video — compare every frame before judging persistence, pacing, or on-screen text frequency.
 
 PRIMARY AD MESSAGING (analyze this as the script):
 - Spoken voiceover selling the product
@@ -108,14 +50,6 @@ BACKGROUND AUDIO (NOT brand copy — do not treat as the ad script):
 - Ambient music, sound effects, beat drops
 - Lyrics that continue while the creator talks over them
 
-VISUAL / ON-SCREEN TEXT RULES (critical for accuracy):
-1. Compare ALL attached frames before describing on-screen text or visual elements.
-2. If the same text or visual appears in multiple frames, describe it as RECURRING or PERSISTENT throughout the ad — NEVER say it appeared "only once" or "briefly flashed" unless it is visible in exactly one frame.
-3. visualTimeline: one entry per frame in order — note key visuals, on-screen text, scene changes, and whether text persists or changes.
-4. onScreenTextPersistence: explicitly state which quoted text appears in which frames (e.g. "SALE 50% OFF — frames 1-6, persistent").
-5. Sampling is ~every 3 seconds — small gaps may exist, but persistent overlays should appear in multiple consecutive frames.
-6. Quote onScreenText exactly when visible — consolidate distinct text overlays; note recurring vs one-off.
-
 SEPARATION RULES:
 1. Ask: "What words are actually being used to SELL the product?" — not "what words exist in the audio?"
 2. Speech that references the product, problem, offer, or CTA = primaryMessaging
@@ -123,12 +57,20 @@ SEPARATION RULES:
 4. If creator speaks OVER music, primaryMessaging = the spoken words only; lyrics go to backgroundAudioNote
 5. Lyrics ARE primary only when clearly intentional creative (lip-sync hook, lyrics synced to product reveal, text-on-screen matches lyrics as the hook) — rare; explain in separationNotes if so
 6. Use audio prominence logic: foreground voice = primary; muffled/continuous under speech = background
-7. META-CRITIQUE FORMAT: If on-screen text belongs to another ad/clip being shown (competitor POV, product being critiqued, stitch source) while the creator speaks over it, still quote it in onScreenText but explain in separationNotes that it is REFERENCE AD COPY — not the advertiser's sell. primaryMessaging = only the creator's spoken critique/pitch/CTA.
+7. Quote onScreenText exactly from the frame when visible
+8. META-CRITIQUE FORMAT: If on-screen text belongs to another ad/clip being shown (competitor POV, product being critiqued, stitch source) while the creator speaks over it, still quote it in onScreenText but explain in separationNotes that it is REFERENCE AD COPY — not the advertiser's sell. primaryMessaging = only the creator's spoken critique/pitch/CTA.
 
 If no transcript provided, return empty strings for messaging fields and describe visuals only.
 If transcript is only background music with no selling speech, primaryMessaging = "" and explain in backgroundAudioNote.
 
-${VIDEO_ANALYSIS_JSON_SCHEMA}`;
+Return ONLY JSON:
+{
+  "visualDescription": "150-200 word analytical description: who/what on screen, style, mood, product, composition",
+  "primaryMessaging": "only the actual selling speech/copy — empty string if none identified",
+  "backgroundAudioNote": "music/lyrics/SFX identified as non-marketing, or empty if none",
+  "onScreenText": "quoted on-screen copy or empty string",
+  "separationNotes": "one sentence on how layers were separated, or empty"
+}`;
 
 let _openai: OpenAI | null = null;
 
@@ -189,228 +131,6 @@ async function extractAudioFromVideo(
     for (const f of tempFiles) {
       try { fs.unlinkSync(f); } catch { /* ignore */ }
     }
-    return null;
-  }
-}
-
-async function getFfmpegCommand() {
-  const [{ default: FfmpegCommand }, { default: ffmpegInstaller }] = await Promise.all([
-    import("fluent-ffmpeg"),
-    import("@ffmpeg-installer/ffmpeg"),
-  ]);
-  FfmpegCommand.setFfmpegPath(ffmpegInstaller.path);
-  return FfmpegCommand;
-}
-
-function cleanupTempPaths(paths: string[]) {
-  for (const target of paths) {
-    try {
-      if (!fs.existsSync(target)) continue;
-      if (fs.statSync(target).isDirectory()) {
-        fs.rmSync(target, { recursive: true, force: true });
-      } else {
-        fs.unlinkSync(target);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function formatTimemark(seconds: number): string {
-  const safe = Math.max(0, seconds);
-  const h = Math.floor(safe / 3600);
-  const m = Math.floor((safe % 3600) / 60);
-  const s = safe % 60;
-  const sec = s.toFixed(2).padStart(5, "0");
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, "0")}:${sec}`;
-  }
-  return `${m}:${sec}`;
-}
-
-function buildFrameTimemarks(durationSec: number, count: number): string[] {
-  const safeDuration = Math.max(durationSec, 1);
-  const marks: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const ratio = (i + 0.5) / count;
-    const t = Math.max(0.1, Math.min(safeDuration - 0.05, safeDuration * ratio));
-    marks.push(formatTimemark(t));
-  }
-  return marks;
-}
-
-async function probeVideoDurationSec(inPath: string): Promise<number | null> {
-  try {
-    const FfmpegCommand = await getFfmpegCommand();
-    return await new Promise((resolve, reject) => {
-      FfmpegCommand.ffprobe(inPath, (err, metadata) => {
-        if (err) reject(err);
-        else resolve(metadata.format.duration ?? null);
-      });
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Trim + compress video for a single inline Gemini Vertex call (cost control).
- */
-async function prepareVideoBlobForGemini(
-  videoBlob: Blob,
-  baseName: string
-): Promise<{
-  blob: Blob;
-  fullDurationSec?: number;
-  analyzedDurationSec: number;
-  tempFiles: string[];
-} | null> {
-  const tmpDir = os.tmpdir();
-  const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const inPath = path.join(tmpDir, `iq_gemini_in_${Date.now()}_${safeName}`);
-  const outPath = path.join(tmpDir, `iq_gemini_out_${Date.now()}.mp4`);
-  const tempFiles = [inPath, outPath];
-
-  try {
-    fs.writeFileSync(inPath, Buffer.from(await videoBlob.arrayBuffer()));
-    const probedDuration = await probeVideoDurationSec(inPath);
-    const fullDurationSec =
-      probedDuration && probedDuration > 0 ? probedDuration : undefined;
-    const analyzedDurationSec = fullDurationSec
-      ? Math.min(fullDurationSec, MAX_ANALYSIS_DURATION_SEC)
-      : MAX_ANALYSIS_DURATION_SEC;
-
-    const compress = (scale: string, crf: number) =>
-      new Promise<void>((resolve, reject) => {
-        getFfmpegCommand().then((FfmpegCommand) => {
-          FfmpegCommand(inPath)
-            .seekInput(0)
-            .duration(analyzedDurationSec)
-            .outputOptions([
-              "-vf",
-              scale,
-              "-c:v",
-              "libx264",
-              "-crf",
-              String(crf),
-              "-preset",
-              "veryfast",
-              "-c:a",
-              "aac",
-              "-b:a",
-              "64k",
-              "-movflags",
-              "+faststart",
-            ])
-            .output(outPath)
-            .on("end", () => resolve())
-            .on("error", (err: Error) => reject(err))
-            .run();
-        });
-      });
-
-    await compress("scale=720:-2", 28);
-    let outStat = fs.statSync(outPath);
-    if (outStat.size > MAX_GEMINI_INLINE_BYTES) {
-      await compress("scale=480:-2", 32);
-      outStat = fs.statSync(outPath);
-    }
-    if (outStat.size > MAX_GEMINI_INLINE_BYTES) {
-      cleanupTempPaths(tempFiles);
-      return null;
-    }
-
-    const blob = new Blob([fs.readFileSync(outPath)], { type: "video/mp4" });
-    return { blob, fullDurationSec, analyzedDurationSec, tempFiles };
-  } catch {
-    cleanupTempPaths(tempFiles);
-    return null;
-  }
-}
-
-/**
- * Cost-effective full-timeline visual sampling:
- * - One Haiku vision call for the entire ad (grading agents stay text-only)
- * - Evenly spaced frames across up to MAX_ANALYSIS_DURATION_SEC
- * - 480px JPEGs to minimize vision token cost
- */
-async function extractVideoFrames(
-  videoBlob: Blob,
-  baseName: string
-): Promise<{
-  frames: ImageInput[];
-  frameTimestamps: string[];
-  durationSec?: number;
-  analyzedDurationSec: number;
-  tempFiles: string[];
-} | null> {
-  const tmpDir = os.tmpdir();
-  const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const inPath = path.join(tmpDir, `iq_vid_in_${Date.now()}_${safeName}`);
-  const outDir = path.join(tmpDir, `iq_frames_${Date.now()}`);
-  const tempFiles = [inPath, outDir];
-
-  try {
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(inPath, Buffer.from(await videoBlob.arrayBuffer()));
-
-    const probedDuration = await probeVideoDurationSec(inPath);
-    const fullDurationSec =
-      probedDuration && probedDuration > 0 ? probedDuration : MAX_ANALYSIS_DURATION_SEC;
-    const plan = framePlan(fullDurationSec);
-    const timemarks = buildFrameTimemarks(plan.analyzedDurationSec, plan.frameCount);
-    const FfmpegCommand = await getFfmpegCommand();
-    const scale = `${VIDEO_FRAME_WIDTH}x?`;
-
-    await new Promise<void>((resolve, reject) => {
-      FfmpegCommand(inPath)
-        .seekInput(0)
-        .duration(plan.analyzedDurationSec)
-        .outputOptions(["-q:v", "5"])
-        .screenshots({
-          timemarks,
-          folder: outDir,
-          filename: "frame-%i.jpg",
-          size: scale,
-        })
-        .on("end", () => resolve())
-        .on("error", (err: Error) => reject(err));
-    });
-
-    const frameFiles = fs
-      .readdirSync(outDir)
-      .filter((f) => /^frame-\d+\.jpg$/i.test(f))
-      .sort((a, b) => {
-        const ai = Number(a.match(/\d+/)?.[0] ?? 0);
-        const bi = Number(b.match(/\d+/)?.[0] ?? 0);
-        return ai - bi;
-      });
-
-    const frames: ImageInput[] = [];
-    for (const file of frameFiles) {
-      const filePath = path.join(outDir, file);
-      tempFiles.push(filePath);
-      frames.push({
-        mediaType: "image/jpeg",
-        base64Data: fs.readFileSync(filePath).toString("base64"),
-      });
-    }
-
-    if (frames.length === 0) {
-      cleanupTempPaths(tempFiles);
-      return null;
-    }
-
-    return {
-      frames,
-      frameTimestamps: timemarks.slice(0, frames.length),
-      durationSec: fullDurationSec,
-      analyzedDurationSec: plan.analyzedDurationSec,
-      tempFiles,
-    };
-  } catch {
-    cleanupTempPaths(tempFiles);
     return null;
   }
 }
@@ -640,18 +360,13 @@ async function loadThumbnailImage(
 }
 
 async function analyzeVideoLayers(
-  images: ImageInput[],
-  rawTranscript: string,
-  frameMeta?: {
-    frameTimestamps: string[];
-    durationSec?: number;
-    analyzedDurationSec?: number;
-  }
+  image: ImageInput | null,
+  rawTranscript: string
 ): Promise<VideoAnalysisResult> {
   const hasTranscript = Boolean(rawTranscript.trim());
-  const hasImages = images.length > 0;
+  const hasImage = Boolean(image);
 
-  if (!hasTranscript && !hasImages) {
+  if (!hasTranscript && !hasImage) {
     return {
       visualDescription: "No visual frames or transcript available for this video.",
       primaryMessaging: "",
@@ -670,27 +385,14 @@ async function analyzeVideoLayers(
     );
   }
 
-  if (hasImages) {
-    const durationNote =
-      frameMeta?.durationSec && frameMeta.durationSec > 0
-        ? `Full video ~${frameMeta.durationSec.toFixed(1)}s. `
-        : "";
-    const analyzedNote =
-      frameMeta?.analyzedDurationSec && frameMeta.analyzedDurationSec > 0
-        ? `Visual sampling covers first ${frameMeta.analyzedDurationSec.toFixed(0)}s. `
-        : "";
-    const timestampNote =
-      frameMeta?.frameTimestamps?.length === images.length
-        ? `Approx capture times: ${frameMeta.frameTimestamps.join(", ")}. `
-        : "";
+  if (hasImage) {
     promptParts.push(
-      `${durationNote}${analyzedNote}${timestampNote}${images.length} frames attached in chronological order — analyze ALL frames before describing on-screen text or visual persistence.`,
-      "Describe visuals AND separate primary selling messaging from background audio.",
-      "If the same on-screen text appears in multiple frames, report it as recurring/persistent — not one-off."
+      "Analyze the attached thumbnail frame plus the transcript above.",
+      "Describe visuals AND separate primary selling messaging from background audio."
     );
   } else {
     promptParts.push(
-      "No visual frames available. Separate primary selling messaging from background audio in the transcript above."
+      "No visual frame available. Separate primary selling messaging from background audio in the transcript above."
     );
   }
 
@@ -698,27 +400,25 @@ async function analyzeVideoLayers(
     const result = await callClaudeJSON<VideoAnalysisResult>({
       system: VIDEO_CREATIVE_ANALYSIS_SYSTEM,
       prompt: promptParts.join("\n"),
-      images: hasImages ? images : undefined,
-      maxTokens: 1200,
+      image: image ?? undefined,
+      maxTokens: 900,
       temperature: 0.15,
     });
 
     return {
       visualDescription:
         result.visualDescription?.trim() ||
-        (hasImages
+        (hasImage
           ? "Visual frame analysis could not be completed."
           : "Visual frame unavailable — audio analysis only."),
-      visualTimeline: result.visualTimeline?.filter(Boolean),
       primaryMessaging: result.primaryMessaging?.trim() ?? "",
       backgroundAudioNote: result.backgroundAudioNote?.trim() ?? "",
       onScreenText: result.onScreenText?.trim() ?? "",
-      onScreenTextPersistence: result.onScreenTextPersistence?.trim(),
       separationNotes: result.separationNotes?.trim(),
     };
   } catch {
     return {
-      visualDescription: hasImages
+      visualDescription: hasImage
         ? "Visual frame analysis could not be completed."
         : "Visual frame unavailable.",
       primaryMessaging: "",
@@ -731,8 +431,7 @@ async function analyzeVideoLayers(
 function resolveMessagingLayers(
   rawTranscript: string,
   segments: Array<{ text: string; start: number; end: number }>,
-  analysis: VideoAnalysisResult,
-  messagingSourceOverride?: VideoCreativeContext["messagingSource"]
+  analysis: VideoAnalysisResult
 ): Pick<
   VideoCreativeContext,
   "primaryMessaging" | "backgroundAudioNote" | "onScreenText" | "processingNotes" | "messagingSource"
@@ -741,14 +440,10 @@ function resolveMessagingLayers(
   const primaryMessaging = analysis.primaryMessaging;
   const backgroundAudioNote = analysis.backgroundAudioNote;
   const onScreenText = analysis.onScreenText;
-  const messagingSource: VideoCreativeContext["messagingSource"] =
-    messagingSourceOverride ?? "ai_layers";
+  const messagingSource: VideoCreativeContext["messagingSource"] = "ai_layers";
 
   if (analysis.separationNotes) {
     notes.push(analysis.separationNotes);
-  }
-  if (analysis.onScreenTextPersistence) {
-    notes.push(`On-screen text persistence: ${analysis.onScreenTextPersistence}`);
   }
 
   if (primaryMessaging) {
@@ -802,10 +497,9 @@ function resolveMessagingLayers(
 
 /**
  * Full video creative processing:
- * 1. Downloads video from Supabase
- * 2. Whisper transcript (full audio text)
- * 3. Gemini Vertex full-video analysis when configured (preferred)
- * 4. Fallback: ffmpeg frame sampling + Claude Haiku vision
+ * 1. Downloads video from Supabase and transcribes audio via Whisper
+ * 2. Fetches stored thumbnail and separates messaging layers via Claude (Haiku)
+ * 3. Returns structured context used to build the agent brief
  */
 export async function processVideoCreative(
   supabase: SupabaseClient,
@@ -816,31 +510,40 @@ export async function processVideoCreative(
   let whisperSegments: Array<{ text: string; start: number; end: number }> = [];
   let transcriptAvailable = false;
   let frameCount = 0;
-  let frameImages: ImageInput[] = [];
-  let frameTimestamps: string[] = [];
-  let videoDurationSec: number | undefined;
-  let analyzedDurationSec: number | undefined;
-  let visualAnalysisMode: VideoCreativeContext["visualAnalysisMode"];
-  let layerAnalysis: VideoAnalysisResult | null = null;
-  let messagingSourceOverride: VideoCreativeContext["messagingSource"] | undefined;
+  let thumbnailImage: ImageInput | null = null;
 
   const storagePath = analysis.creative_storage_path;
-  let videoBlob: Blob | null = null;
 
   if (storagePath) {
     try {
-      const { data, error: downloadError } = await supabase.storage
+      const { data: videoBlob, error: downloadError } = await supabase.storage
         .from("analysis-creatives")
         .download(storagePath);
 
-      if (downloadError || !data) {
+      if (downloadError || !videoBlob) {
         notes.push(
           downloadError?.message
             ? `Could not download video: ${downloadError.message}`
             : "Video file not found in storage."
         );
       } else {
-        videoBlob = data;
+        const { transcript: t, segments, error: transcriptError, extractionNote } =
+          await transcribeVideoAudio(
+            videoBlob,
+            analysis.creative_file_name ?? "video.mp4",
+            analysis.creative_mime_type ?? "video/mp4"
+          );
+
+        if (extractionNote) {
+          notes.push(extractionNote);
+        }
+        if (transcriptError) {
+          notes.push(transcriptError);
+        } else {
+          transcript = t;
+          whisperSegments = segments;
+          transcriptAvailable = true;
+        }
       }
     } catch (err) {
       notes.push(
@@ -851,126 +554,24 @@ export async function processVideoCreative(
     notes.push("No video storage path on this analysis record.");
   }
 
-  if (videoBlob) {
-    const mimeType = analysis.creative_mime_type ?? "video/mp4";
-    const fileName = analysis.creative_file_name ?? "video.mp4";
-
-    const { transcript: t, segments, error: transcriptError, extractionNote } =
-      await transcribeVideoAudio(videoBlob, fileName, mimeType);
-
-    if (extractionNote) notes.push(extractionNote);
-    if (transcriptError) {
-      notes.push(transcriptError);
-    } else {
-      transcript = t;
-      whisperSegments = segments;
-      transcriptAvailable = true;
-    }
-
-    if (isGeminiVertexConfigured()) {
-      const prepared = await prepareVideoBlobForGemini(videoBlob, fileName);
-      if (prepared) {
-        try {
-          const gemini = await analyzeVideoWithGeminiVertex({
-            videoBlob: prepared.blob,
-            mimeType: "video/mp4",
-            whisperTranscript: transcript || undefined,
-            maxAnalysisDurationSec: prepared.analyzedDurationSec,
-          });
-          layerAnalysis = gemini.analysis;
-          messagingSourceOverride = "gemini_vertex";
-          visualAnalysisMode = "gemini_vertex";
-          frameCount = 0;
-          videoDurationSec = prepared.fullDurationSec;
-          analyzedDurationSec = prepared.analyzedDurationSec;
-          const mb = (gemini.compressedBytes / 1024 / 1024).toFixed(1);
-          notes.push(
-            `Visual analysis: Gemini Vertex full-video pass (${vertexVideoModelLabel()}, ${mb}MB compressed, first ${Math.round(prepared.analyzedDurationSec)}s). Claude agents use text brief only.`
-          );
-        } catch (err) {
-          notes.push(
-            `Gemini Vertex video analysis failed — falling back to frame sampling: ${
-              err instanceof Error ? err.message : "unknown error"
-            }`
-          );
-        } finally {
-          cleanupTempPaths(prepared.tempFiles);
-        }
-      } else {
-        notes.push(
-          "Gemini video prep failed (trim/compress) — falling back to frame sampling."
-        );
-      }
-    } else {
-      notes.push(
-        "Gemini Vertex not configured — using frame sampling fallback. Set GOOGLE_CLOUD_PROJECT + GOOGLE_SERVICE_ACCOUNT_JSON."
-      );
-    }
-  }
-
-  if (!layerAnalysis && videoBlob) {
-    const extracted = await extractVideoFrames(
-      videoBlob,
-      analysis.creative_file_name ?? "video.mp4"
-    );
-    if (extracted) {
-      frameImages = extracted.frames;
-      frameTimestamps = extracted.frameTimestamps;
-      frameCount = extracted.frames.length;
-      videoDurationSec = extracted.durationSec;
-      analyzedDurationSec = extracted.analyzedDurationSec;
-      visualAnalysisMode = "timeline_sampling";
-      const durationLabel = extracted.durationSec
-        ? `~${extracted.durationSec.toFixed(0)}s video`
-        : "full video";
-      const analyzedLabel =
-        extracted.durationSec &&
-        extracted.analyzedDurationSec < extracted.durationSec - 1
-          ? `first ${extracted.analyzedDurationSec.toFixed(0)}s`
-          : "full length";
-      notes.push(
-        `Visual analysis fallback: ${frameCount} frames across ${analyzedLabel} of ${durationLabel} (~every ${(extracted.analyzedDurationSec / frameCount).toFixed(1)}s) via Claude Haiku.`
-      );
-      cleanupTempPaths(extracted.tempFiles);
-    } else {
-      notes.push(
-        "Multi-frame extraction failed — falling back to stored thumbnail if available."
-      );
-    }
-  }
-
-  if (!layerAnalysis && frameImages.length === 0 && analysis.thumbnail_url) {
-    const thumbnailImage = await loadThumbnailImage(supabase, analysis.thumbnail_url);
+  if (analysis.thumbnail_url) {
+    thumbnailImage = await loadThumbnailImage(supabase, analysis.thumbnail_url);
     if (thumbnailImage) {
-      frameImages = [thumbnailImage];
       frameCount = 1;
-      frameTimestamps = ["~0:01 (upload thumbnail only)"];
-      visualAnalysisMode = "thumbnail_fallback";
-      notes.push(
-        "Visual analysis used upload thumbnail only — full video analysis was unavailable."
-      );
     } else {
       notes.push(
         "Thumbnail frame could not be loaded from storage for visual analysis."
       );
     }
-  } else if (!layerAnalysis && frameImages.length === 0) {
-    notes.push("No video frames available — visual analysis skipped.");
+  } else {
+    notes.push("No thumbnail available — visual frame analysis skipped.");
   }
 
-  if (!layerAnalysis) {
-    layerAnalysis = await analyzeVideoLayers(frameImages, transcript, {
-      frameTimestamps,
-      durationSec: videoDurationSec,
-      analyzedDurationSec,
-    });
-  }
-
+  const layerAnalysis = await analyzeVideoLayers(thumbnailImage, transcript);
   const messaging = resolveMessagingLayers(
     transcript,
     whisperSegments,
-    layerAnalysis,
-    messagingSourceOverride
+    layerAnalysis
   );
 
   return {
@@ -981,18 +582,9 @@ export async function processVideoCreative(
     messagingSource: messaging.messagingSource,
     transcriptAvailable,
     visualDescription: layerAnalysis.visualDescription,
-    visualTimeline: layerAnalysis.visualTimeline,
-    frameTimestamps: frameTimestamps.length > 0 ? frameTimestamps : undefined,
     frameCount,
-    analyzedDurationSec,
-    videoDurationSec,
-    visualAnalysisMode,
     processingNotes: [...notes, ...messaging.processingNotes],
   };
-}
-
-function vertexVideoModelLabel(): string {
-  return process.env.GOOGLE_VERTEX_VIDEO_MODEL?.trim() || "gemini-2.5-flash";
 }
 
 /**
@@ -1020,18 +612,6 @@ export function buildVideoBrief(
 ): { text: string; thumbnailForAgents: null } {
   const lines: string[] = [
     `AD CREATIVE — VIDEO${fileName ? ` ("${fileName}")` : ""}`,
-    "",
-    "VIDEO VISUAL ANALYSIS (mandatory — read before critiquing visuals or on-screen text):",
-    ctx.visualAnalysisMode === "gemini_vertex"
-      ? `- FULL VIDEO analyzed natively via Gemini Vertex${ctx.analyzedDurationSec ? ` (first ${Math.round(ctx.analyzedDurationSec)}s` : ""}${ctx.videoDurationSec ? ` of ~${Math.round(ctx.videoDurationSec)}s ad` : ""}${ctx.analyzedDurationSec ? ")" : ""}. Visual timeline reflects the complete watch — NOT frame sampling.`
-      : ctx.visualAnalysisMode === "timeline_sampling"
-        ? `- Frame-sampled coverage via ${ctx.frameCount} evenly spaced frames${ctx.analyzedDurationSec ? ` across the first ${Math.round(ctx.analyzedDurationSec)}s` : ""}${ctx.videoDurationSec ? ` of a ~${Math.round(ctx.videoDurationSec)}s ad` : ""} (~every 3s). Be conservative about timing between frames.`
-        : `- Limited visual coverage (${ctx.frameCount} frame${ctx.frameCount !== 1 ? "s" : ""}) — be conservative about timing claims.`,
-    "- If on-screen text is marked persistent/recurring in the visual timeline, NEVER describe it as appearing only once.",
-    "- Do NOT invent timing claims (flash, brief, one-time) unless the visual timeline shows a single appearance only.",
-    ctx.visualAnalysisMode === "gemini_vertex"
-      ? "- Gemini watched the full video; Whisper transcript below is supplementary raw speech text."
-      : "- Full Whisper transcript covers audio across the entire video; visual notes may be sampled frames only.",
     "",
     "VIDEO AUDIO LAYER RULE (mandatory):",
     "- PRIMARY AD MESSAGING = spoken voiceover, creator talking, narrator, intentional marketing dialogue, on-screen sell copy.",
@@ -1083,33 +663,10 @@ export function buildVideoBrief(
   }
 
   lines.push("");
-  if (ctx.visualAnalysisMode === "gemini_vertex") {
-    lines.push(
-      `VISUAL CONTEXT (full video — Gemini Vertex${ctx.videoDurationSec ? `, ~${Math.round(ctx.videoDurationSec)}s` : ""}):`
-    );
-  } else {
-    lines.push(
-      `VISUAL CONTEXT (${ctx.frameCount} evenly spaced frame${ctx.frameCount !== 1 ? "s" : ""}${ctx.videoDurationSec ? ` across ~${Math.round(ctx.videoDurationSec)}s` : ""}):`
-    );
-  }
+  lines.push(
+    `VISUAL CONTEXT (${ctx.frameCount} frame${ctx.frameCount !== 1 ? "s" : ""} analyzed via thumbnail):`
+  );
   lines.push(ctx.visualDescription);
-
-  if (ctx.visualTimeline?.length) {
-    lines.push("");
-    lines.push(
-      ctx.visualAnalysisMode === "gemini_vertex"
-        ? "VISUAL TIMELINE (full video, chronological):"
-        : "VISUAL TIMELINE (sampled frames, chronological):"
-    );
-    for (const entry of ctx.visualTimeline) {
-      lines.push(`- ${entry}`);
-    }
-  }
-
-  if (ctx.frameTimestamps?.length && ctx.frameCount > 1) {
-    lines.push("");
-    lines.push(`Frame capture times: ${ctx.frameTimestamps.join(" · ")}`);
-  }
 
   if (ctx.processingNotes.length > 0) {
     lines.push("");

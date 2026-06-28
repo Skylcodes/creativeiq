@@ -36,9 +36,9 @@ export function buildImageCreativeBrief(
   fileName?: string
 ): string {
   return [
-    `AD CREATIVE — STATIC IMAGE${fileName ? ` ("${fileName}")` : ""}`,
+    `AD CREATIVE — STATIC IMAGE (not video)${fileName ? ` ("${fileName}")` : ""}`,
     "",
-    "FORMAT: This is a still image ad — grade thumb-stop and in-frame clarity, NOT video motion or watch time.",
+    "FORMAT: Single-frame static ad — grade thumb-stop, in-frame copy, and visual hierarchy. Do not apply video watch-time or motion criteria.",
     "",
     "VISUAL ANALYSIS (image analyzed once — use this as the creative source of truth):",
     visualDescription,

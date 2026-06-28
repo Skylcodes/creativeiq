@@ -99,8 +99,8 @@ export const STATIC_CRITERIA: RawCriteria[] = [
   {
     id: "L4",
     category: "landing_page",
-    label: "The main purchase objection for this product's price tier and category is addressed somewhere on the page",
-    appliesWhen: "Real buyer doubt for THIS product type (efficacy, safety, value, fit). Not generic policy templates.",
+    label: "The main purchase objection for this product's price tier is addressed somewhere on the page",
+    appliesWhen: "Purchase, lead, launch, or retargeting doubt.",
   },
   {
     id: "L5",
@@ -117,8 +117,8 @@ export const STATIC_CRITERIA: RawCriteria[] = [
   {
     id: "L7",
     category: "landing_page",
-    label: "Category-appropriate risk reduction is present OR the page addresses the main purchase doubt for this product type (proof, guarantee language, expert endorsement, satisfaction terms — not necessarily physical returns)",
-    appliesWhen: "Risk-based purchase doubt for this category. Mark N/A for consumables/supplements/perishables/digital when physical returns are unrealistic unless missing trust creates real harm.",
+    label: "Risk-reduction element is present (money-back guarantee, free returns, or equivalent trust signal)",
+    appliesWhen: "Purchase, sale, launch, or risk-heavy buys.",
   },
   {
     id: "L8",
@@ -136,7 +136,6 @@ export const STATIC_CRITERIA: RawCriteria[] = [
 const DYNAMIC_CRITERIA_PROMPT = `You are reviewing real-world market intelligence for a specific product category and platform.
 Extract exactly 3 CATEGORY-SPECIFIC performance criteria that are NOT already covered by universal DTC best-practices.
 Focus on what the research reveals about THIS category's unique buyer psychology, objection patterns, or proof requirements.
-Do NOT generate generic ecommerce checklist items (e.g. "30-day return policy", "free returns", "money-back guarantee") unless the research shows they are a category-specific conversion requirement — many categories use different trust mechanics.
 Each criterion must be a binary yes/no check — specific enough to evaluate from reading the actual ad copy and landing page.
 Each criterion must include an appliesWhen condition explaining what kind of ad goal, format, or buyer situation makes it relevant.
 
@@ -285,8 +284,7 @@ export function formatCriteriaForContext(criteria: RawCriteria[], creativeGoalLa
   const lines: string[] = [
     "=== PERFORMANCE CRITERIA CHECKLIST ===",
     creativeGoalLabel ? `Selected creative goal: ${creativeGoalLabel}` : "",
-    "Gate each item: PASS=applies+met. FAIL=applies+specific harm. N/A=not needed for this goal/format/category/brand strategy. Never criticize or score down N/A items.",
-    "Before failing L4 or L7: read brand profile category, offerGuarantee, and offerStructure. Do not fail for missing generic return/guarantee language when the product category or brand uses a different trust model.",
+    "Gate each item: PASS=applies+met. FAIL=applies+specific harm. N/A=not needed for this goal/format. Never criticize or score down N/A items.",
     "After confirming pass=false, classify severity internally (critical/moderate/minor) using CATEGORY TOLERANCE SIGNALS when present — severity drives score weight, not raw fail count.",
     "IN-AD PRICE IS NOT A QUALITY FACTOR: omitting price in the creative is normal DTC practice and never makes an ad good or bad. Do not FAIL C4 or dock creativeStrengthScore for missing price unless the ad explicitly promised a specific deal and failed to state it.",
     "IN-AD SOCIAL PROOF IS NOT REQUIRED: testimonials, review counts, and stat stacks belong on the LP. Do not FAIL C2 or dock creativeStrengthScore for missing in-ad proof.",

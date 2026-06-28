@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import {
   dispatchCloseDropdowns,
   shouldCloseDropdown,
 } from "@/lib/ui/dropdown-events";
+import { useIsClient } from "@/lib/ui/use-is-client";
 
 type WorkspaceSwitcherProps = {
   variant?: "light" | "dark";
@@ -32,18 +33,14 @@ export function WorkspaceSwitcher({
   const { workspaces, activeWorkspace, switching, switchWorkspace } =
     useWorkspace();
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsClient();
   const [position, setPosition] = useState<DropdownPosition | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isDark = variant === "dark";
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  function updatePosition() {
+  const updatePosition = useCallback(() => {
     const trigger = triggerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
@@ -62,7 +59,7 @@ export function WorkspaceSwitcher({
       left: rect.left,
       width: Math.max(rect.width, DROPDOWN_WIDTH),
     });
-  }
+  }, [collapsed]);
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +77,7 @@ export function WorkspaceSwitcher({
       window.removeEventListener("resize", handleReposition);
       window.removeEventListener("scroll", handleReposition, true);
     };
-  }, [open, collapsed]);
+  }, [open, updatePosition]);
 
   useEffect(() => {
     function handleCloseDropdowns(e: Event) {

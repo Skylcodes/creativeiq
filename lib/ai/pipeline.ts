@@ -195,12 +195,7 @@ export async function runAnalysisPipeline(
           onScreenText: creative.videoContext.onScreenText,
           transcriptAvailable: creative.videoContext.transcriptAvailable,
           visualDescription: creative.videoContext.visualDescription,
-          visualTimeline: creative.videoContext.visualTimeline,
-          frameTimestamps: creative.videoContext.frameTimestamps,
           frameCount: creative.videoContext.frameCount,
-          analyzedDurationSec: creative.videoContext.analyzedDurationSec,
-          videoDurationSec: creative.videoContext.videoDurationSec,
-          visualAnalysisMode: creative.videoContext.visualAnalysisMode,
           processingNotes: creative.videoContext.processingNotes,
         }
       : undefined,

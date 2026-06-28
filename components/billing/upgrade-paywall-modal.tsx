@@ -233,7 +233,7 @@ export function UpgradePaywallModal({
   const [limitLookup, setLimitLookup] = useState<
     Record<string, Record<string, number>>
   >({});
-  const [pricingReady, setPricingReady] = useState(false);
+  const [loadedPricingKey, setLoadedPricingKey] = useState<string | null>(null);
 
   const reason = modal?.reason ?? "paywalled";
   const copy = copyFor(reason, {
@@ -241,6 +241,10 @@ export function UpgradePaywallModal({
     usageSummary,
   });
   const showPricing = copy.mode === "upgrade";
+  const pricingLoadKey =
+    modal && showPricing ? `${reason}-${modal.feature ?? "any"}` : null;
+  const pricingReady =
+    pricingLoadKey !== null && loadedPricingKey === pricingLoadKey;
 
   const usageRow = useMemo(() => {
     if (!modal?.feature) {
@@ -249,7 +253,7 @@ export function UpgradePaywallModal({
       );
     }
     return usageSummary.features.find((f) => f.key === modal.feature);
-  }, [modal?.feature, usageSummary.features]);
+  }, [modal, usageSummary.features]);
 
   useEffect(() => {
     if (!modal) return;
@@ -269,10 +273,9 @@ export function UpgradePaywallModal({
   }, [modal]);
 
   useEffect(() => {
-    if (!modal || !showPricing) return;
+    if (!pricingLoadKey) return;
 
     let cancelled = false;
-    setPricingReady(false);
 
     async function loadPricing() {
       try {
@@ -298,8 +301,9 @@ export function UpgradePaywallModal({
 
         setTiers(nextTiers);
         setLimitLookup(lookup);
-      } finally {
-        if (!cancelled) setPricingReady(true);
+        setLoadedPricingKey(pricingLoadKey);
+      } catch {
+        if (!cancelled) setLoadedPricingKey(null);
       }
     }
 
@@ -307,7 +311,7 @@ export function UpgradePaywallModal({
     return () => {
       cancelled = true;
     };
-  }, [modal, showPricing]);
+  }, [pricingLoadKey]);
 
   const visibleTiers = useMemo(
     () => filterUpgradeTiers(tiers, snapshot.subscriptionTierKey, reason),

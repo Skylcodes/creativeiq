@@ -14,6 +14,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import type { AccountUsageSummary } from "@/lib/billing/usage-summary-types";
 import { dispatchCloseDropdowns } from "@/lib/ui/dropdown-events";
+import { useIsClient } from "@/lib/ui/use-is-client";
 
 type UserMenuProps = {
   email: string;
@@ -55,15 +56,11 @@ export function UserMenu({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsClient();
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const refreshPosition = useCallback(() => {
     const trigger = triggerRef.current;

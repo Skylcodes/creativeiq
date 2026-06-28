@@ -98,20 +98,11 @@ export async function buildFunnelAnalysisReport(
     criteriaList: input.criteriaList,
   });
 
-  const hadCriteriaFailures =
-    normalizedChecklist?.some((item) => item.pass === false) ?? false;
-
-  const creativeScores = resolveCreativeScores(
-    {
-      strategicScore: severityAdjusted.strategicScore,
-      retentionScore: severityAdjusted.retentionScore,
-      creativeStrengthScore: hadCriteriaFailures
-        ? undefined
-        : input.reportRaw.creativeStrengthScore,
-      retentionVerdict: input.reportRaw.retentionVerdict,
-    },
-    input.creativeKind
-  );
+  const creativeScores = resolveCreativeScores({
+    strategicScore: severityAdjusted.strategicScore,
+    retentionScore: severityAdjusted.retentionScore,
+    retentionVerdict: input.reportRaw.retentionVerdict,
+  });
   const creativeStrengthScore = creativeScores.creativeStrengthScore;
   const adjustedConversionScore: ConversionScore = {
     ...conversionScore,

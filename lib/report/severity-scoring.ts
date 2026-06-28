@@ -9,26 +9,21 @@ export type RawCriteriaCheckItem = {
   severity?: CriteriaSeverityTier;
 };
 
-/**
- * Per-tier deduction weights for confirmed creative-criteria failures.
- * These are the SOLE source of criteria-based score adjustment — the AI
- * is instructed NOT to bake checklist results into its base scores.
- * Weights are calibrated assuming no prior AI-side penalty for these items.
- */
+/** Per-tier deduction weights for confirmed creative-criteria failures. */
 const CREATIVE_SEVERITY_WEIGHT: Record<CriteriaSeverityTier, number> = {
-  critical: 13,
-  moderate: 4.5,
+  critical: 11,
+  moderate: 4,
   minor: 1,
 };
 
 const LP_SEVERITY_WEIGHT: Record<CriteriaSeverityTier, number> = {
-  critical: 7,
-  moderate: 3,
+  critical: 6,
+  moderate: 2.5,
   minor: 0.75,
 };
 
-const MAX_CREATIVE_PENALTY = 35;
-const MAX_LP_PENALTY = 20;
+const MAX_CREATIVE_PENALTY = 32;
+const MAX_LP_PENALTY = 18;
 
 function inferSeverityFromNote(note?: string): CriteriaSeverityTier | undefined {
   if (!note) return undefined;
@@ -53,7 +48,8 @@ export function normalizeCriteriaSeverities(
 
   return checklist.map((item) => {
     if (item.pass !== false) {
-      const { severity: _s, ...rest } = item;
+      const { severity, ...rest } = item;
+      void severity;
       return rest;
     }
     const severity =

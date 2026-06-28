@@ -5,7 +5,7 @@ import {
   countAccountWorkspaces,
   countAccountUsage,
 } from "@/lib/billing/account";
-import type { AccountStatus } from "@/lib/billing/account-types";
+import type { AccountStatus, ActionFeature } from "@/lib/billing/account-types";
 import { getTrialWorkspaceLimit } from "@/lib/billing/trial-limits";
 import { FEATURE_LABELS } from "@/lib/billing/feature-keys";
 export type { FeatureKey } from "@/lib/billing/feature-keys";
@@ -26,7 +26,7 @@ const POOLED_USAGE_FEATURES = new Set([
   "chat_messages",
 ]);
 
-function isPooledFeature(featureKey: string): boolean {
+function isPooledFeature(featureKey: string): featureKey is ActionFeature {
   return POOLED_USAGE_FEATURES.has(featureKey);
 }
 
