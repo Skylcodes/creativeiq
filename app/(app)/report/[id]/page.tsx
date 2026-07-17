@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { AnalysisReportView } from "@/components/report/analysis-report";
 import { ComparisonReportView } from "@/components/report/comparison-report-view";
+import { ReportExperience } from "@/components/report/report-experience";
 import { ReportPending } from "@/components/report/report-pending";
 import { getReportPageData, requireReportUser } from "@/lib/report/page-data";
 import { getHooksBySource } from "@/lib/hooks/queries";
+import { getLaunchesForAnalysis } from "@/lib/outcomes/queries";
 import { isComparisonReport } from "@/lib/report/normalize-comparison";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,11 @@ export default async function ReportPage({ params }: ReportPageProps) {
   const savedHooks =
     analysis.status === "completed"
       ? await getHooksBySource(workspaceId, { analysisId: analysis.id })
+      : [];
+
+  const launches =
+    analysis.status === "completed"
+      ? await getLaunchesForAnalysis(analysis.id)
       : [];
 
   if (analysis.status === "processing" || analysis.status === "pending") {
@@ -71,12 +77,14 @@ export default async function ReportPage({ params }: ReportPageProps) {
       analysis={analysis}
       workspaceName={workspaceName}
       savedHooks={savedHooks}
+      launches={launches}
     />
   ) : (
-    <AnalysisReportView
+    <ReportExperience
       analysis={analysis}
       workspaceName={workspaceName}
       savedHooks={savedHooks}
+      launches={launches}
     />
   );
 }

@@ -14,6 +14,8 @@ import { useReportChat } from "@/components/chat/use-report-chat";
 import { CreativeGoalBadge } from "@/components/shared/creative-goal-badge";
 import { getReportChatContextLabel } from "@/lib/chat/labels";
 import type { HookLibraryEntry } from "@/lib/types/hook";
+import type { LaunchWithOutcomes } from "@/lib/types/outcome";
+import { LaunchTracker } from "@/components/outcomes/launch-tracker";
 import { normalizeReport } from "@/lib/report/normalize";
 import { ReportTabs } from "@/components/report/report-tabs";
 import { ScoreHero } from "@/components/report/shared/score-hero";
@@ -28,7 +30,8 @@ import {
 type ComparisonReportViewProps = {
   analysis: Analysis;
   workspaceName: string;
-  savedHooks?: import("@/lib/types/hook").HookLibraryEntry[];
+  savedHooks?: HookLibraryEntry[];
+  launches?: LaunchWithOutcomes[];
 };
 
 function RankBadge({ rank }: { rank: number }) {
@@ -214,6 +217,7 @@ export function ComparisonReportView({
   analysis,
   workspaceName,
   savedHooks = [],
+  launches = [],
 }: ComparisonReportViewProps) {
   const report = normalizeComparisonReport(analysis.report as ComparisonReport);
   const [activeTab, setActiveTab] = useState(0);
@@ -345,6 +349,8 @@ export function ComparisonReportView({
               className="text-center"
             />
           </div>
+
+          <LaunchTracker analysis={analysis} launches={launches} />
 
           {/* Ranking strip */}
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

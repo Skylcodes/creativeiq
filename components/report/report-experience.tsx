@@ -9,14 +9,17 @@ import { buildHookLookup, hookTextKey } from "@/lib/hooks/utils";
 import { getReportChatContextLabel } from "@/lib/chat/labels";
 import { ReportChatLayout } from "@/components/chat/report-chat-layout";
 import { useReportChat } from "@/components/chat/use-report-chat";
+import { LaunchTracker } from "@/components/outcomes/launch-tracker";
 import { ReportHeader } from "./report-header";
 import { ReportTabs } from "./report-tabs";
 import type { HookSaveContext } from "@/components/hooks/hook-row-actions";
+import type { LaunchWithOutcomes } from "@/lib/types/outcome";
 
 type ReportExperienceProps = {
   analysis: Analysis;
   workspaceName: string;
   savedHooks?: HookLibraryEntry[];
+  launches?: LaunchWithOutcomes[];
 };
 
 function resolveAnalysisPlatform(analysis: Analysis): string | null {
@@ -29,6 +32,7 @@ export function ReportExperience({
   analysis,
   workspaceName,
   savedHooks = [],
+  launches = [],
 }: ReportExperienceProps) {
   const report = normalizeReport(
     analysis.report && !isComparisonReport(analysis.report)
@@ -74,6 +78,7 @@ export function ReportExperience({
             workspaceName={workspaceName}
             onOpenChat={() => setChatOpen(true)}
           />
+          <LaunchTracker analysis={analysis} launches={launches} />
           <ReportTabs
             report={report}
             hookLookup={hookLookup}
