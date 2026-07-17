@@ -86,7 +86,7 @@ Map common aliases into raw metrics and identifiers:
 - Link clicks / Clicks → `clicks`
 - Purchases / Website purchases → `purchases`
 - Leads / On-Facebook leads → `leads` (when present)
-- Purchase conversion value / Website purchase ROAS value equivalents → `revenue` when a value column exists
+- Purchase conversion value / Website purchases conversion value → `revenue` when a value column exists (never treat a ROAS ratio column as revenue)
 - Reporting starts / ends → window inference (`custom` or exact 3/7/14)
 - Platform assumed `meta`
 
@@ -124,8 +124,9 @@ create table public.outcome_imports (
 -- RLS: workspace owner only (same pattern as creative_launches)
 ```
 
-- `content_hash`: hash of normalized file bytes; re-confirm of identical file is safe (upsert outcomes, do not duplicate ledger spam — either skip second ledger insert or insert with same hash noted).
-- Outcome rows set `source = 'csv'` and `source_ref` to import id (and/or stable row fingerprint).
+- `content_hash`: hash of normalized file bytes, stored for debugging and support.
+- Each successful confirm inserts one ledger row (audit of that confirm) and upserts outcomes. Re-importing the same file is allowed; outcomes stay idempotent via `(launch_id, window_type)`.
+- Outcome rows set `source = 'csv'` and `source_ref` to the new import id.
 - Upsert key remains `(launch_id, window_type)`.
 
 ## UI
