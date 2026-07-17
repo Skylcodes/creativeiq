@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { PerformanceView } from "@/components/performance/performance-view";
 import { DashboardError } from "@/components/dashboard/dashboard-error";
+import { getWorkspaceLaunches } from "@/lib/outcomes/queries";
 import { getWorkspacePerformance } from "@/lib/performance/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/queries";
@@ -28,7 +29,34 @@ export default async function PerformancePage() {
     return <DashboardError message={message} />;
   }
 
+  const launches = await getWorkspaceLaunches(workspace.id);
+
+  let analysisMeta: Record<string, { title: string; creativeGoal?: string }> =
+    {};
+  if (launches.length > 0) {
+    const ids = [...new Set(launches.map((l) => l.analysis_id))];
+    const { data: analysisRows } = await supabase
+      .from("analyses")
+      .select("id, title, creative_goal")
+      .in("id", ids);
+    analysisMeta = Object.fromEntries(
+      (analysisRows ?? []).map((a) => [
+        a.id,
+        {
+          title: a.title as string,
+          creativeGoal: a.creative_goal as string | undefined,
+        },
+      ])
+    );
+  }
+
   return (
-    <PerformanceView key={workspace.id} workspaceId={workspace.id} data={data} />
+    <PerformanceView
+      key={workspace.id}
+      workspaceId={workspace.id}
+      data={data}
+      launches={launches}
+      analysisMeta={analysisMeta}
+    />
   );
 }
