@@ -114,6 +114,50 @@ describe("classifyImportRows", () => {
     expect(result[0].reason).toBeNull();
   });
 
+  it("marks unknown launch_id as unmatched without falling through", () => {
+    const result = classifyImportRows(
+      [
+        row({
+          rowIndex: 1,
+          launchId: "missing-launch",
+          analysisId: "analysis-1",
+          platform: "meta",
+          externalAdId: "1202",
+          launchedAt: "2026-07-01",
+        }),
+      ],
+      emptyCtx({
+        launchesById: new Map([
+          [
+            "launch-ext",
+            launch({
+              id: "launch-ext",
+              analysis_id: "analysis-1",
+              external_ad_id: "1202",
+            }),
+          ],
+        ]),
+        launchesByExternal: new Map([["meta:1202", "launch-ext"]]),
+        launchesByAnalysisVariant: new Map([["analysis-1:", "launch-ext"]]),
+        analysesById: new Map([
+          [
+            "analysis-1",
+            {
+              id: "analysis-1",
+              status: "completed",
+              analysis_mode: "single",
+              variants: [],
+            },
+          ],
+        ]),
+      })
+    );
+
+    expect(result[0].status).toBe("unmatched");
+    expect(result[0].reason).toBe("Launch ID not found in this workspace.");
+    expect(result[0].matchedLaunchId).toBeNull();
+  });
+
   it("matches by platform + external_ad_id", () => {
     const result = classifyImportRows(
       [

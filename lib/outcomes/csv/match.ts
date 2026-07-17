@@ -136,27 +136,32 @@ function classifyOne(
   row: NormalizedImportRow,
   ctx: MatchContext
 ): Omit<ImportPreviewRow, "rowIndex" | "normalized"> {
-  // 2. launch_id
+  // 2. launch_id — explicit ID must resolve; never fall through
   if (row.launchId) {
     const launch = ctx.launchesById.get(row.launchId);
-    if (launch) {
-      const windowError = validateWindow(
-        row,
-        row.launchedAt ?? launch.launched_at
-      );
-      if (windowError) {
-        return {
-          status: "invalid",
-          reason: windowError,
-          matchedLaunchId: null,
-        };
-      }
+    if (!launch) {
       return {
-        status: "matched",
-        reason: null,
-        matchedLaunchId: launch.id,
+        status: "unmatched",
+        reason: "Launch ID not found in this workspace.",
+        matchedLaunchId: null,
       };
     }
+    const windowError = validateWindow(
+      row,
+      row.launchedAt ?? launch.launched_at
+    );
+    if (windowError) {
+      return {
+        status: "invalid",
+        reason: windowError,
+        matchedLaunchId: null,
+      };
+    }
+    return {
+      status: "matched",
+      reason: null,
+      matchedLaunchId: launch.id,
+    };
   }
 
   // 3. analysis_id + variant_id → existing launch

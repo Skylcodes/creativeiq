@@ -440,7 +440,7 @@ export async function confirmCsvImport(input: {
 
     const { data: existing } = await supabase
       .from("launch_outcomes")
-      .select("id")
+      .select("id, outcome_label")
       .eq("launch_id", resolved.launchId)
       .eq("window_type", window.windowType)
       .maybeSingle();
@@ -462,7 +462,7 @@ export async function confirmCsvImport(input: {
           purchases: n.metrics.purchases,
           leads: n.metrics.leads,
           revenue: n.metrics.revenue,
-          outcome_label: null,
+          outcome_label: existing?.outcome_label ?? null,
           source: "csv",
           source_ref: importId,
           updated_at: new Date().toISOString(),
@@ -547,7 +547,7 @@ async function resolveOrCreateLaunchForImport(args: {
     };
   }
 
-  const key = `${n.analysisId}:${n.variantId ?? ""}`;
+  const key = `${n.analysisId}:${n.variantId ?? ""}:${n.platform}:${n.externalAdId ?? ""}`;
   const alreadyCreated = createdLaunchByKey.get(key);
   if (alreadyCreated) {
     return {
