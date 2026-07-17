@@ -108,7 +108,11 @@ export function PerformanceView({
         <PerformanceEmptyState />
       )}
 
-      <LaunchOutcomesSection launches={launches} analysisMeta={analysisMeta} />
+      <LaunchOutcomesSection
+        workspaceId={workspaceId}
+        launches={launches}
+        analysisMeta={analysisMeta}
+      />
     </PageShell>
   );
 }
