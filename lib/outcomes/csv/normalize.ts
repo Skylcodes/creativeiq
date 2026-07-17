@@ -19,7 +19,8 @@ function emptyToNull(value: string | undefined): string | null {
 function parseNumber(value: string | undefined): number | null {
   const t = emptyToNull(value);
   if (t == null) return null;
-  return Number(t);
+  const n = Number(t.replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
 }
 
 function parsePlatform(value: string | undefined): LaunchPlatform | null {

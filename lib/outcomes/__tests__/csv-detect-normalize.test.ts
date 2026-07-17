@@ -94,4 +94,10 @@ describe("normalizeAdvaraRows", () => {
     const { rows } = normalizeAdvaraRows(["platform", "spend"], [["facebook", "1"]]);
     expect(rows[0].platform).toBeNull();
   });
+
+  it("parses comma-separated numbers and rejects non-numeric values", () => {
+    const { rows } = normalizeAdvaraRows(["spend"], [["1,234.5"], ["abc"]]);
+    expect(rows[0].metrics.spend).toBe(1234.5);
+    expect(rows[1].metrics.spend).toBeNull();
+  });
 });
