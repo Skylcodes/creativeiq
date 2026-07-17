@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  resolveOutcomeWindow,
   resolveWindow,
   validateLaunchInput,
   validateOutcomeInput,
@@ -110,5 +111,39 @@ describe("resolveWindow", () => {
     const { windowStart, windowEnd } = resolveWindow("2026-07-10", "7d");
     expect(windowStart).toBe(new Date("2026-07-10T00:00:00.000Z").toISOString());
     expect(windowEnd).toBe(new Date("2026-07-17T00:00:00.000Z").toISOString());
+  });
+});
+
+describe("resolveOutcomeWindow", () => {
+  it("resolves fixed 7d from launch date", () => {
+    const w = resolveOutcomeWindow({
+      launchedAt: "2026-07-01",
+      windowType: "7d",
+    });
+    expect(w.windowType).toBe("7d");
+    expect(w.windowStart).toBe("2026-07-01T00:00:00.000Z");
+    expect(w.windowEnd).toBe("2026-07-08T00:00:00.000Z");
+  });
+
+  it("accepts custom start/end", () => {
+    const w = resolveOutcomeWindow({
+      launchedAt: "2026-07-01",
+      windowType: "custom",
+      windowStart: "2026-07-01",
+      windowEnd: "2026-07-06",
+    });
+    expect(w.windowType).toBe("custom");
+    expect(w.windowEnd > w.windowStart).toBe(true);
+  });
+
+  it("infers 7d when start/end span exactly 7 days and windowType omitted via custom dates matching", () => {
+    const w = resolveOutcomeWindow({
+      launchedAt: "2026-07-01",
+      windowType: "custom",
+      windowStart: "2026-07-01T00:00:00.000Z",
+      windowEnd: "2026-07-08T00:00:00.000Z",
+    });
+    // Still custom if caller passed custom; inference happens in normalize, not here.
+    expect(w.windowType).toBe("custom");
   });
 });

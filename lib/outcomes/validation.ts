@@ -103,3 +103,40 @@ export function resolveWindow(
   const end = new Date(start.getTime() + OUTCOME_WINDOW_DAYS[windowType] * DAY_MS);
   return { windowStart: start.toISOString(), windowEnd: end.toISOString() };
 }
+
+export function resolveOutcomeWindow(args: {
+  launchedAt: string;
+  windowType: "3d" | "7d" | "14d" | "custom";
+  windowStart?: string | null;
+  windowEnd?: string | null;
+}): {
+  windowStart: string;
+  windowEnd: string;
+  windowType: "3d" | "7d" | "14d" | "custom";
+} {
+  if (args.windowType !== "custom") {
+    const fixed = resolveWindow(args.launchedAt, args.windowType);
+    return { ...fixed, windowType: args.windowType };
+  }
+  if (!args.windowStart || !args.windowEnd) {
+    throw new Error("Custom window requires start and end.");
+  }
+  const start = new Date(
+    /^\d{4}-\d{2}-\d{2}$/.test(args.windowStart)
+      ? `${args.windowStart}T00:00:00.000Z`
+      : args.windowStart
+  );
+  const end = new Date(
+    /^\d{4}-\d{2}-\d{2}$/.test(args.windowEnd)
+      ? `${args.windowEnd}T00:00:00.000Z`
+      : args.windowEnd
+  );
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    throw new Error("Invalid custom window.");
+  }
+  return {
+    windowType: "custom",
+    windowStart: start.toISOString(),
+    windowEnd: end.toISOString(),
+  };
+}

@@ -1,5 +1,57 @@
 export type LaunchPlatform = "meta" | "tiktok" | "other";
 export type OutcomeWindowType = "3d" | "7d" | "14d";
+export type ImportWindowType = OutcomeWindowType | "custom";
+
+export type CsvFormat = "advara" | "meta";
+
+export type NormalizedImportRow = {
+  rowIndex: number; // 1-based data row number for UI
+  launchId: string | null;
+  analysisId: string | null;
+  variantId: string | null;
+  platform: LaunchPlatform | null;
+  externalAdId: string | null;
+  externalCampaignId: string | null;
+  launchedAt: string | null; // yyyy-mm-dd
+  windowType: ImportWindowType | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  currency: string;
+  metrics: RawOutcomeMetrics;
+  notes: string | null;
+  unknownColumns: string[];
+};
+
+export type ImportRowStatus =
+  | "matched"
+  | "create_launch"
+  | "unmatched"
+  | "invalid"
+  | "duplicate";
+
+export type ImportPreviewRow = {
+  rowIndex: number;
+  status: ImportRowStatus;
+  reason: string | null;
+  normalized: NormalizedImportRow;
+  matchedLaunchId: string | null;
+};
+
+export type ImportPreviewResult = {
+  format: CsvFormat;
+  contentHash: string;
+  filename: string;
+  unknownColumns: string[];
+  rows: ImportPreviewRow[];
+  counts: {
+    matched: number;
+    createLaunch: number;
+    unmatched: number;
+    invalid: number;
+    duplicate: number;
+    importable: number;
+  };
+};
 export type OutcomeSource = "manual" | "csv" | "api";
 export type OutcomeLabel = "winner" | "break_even" | "loser" | "killed_early";
 
