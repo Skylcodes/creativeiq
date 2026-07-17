@@ -97,6 +97,9 @@ export function resolveWindow(
 ): { windowStart: string; windowEnd: string } {
   const startDate = launchedAt.slice(0, 10);
   const start = new Date(`${startDate}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime())) {
+    throw new Error("Invalid launch date for outcome window.");
+  }
   const end = new Date(start.getTime() + OUTCOME_WINDOW_DAYS[windowType] * DAY_MS);
   return { windowStart: start.toISOString(), windowEnd: end.toISOString() };
 }

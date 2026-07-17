@@ -113,10 +113,16 @@ export async function recordOutcome(
 
   if (!launch) return { success: false, error: "Launch not found." };
 
-  const { windowStart, windowEnd } = resolveWindow(
-    launch.launched_at,
-    input.windowType
-  );
+  let windowStart: string;
+  let windowEnd: string;
+  try {
+    ({ windowStart, windowEnd } = resolveWindow(
+      launch.launched_at,
+      input.windowType
+    ));
+  } catch {
+    return { success: false, error: "Invalid launch date for this outcome." };
+  }
 
   // Upsert on (launch_id, window_type): re-entering a window updates it.
   const { data: outcome, error } = await supabase
