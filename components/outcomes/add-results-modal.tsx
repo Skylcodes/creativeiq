@@ -22,12 +22,6 @@ type AddResultsModalProps = {
   onSaved: () => void;
 };
 
-const fieldClass =
-  "w-full rounded-2xl border border-border-strong bg-white/[0.88] px-4 py-3 text-sm text-text-primary outline-none transition-all placeholder:text-text-muted focus:border-accent/[0.45] focus:bg-white focus:ring-4 focus:ring-accent/[0.12]";
-
-const labelClass =
-  "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-muted";
-
 const WINDOWS: Array<{ id: OutcomeWindowType; label: string }> = [
   { id: "3d", label: "First 3 days" },
   { id: "7d", label: "First 7 days" },
@@ -105,26 +99,27 @@ export function AddResultsModal({
   return (
     <AnimatePresence>
       {open && (
-        <>
-          <motion.div
+        <div className="modal-overlay flex items-center justify-center p-4">
+          <motion.button
+            type="button"
+            aria-label="Close"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-[rgba(8,7,17,0.42)] backdrop-blur-[6px]"
+            className="absolute inset-0"
             onClick={pending ? undefined : onClose}
-            aria-hidden
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="premium-card premium-card-elevated fixed left-1/2 top-1/2 z-50 flex max-h-[min(90vh,720px)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden"
+            className="modal-panel relative z-10 flex max-h-[min(90vh,720px)] w-full max-w-lg flex-col overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-results-title"
           >
-            <div className="shrink-0 border-b border-white/65 px-6 py-5">
+            <div className="shrink-0 border-b border-white/10 px-6 py-5">
               <h2
                 id="add-results-title"
                 className="font-display text-xl font-semibold text-text-primary"
@@ -143,16 +138,13 @@ export function AddResultsModal({
               <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="result-window" className={labelClass}>
-                      Window
-                    </label>
+                    <label htmlFor="result-window">Window</label>
                     <select
                       id="result-window"
                       value={windowType}
                       onChange={(e) =>
                         setWindowType(e.target.value as OutcomeWindowType)
                       }
-                      className={fieldClass}
                     >
                       {WINDOWS.map((w) => (
                         <option key={w.id} value={w.id}>
@@ -162,14 +154,11 @@ export function AddResultsModal({
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="result-currency" className={labelClass}>
-                      Currency
-                    </label>
+                    <label htmlFor="result-currency">Currency</label>
                     <select
                       id="result-currency"
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
-                      className={fieldClass}
                     >
                       {OUTCOME_CURRENCIES.map((c) => (
                         <option key={c} value={c}>
@@ -182,9 +171,7 @@ export function AddResultsModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="result-spend" className={labelClass}>
-                      Spend
-                    </label>
+                    <label htmlFor="result-spend">Spend</label>
                     <input
                       id="result-spend"
                       type="number"
@@ -192,13 +179,10 @@ export function AddResultsModal({
                       step="0.01"
                       value={spend}
                       onChange={(e) => setSpend(e.target.value)}
-                      className={fieldClass}
                     />
                   </div>
                   <div>
-                    <label htmlFor="result-impressions" className={labelClass}>
-                      Impressions
-                    </label>
+                    <label htmlFor="result-impressions">Impressions</label>
                     <input
                       id="result-impressions"
                       type="number"
@@ -206,13 +190,10 @@ export function AddResultsModal({
                       step="1"
                       value={impressions}
                       onChange={(e) => setImpressions(e.target.value)}
-                      className={fieldClass}
                     />
                   </div>
                   <div>
-                    <label htmlFor="result-clicks" className={labelClass}>
-                      Clicks
-                    </label>
+                    <label htmlFor="result-clicks">Clicks</label>
                     <input
                       id="result-clicks"
                       type="number"
@@ -220,11 +201,10 @@ export function AddResultsModal({
                       step="1"
                       value={clicks}
                       onChange={(e) => setClicks(e.target.value)}
-                      className={fieldClass}
                     />
                   </div>
                   <div>
-                    <label htmlFor="result-conversions" className={labelClass}>
+                    <label htmlFor="result-conversions">
                       {goalKind === "leads" ? "Leads" : "Purchases"}
                     </label>
                     <input
@@ -234,13 +214,10 @@ export function AddResultsModal({
                       step="1"
                       value={conversions}
                       onChange={(e) => setConversions(e.target.value)}
-                      className={fieldClass}
                     />
                   </div>
                   <div className="col-span-2">
-                    <label htmlFor="result-revenue" className={labelClass}>
-                      Revenue
-                    </label>
+                    <label htmlFor="result-revenue">Revenue</label>
                     <input
                       id="result-revenue"
                       type="number"
@@ -248,13 +225,14 @@ export function AddResultsModal({
                       step="0.01"
                       value={revenue}
                       onChange={(e) => setRevenue(e.target.value)}
-                      className={fieldClass}
                     />
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border-strong bg-white/[0.5] px-4 py-3">
-                  <p className={labelClass}>Computed preview</p>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                  <p className="mb-2 text-xs font-medium text-text-muted">
+                    Computed preview
+                  </p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-text-secondary">
                     {previewItems.map(([label, value, format]) => (
                       <span key={label}>
@@ -268,13 +246,13 @@ export function AddResultsModal({
                 </div>
 
                 {error && (
-                  <p className="text-sm text-[#ef4444]" role="alert">
+                  <p className="text-sm text-[#f87171]" role="alert">
                     {error}
                   </p>
                 )}
               </div>
 
-              <div className="flex shrink-0 justify-end gap-3 border-t border-white/65 px-6 py-4">
+              <div className="flex shrink-0 justify-end gap-3 border-t border-white/10 px-6 py-4">
                 <button
                   type="button"
                   onClick={onClose}
@@ -293,7 +271,7 @@ export function AddResultsModal({
               </div>
             </form>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

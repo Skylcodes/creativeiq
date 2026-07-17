@@ -1559,6 +1559,7 @@ body {
     0 1px 1px rgba(255, 255, 255, 0.08) inset,
     0 32px 80px rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.92);
+  color-scheme: dark;
 }
 
 .modal-panel .text-text-primary {
@@ -1578,6 +1579,9 @@ body {
 .modal-panel input[type="email"],
 .modal-panel input[type="password"],
 .modal-panel input[type="url"],
+.modal-panel input[type="date"],
+.modal-panel input[type="number"],
+.modal-panel select,
 .modal-panel textarea {
   display: block;
   width: 100%;
@@ -1591,14 +1595,33 @@ body {
   padding: 0.6875rem 0.875rem;
 }
 
+.modal-panel select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23ffffff' stroke-opacity='0.55' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  padding-right: 2.25rem;
+}
+
+.modal-panel select option {
+  background: #120d24;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 .modal-panel textarea {
   min-height: 5.5rem;
   resize: none;
   line-height: 1.6;
 }
 
+.modal-panel input::placeholder,
+.modal-panel textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
 .modal-panel label:has(+ .input-field),
 .modal-panel label:has(+ textarea),
+.modal-panel label:has(+ select),
 .modal-panel label:has(+ input:not([type="checkbox"]):not([type="radio"])) {
   display: block;
   margin-bottom: 0.5rem;
@@ -1609,6 +1632,7 @@ body {
 
 .modal-panel .input-field:focus,
 .modal-panel input:focus,
+.modal-panel select:focus,
 .modal-panel textarea:focus {
   outline: none;
   border-color: rgba(105, 71, 255, 0.45);
