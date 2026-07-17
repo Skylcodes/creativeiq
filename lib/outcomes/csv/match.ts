@@ -6,18 +6,22 @@ import {
 } from "@/lib/types/outcome";
 import { resolveOutcomeWindow } from "@/lib/outcomes/validation";
 
+export type MatchLaunch = {
+  id: string;
+  analysis_id: string;
+  platform: string;
+  external_ad_id: string | null;
+  variant_id: string | null;
+  launched_at: string;
+};
+
 export type MatchContext = {
-  launchesById: Map<
-    string,
-    {
-      id: string;
-      analysis_id: string;
-      platform: string;
-      external_ad_id: string | null;
-      variant_id: string | null;
-    }
-  >;
+  launchesById: Map<string, MatchLaunch>;
   launchesByExternal: Map<string, string>; // `${platform}:${external_ad_id}` → launch id
+  /** Unique `${analysis_id}:${variant_id ?? ''}` → launch id. Omit ambiguous keys. */
+  launchesByAnalysisVariant: Map<string, string>;
+  /** Keys with more than one launch for the same analysis/variant. */
+  ambiguousAnalysisVariants: Set<string>;
   analysesById: Map<
     string,
     {
@@ -31,6 +35,16 @@ export type MatchContext = {
 
 const UNMATCHED_GUIDANCE =
   "Log launch first or use Advara template with analysis_id";
+
+const AMBIGUOUS_ANALYSIS_VARIANT =
+  "Multiple launches for this analysis/variant; use launch_id";
+
+function analysisVariantKey(
+  analysisId: string,
+  variantId: string | null
+): string {
+  return `${analysisId}:${variantId ?? ""}`;
+}
 
 function validateMetrics(row: NormalizedImportRow): string | null {
   const m = row.metrics;
@@ -66,14 +80,16 @@ function validateMetrics(row: NormalizedImportRow): string | null {
   return null;
 }
 
-function validateWindow(row: NormalizedImportRow): string | null {
+function validateWindow(
+  row: NormalizedImportRow,
+  launchedAt: string | null
+): string | null {
   if (row.windowType == null) {
     return "Window is required.";
   }
   try {
-    const launchedAt = row.launchedAt ?? "1970-01-01";
     resolveOutcomeWindow({
-      launchedAt,
+      launchedAt: launchedAt ?? "1970-01-01",
       windowType: row.windowType,
       windowStart: row.windowStart,
       windowEnd: row.windowEnd,
@@ -82,24 +98,6 @@ function validateWindow(row: NormalizedImportRow): string | null {
   } catch (err) {
     return err instanceof Error ? err.message : "Invalid window.";
   }
-}
-
-/** Identity used for in-file duplicate detection (before launch resolution). */
-function matchOrCreateKey(row: NormalizedImportRow): string | null {
-  if (row.launchId) return `launch:${row.launchId}`;
-  if (row.platform && row.externalAdId) {
-    return `ext:${row.platform}:${row.externalAdId}`;
-  }
-  if (row.analysisId) {
-    return `create:${row.analysisId}:${row.variantId ?? ""}`;
-  }
-  return null;
-}
-
-function duplicateKey(row: NormalizedImportRow): string | null {
-  const base = matchOrCreateKey(row);
-  if (base == null || row.windowType == null) return null;
-  return `${base}|${row.windowType}`;
 }
 
 function variantRulesOk(
@@ -121,31 +119,122 @@ function variantRulesOk(
   return { ok: true };
 }
 
+function resolvedDuplicateKey(row: ImportPreviewRow): string | null {
+  const windowType = row.normalized.windowType;
+  if (windowType == null) return null;
+
+  if (row.status === "matched" && row.matchedLaunchId) {
+    return `launch:${row.matchedLaunchId}|${windowType}`;
+  }
+  if (row.status === "create_launch" && row.normalized.analysisId) {
+    return `create:${row.normalized.analysisId}:${row.normalized.variantId ?? ""}|${windowType}`;
+  }
+  return null;
+}
+
 function classifyOne(
   row: NormalizedImportRow,
   ctx: MatchContext
 ): Omit<ImportPreviewRow, "rowIndex" | "normalized"> {
-  if (row.launchId && ctx.launchesById.has(row.launchId)) {
-    return {
-      status: "matched",
-      reason: null,
-      matchedLaunchId: row.launchId,
-    };
-  }
-
-  if (row.platform && row.externalAdId) {
-    const launchId = ctx.launchesByExternal.get(
-      `${row.platform}:${row.externalAdId}`
-    );
-    if (launchId && ctx.launchesById.has(launchId)) {
+  // 2. launch_id
+  if (row.launchId) {
+    const launch = ctx.launchesById.get(row.launchId);
+    if (launch) {
+      const windowError = validateWindow(
+        row,
+        row.launchedAt ?? launch.launched_at
+      );
+      if (windowError) {
+        return {
+          status: "invalid",
+          reason: windowError,
+          matchedLaunchId: null,
+        };
+      }
       return {
         status: "matched",
         reason: null,
-        matchedLaunchId: launchId,
+        matchedLaunchId: launch.id,
       };
     }
   }
 
+  // 3. analysis_id + variant_id → existing launch
+  if (row.analysisId) {
+    const analysis = ctx.analysesById.get(row.analysisId);
+    if (analysis) {
+      const variants = variantRulesOk(row, analysis);
+      if (!variants.ok) {
+        return {
+          status: "unmatched",
+          reason: variants.reason,
+          matchedLaunchId: null,
+        };
+      }
+    }
+
+    const key = analysisVariantKey(row.analysisId, row.variantId);
+    if (ctx.ambiguousAnalysisVariants.has(key)) {
+      return {
+        status: "unmatched",
+        reason: AMBIGUOUS_ANALYSIS_VARIANT,
+        matchedLaunchId: null,
+      };
+    }
+
+    const byVariant = ctx.launchesByAnalysisVariant.get(key);
+    if (byVariant) {
+      const launch = ctx.launchesById.get(byVariant);
+      if (launch) {
+        const windowError = validateWindow(
+          row,
+          row.launchedAt ?? launch.launched_at
+        );
+        if (windowError) {
+          return {
+            status: "invalid",
+            reason: windowError,
+            matchedLaunchId: null,
+          };
+        }
+        return {
+          status: "matched",
+          reason: null,
+          matchedLaunchId: launch.id,
+        };
+      }
+    }
+  }
+
+  // 4. platform + external_ad_id
+  if (row.platform && row.externalAdId) {
+    const launchId = ctx.launchesByExternal.get(
+      `${row.platform}:${row.externalAdId}`
+    );
+    if (launchId) {
+      const launch = ctx.launchesById.get(launchId);
+      if (launch) {
+        const windowError = validateWindow(
+          row,
+          row.launchedAt ?? launch.launched_at
+        );
+        if (windowError) {
+          return {
+            status: "invalid",
+            reason: windowError,
+            matchedLaunchId: null,
+          };
+        }
+        return {
+          status: "matched",
+          reason: null,
+          matchedLaunchId: launch.id,
+        };
+      }
+    }
+  }
+
+  // 5. create_launch when analysis is createable
   if (row.analysisId) {
     const analysis = ctx.analysesById.get(row.analysisId);
     if (analysis && analysis.status === "completed") {
@@ -158,23 +247,31 @@ function classifyOne(
         };
       }
       if (row.platform && row.launchedAt && row.windowType != null) {
-        try {
-          resolveOutcomeWindow({
-            launchedAt: row.launchedAt,
-            windowType: row.windowType,
-            windowStart: row.windowStart,
-            windowEnd: row.windowEnd,
-          });
+        const windowError = validateWindow(row, row.launchedAt);
+        if (windowError) {
           return {
-            status: "create_launch",
-            reason: null,
+            status: "invalid",
+            reason: windowError,
             matchedLaunchId: null,
           };
-        } catch {
-          // fall through to unmatched
         }
+        return {
+          status: "create_launch",
+          reason: null,
+          matchedLaunchId: null,
+        };
       }
     }
+  }
+
+  // Validate window for remaining rows (custom / row-provided dates)
+  const earlyWindow = validateWindow(row, row.launchedAt);
+  if (earlyWindow) {
+    return {
+      status: "invalid",
+      reason: earlyWindow,
+      matchedLaunchId: null,
+    };
   }
 
   return {
@@ -199,30 +296,25 @@ export function classifyImportRows(
         matchedLaunchId: null,
       };
     }
-    const windowError = validateWindow(normalized);
-    if (windowError) {
-      return {
-        rowIndex: normalized.rowIndex,
-        status: "invalid",
-        reason: windowError,
-        normalized,
-        matchedLaunchId: null,
-      };
-    }
+    const classified = classifyOne(normalized, ctx);
     return {
       rowIndex: normalized.rowIndex,
-      status: "unmatched",
-      reason: null,
+      ...classified,
       normalized,
-      matchedLaunchId: null,
     };
   });
 
-  // In-file duplicates: keep last, mark earlier as duplicate.
+  // In-file duplicates after resolution: keep last, mark earlier as duplicate.
   const lastIndexByKey = new Map<string, number>();
   for (let i = 0; i < preview.length; i++) {
-    if (preview[i].status === "invalid") continue;
-    const key = duplicateKey(preview[i].normalized);
+    const current = preview[i];
+    if (
+      current.status !== "matched" &&
+      current.status !== "create_launch"
+    ) {
+      continue;
+    }
+    const key = resolvedDuplicateKey(current);
     if (key == null) continue;
     const prev = lastIndexByKey.get(key);
     if (prev != null) {
@@ -234,18 +326,6 @@ export function classifyImportRows(
       };
     }
     lastIndexByKey.set(key, i);
-  }
-
-  for (let i = 0; i < preview.length; i++) {
-    const current = preview[i];
-    if (current.status === "invalid" || current.status === "duplicate") {
-      continue;
-    }
-    const classified = classifyOne(current.normalized, ctx);
-    preview[i] = {
-      ...current,
-      ...classified,
-    };
   }
 
   return preview;
