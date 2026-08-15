@@ -2532,3 +2532,165 @@ body {
 .admin-table tr:hover td {
   background: rgba(255, 255, 255, 0.02);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Landing flat redesign (charcoal + amber) — scoped to .landing-root only
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.landing-root {
+  --accent: #e8a317;
+  --accent-hover: #d4920f;
+  --accent-deep: #a8740c;
+  --accent-light: rgba(232, 163, 23, 0.12);
+  --accent-glow: rgba(232, 163, 23, 0.2);
+  --accent-secondary: #e8a317;
+  --accent-tertiary: #e8a317;
+  --landing-bg: #141414;
+  --landing-surface: #1a1a1a;
+  --landing-border: #2a2a2a;
+  --landing-text: #f2f2f0;
+  --landing-muted: rgba(242, 242, 240, 0.58);
+  background: var(--landing-bg);
+  color: var(--landing-text);
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+.landing-root .font-display,
+.landing-root .font-sans {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+.landing-root .btn-primary {
+  background: #e8a317;
+  border: 1px solid #e8a317;
+  color: #141414;
+  box-shadow: none;
+  border-radius: 10px;
+  filter: none;
+}
+
+.landing-root .btn-primary::before {
+  display: none;
+}
+
+.landing-root .btn-primary:hover {
+  background: #d4920f;
+  transform: none;
+  filter: none;
+  box-shadow: none;
+}
+
+.landing-root .btn-secondary,
+.landing-root .landing-hero-btn-secondary {
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  color: rgba(242, 242, 240, 0.88);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  border-radius: 10px;
+}
+
+.landing-root .btn-secondary:hover,
+.landing-root .landing-hero-btn-secondary:hover {
+  background: #1a1a1a;
+  border-color: #3a3a3a;
+  color: #f2f2f0;
+  box-shadow: none;
+}
+
+.landing-root .text-gradient,
+.landing-root .text-gradient-accent {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: unset;
+  color: #e8a317;
+}
+
+.landing-root .landing-nav-island,
+.landing-root .landing-nav-island-scrolled {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.landing-root .landing-section-hero,
+.landing-root .landing-section-problem,
+.landing-root .landing-section-process,
+.landing-root .landing-section-agents,
+.landing-root .landing-section-workflow,
+.landing-root .landing-section-comparison,
+.landing-root .landing-section-pricing,
+.landing-root .landing-section-cta,
+.landing-root .landing-section-footer {
+  background: #141414 !important;
+  background-image: none !important;
+  color: rgba(242, 242, 240, 0.92);
+}
+
+.landing-root .landing-section-hero::before,
+.landing-root .landing-section-process::before,
+.landing-root .landing-workflow-stage::before,
+.landing-root .landing-workflow-orb,
+.landing-root .landing-panel::before,
+.landing-root .landing-pain-card::before,
+.landing-root .landing-step-card::before,
+.landing-root .landing-step-card::after,
+.landing-root .landing-problem-gap-shell::before,
+.landing-root .landing-problem-split-negative::before,
+.landing-root .landing-problem-split-positive::before {
+  display: none !important;
+}
+
+.landing-root .landing-panel,
+.landing-root .landing-visual-dark,
+.landing-root .landing-workflow-stage,
+.landing-root .landing-workflow-card,
+.landing-root .landing-pain-card,
+.landing-root .landing-step-card,
+.landing-root .landing-process-stage,
+.landing-root .landing-glass-inset,
+.landing-root .landing-preview-frame,
+.landing-root .landing-preview-frame-dark,
+.landing-root .landing-pricing-card,
+.landing-root .landing-pricing-card-featured,
+.landing-root .landing-comparison-panel,
+.landing-root .landing-problem-gap-shell {
+  background: #1a1a1a !important;
+  border: 1px solid #2a2a2a !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.landing-root .landing-section-hero .landing-panel {
+  background: #1a1a1a !important;
+  border: 1px solid #2a2a2a !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.landing-root .landing-step-card-active {
+  border-color: #e8a317 !important;
+  background: #1f1a12 !important;
+}
+
+.landing-root .landing-pricing-card-featured {
+  border-color: #e8a317 !important;
+}
+
+.landing-root .landing-comparison-negative,
+.landing-root .landing-comparison-positive,
+.landing-root .landing-problem-split-negative,
+.landing-root .landing-problem-split-positive {
+  background: #1a1a1a !important;
+}
+
+.landing-root .landing-logo-mark {
+  background: #e8a317 !important;
+  border: 1px solid #e8a317 !important;
+  box-shadow: none !important;
+}

@@ -86,6 +86,7 @@ export async function evaluateCreative(
       intelligenceBriefText: input.intelligenceBriefText,
       criteriaText: options.criteriaText,
       visionImage: input.visionImage ?? input.image,
+      geminiVisualContext: input.videoContext?.geminiVisualContext,
     });
 
   const analysisReport = await buildFunnelAnalysisReport({
@@ -110,7 +111,11 @@ export async function evaluateCreative(
           onScreenText: input.videoContext.onScreenText,
           transcriptAvailable: input.videoContext.transcriptAvailable,
           visualDescription: input.videoContext.visualDescription,
+          visualTimeline: input.videoContext.visualTimeline,
           frameCount: input.videoContext.frameCount,
+          analyzedDurationSec: input.videoContext.analyzedDurationSec,
+          videoDurationSec: input.videoContext.videoDurationSec,
+          visualAnalysisMode: input.videoContext.visualAnalysisMode,
           processingNotes: input.videoContext.processingNotes,
         }
       : undefined,

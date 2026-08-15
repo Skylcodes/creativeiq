@@ -171,6 +171,7 @@ export async function runAnalysisPipeline(
     intelligenceBriefText,
     criteriaText,
     visionImage: creative.visionImage,
+    geminiVisualContext: creative.videoContext?.geminiVisualContext,
   });
 
   const report = await buildFunnelAnalysisReport({
@@ -195,7 +196,11 @@ export async function runAnalysisPipeline(
           onScreenText: creative.videoContext.onScreenText,
           transcriptAvailable: creative.videoContext.transcriptAvailable,
           visualDescription: creative.videoContext.visualDescription,
+          visualTimeline: creative.videoContext.visualTimeline,
           frameCount: creative.videoContext.frameCount,
+          analyzedDurationSec: creative.videoContext.analyzedDurationSec,
+          videoDurationSec: creative.videoContext.videoDurationSec,
+          visualAnalysisMode: creative.videoContext.visualAnalysisMode,
           processingNotes: creative.videoContext.processingNotes,
         }
       : undefined,

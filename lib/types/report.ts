@@ -263,14 +263,19 @@ export type VideoContext = {
   primaryMessaging?: string;
   /** Background music, lyrics, trending audio, SFX — not brand copy */
   backgroundAudioNote?: string;
-  /** Quoted on-screen text/captions from visual frame */
+  /** Quoted on-screen text/captions from visual analysis */
   onScreenText?: string;
   /** False when Whisper failed, API key missing, or file too large */
   transcriptAvailable: boolean;
-  /** Claude-generated description of the thumbnail frame */
+  /** Visual description from Gemini full-video or frame/thumbnail fallback */
   visualDescription: string;
-  /** Number of frames that were analyzed (currently 0 or 1 via thumbnail) */
+  /** Chronological visual notes when available */
+  visualTimeline?: string[];
+  /** Number of frames analyzed (0 when Gemini watched native video) */
   frameCount: number;
+  analyzedDurationSec?: number;
+  videoDurationSec?: number;
+  visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
   /** Non-fatal warnings from the video processing pipeline */
   processingNotes: string[];
 };

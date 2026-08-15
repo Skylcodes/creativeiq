@@ -1178,12 +1178,20 @@ export type AnalysisContextInput = {
   /** Optional — performance criteria checklist injected for grounded, consistent evaluation */
   criteriaText?: string;
   /**
+   * Optional — Gemini full-video visual analysis ground truth.
+   * When present, Claude agents must treat it as authoritative for visuals/retention.
+   */
+  geminiVisualContext?: string;
+  /**
    * When true, omit the AD CREATIVE section from the output.
    * Used in comparison runs to build a single shared cache prefix across all
    * variants — each variant injects its own creative text per-message instead.
    */
   skipCreativeSection?: boolean;
 };
+
+export const GEMINI_RETENTION_SCORING_INSTRUCTION = `GEMINI VIDEO RETENTION SCORING (when VIDEO VISUAL ANALYSIS from Gemini is present in context):
+Use the Gemini cold scroll-stop assessment and watch-through quality fields as the primary inputs for retentionScore. Cold scroll-stop maps to the first 0-50 points of retention; watch-through quality maps to the remaining 0-50 points. Combine them for the final retentionScore. Do not override the Gemini visual findings with your own visual assumptions — you have not watched the video, Gemini has.`;
 
 export function buildContextBlock(ctx: AnalysisContextInput): string {
   const lpHeader =
@@ -1213,6 +1221,16 @@ export function buildContextBlock(ctx: AnalysisContextInput): string {
           ctx.creativeText,
           "",
         ]),
+    ...(ctx.geminiVisualContext
+      ? [
+          ctx.geminiVisualContext,
+          "",
+          "The VIDEO VISUAL ANALYSIS section above is based on Gemini watching the complete video. Treat it as ground truth for all visual assessments. Your retentionScore and visual engagement judgments must be consistent with these findings — do not override them with assumptions.",
+          "",
+          GEMINI_RETENTION_SCORING_INSTRUCTION,
+          "",
+        ]
+      : []),
     "=== ANALYSIS SCOPE ===",
     "You are reviewing ONE ad creative — not the brand's full marketing plan. First identify creative intent (UGC, conversion, pain-led, retargeting, educational). Grade HOW this ad executes THAT intent — hook, claim clarity, proof, offer, CTA, native format. Do NOT penalize for omitting other product features from the brand profile. One ad = one job. A single-benefit or single-emotion ad can score highly when it executes well. Missing features belong in future angle recommendations, not in criticism of this ad.",
     "",
@@ -1228,7 +1246,9 @@ export function buildContextBlock(ctx: AnalysisContextInput): string {
       : ctx.creativeIsVideo
         ? [
             "=== ORGANIC ENGAGEMENT TEST (retention scoring — VIDEO) ===",
-            "For retentionScore: if this were posted as normal organic content (no ad label), would strangers actually watch it? Strong copy + skip-worthy visuals = low retention. Engaging execution + weak sell = high retention, lower strategic. Use Meta Ad Library engagement benchmarks as the niche bar.",
+            ctx.geminiVisualContext
+              ? "For retentionScore: follow GEMINI VIDEO RETENTION SCORING above. Ground every retention claim in the Gemini timeline/evidence — do not invent beats Gemini did not report."
+              : "For retentionScore: if this were posted as normal organic content (no ad label), would strangers actually watch it? Strong copy + skip-worthy visuals = low retention. Engaging execution + weak sell = high retention, lower strategic. Use Meta Ad Library engagement benchmarks as the niche bar.",
             "",
           ]
         : [

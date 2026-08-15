@@ -39,6 +39,7 @@ export const FUNNEL_SYNTHESIS_INSTRUCTIONS = [
   "11. retentionVerdict: when strategic and retention differ 15+ points, describe the actual gap using your two score values.",
   "12. SEVERITY: classify each pass=false as critical/moderate/minor using FLAW_SEVERITY_RULES — severity drives score weight, not fail count.",
   "13. META-CRITIQUE: If the ad shows a reference clip/ad on screen while VO critiques/reacts, viewers understand the format — do NOT block or score down for 'whose ad is this'.",
+  "14. GEMINI GROUND TRUTH: When a VIDEO VISUAL ANALYSIS (Gemini) section is present, retentionScore and all visual/pacing/on-screen-text claims MUST be consistent with it. Never invent timing (flash, only once, drop-off) that contradicts Gemini's timeline.",
 ].join("\n");
 
 export type FunnelGradingInput = {
@@ -53,6 +54,8 @@ export type FunnelGradingInput = {
   intelligenceBriefText?: string;
   criteriaText?: string;
   visionImage?: ImageInput;
+  /** Gemini full-video ground truth for retention/visual grading */
+  geminiVisualContext?: string;
 };
 
 export type FunnelReportRaw = {
@@ -139,6 +142,7 @@ export async function runFunnelGrading(
     platformText: input.platformText,
     intelligenceBriefText: input.intelligenceBriefText,
     criteriaText: input.criteriaText,
+    geminiVisualContext: input.geminiVisualContext,
   });
 
   const gradingContext = buildContextBlock({
@@ -152,6 +156,7 @@ export async function runFunnelGrading(
     platformText: input.platformText,
     intelligenceBriefText: input.intelligenceBriefText,
     criteriaText: input.criteriaText,
+    geminiVisualContext: input.geminiVisualContext,
   });
 
   const agentImage =
