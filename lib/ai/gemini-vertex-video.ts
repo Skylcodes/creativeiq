@@ -1,6 +1,6 @@
 import "server-only";
-import { GoogleGenAI } from "@google/genai";
-import { jsonrepair } from "jsonrepair";
+import { GoogleGenAI, Type, type Schema } from "@google/genai";
+import { parseJsonObject } from "@/lib/ai/parse-json";
 import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
@@ -34,9 +34,15 @@ VISUAL ACCURACY RULES (critical — grading depends on this):
 3. visualTimeline must be chronological with approximate timestamps (~0:00, ~0:04, …) covering opening → mid → close.
 4. onScreenTextPersistence must state which quoted text persists vs changes, with time ranges.
 5. firstThreeSeconds must describe the actual opening beat a cold feed viewer sees/hears.
-6. coldScrollStopScore (0-10): would a stranger's thumb STOP in the first 0–1 second? Evidence must name the exact visual/audio interrupt.
-7. watchThroughScore (0-10): after the stop, would they keep watching? Cite pacing, cuts, payoff, dead air, lecture tone.
-8. dropOffMoments: timestamps where a cold viewer would swipe — empty array if retention holds.
+6. coldScrollStopScore (0-10) — CALIBRATED. Most ads are 3–6. A talking head, on-screen text, or a visible product is TABLE STAKES (5–6), not a 7.
+   0–2 POOR: almost everyone keeps scrolling (logo open, dead first frame, no reason to stop)
+   3–4 WEAK: some pause, most thumbs keep moving
+   5–6 AVERAGE: functional open, forgettable; mixed stop rate
+   7–8 GOOD: a cold stranger would actually stop — pattern interrupt, tension, or visual stakes in 0–1s. Must cite the exact interrupt.
+   9–10 EXCEPTIONAL: immediate "wait what" — rare. Do not give 9 because the video is "nice."
+   Evidence must name the exact visual/audio interrupt. Do NOT score 7+ for unused-style reasons, and do NOT suppress a 7+ that is earned.
+7. watchThroughScore (0-10) — same calibration. 7+ only if most viewers would reach the payoff. "Could use more cuts" is NOT a low score unless they would actually drop. Empty dropOffMoments + 5/10 is a contradiction — if they stay, score like they stay; if you list drop-offs, the score cannot be 8+.
+8. dropOffMoments: timestamps where a cold viewer would realistically swipe — empty array if retention holds. Do not invent drop-offs for theoretical polish. If you list 2+ drop-offs, watchThroughScore must be ≤6.
 9. Quote onScreenText exactly when visible. Consolidate distinct overlays.
 10. META-CRITIQUE: if on-screen text belongs to a reference/competitor clip being shown while the creator speaks over it, still quote it in onScreenText but explain in separationNotes that it is REFERENCE AD COPY — not the advertiser's sell. primaryMessaging = only the creator's spoken critique/pitch/CTA.
 
@@ -46,6 +52,64 @@ SEPARATION RULES:
 - If WHISPER TRANSCRIPT is provided, use it to improve speech accuracy, but TRUST THE VIDEO for visuals, timing, on-screen text, and retention judgments
 
 ${VIDEO_ANALYSIS_JSON_SCHEMA}`;
+
+/** Vertex structured-output schema — prevents malformed JSON in long string fields. */
+const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    visualDescription: {
+      type: Type.STRING,
+      description:
+        "180-280 word analytical description of the full watched video.",
+    },
+    visualTimeline: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Chronological beats with approximate timestamps.",
+    },
+    primaryMessaging: {
+      type: Type.STRING,
+      description: "Only the actual selling speech/copy.",
+    },
+    backgroundAudioNote: {
+      type: Type.STRING,
+      description: "Non-marketing music/lyrics/SFX, or empty string.",
+    },
+    onScreenText: {
+      type: Type.STRING,
+      description: "Quoted on-screen copy consolidated.",
+    },
+    onScreenTextPersistence: { type: Type.STRING },
+    separationNotes: { type: Type.STRING },
+    coldScrollStopScore: { type: Type.INTEGER },
+    coldScrollStopEvidence: { type: Type.STRING },
+    watchThroughScore: { type: Type.INTEGER },
+    watchThroughEvidence: { type: Type.STRING },
+    firstThreeSeconds: { type: Type.STRING },
+    dropOffMoments: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
+    productVisibility: { type: Type.STRING },
+    visualStyle: { type: Type.STRING },
+    emotionalCharacteristics: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
+    endingDescription: { type: Type.STRING },
+  },
+  required: [
+    "visualDescription",
+    "primaryMessaging",
+    "backgroundAudioNote",
+    "onScreenText",
+    "coldScrollStopScore",
+    "coldScrollStopEvidence",
+    "watchThroughScore",
+    "watchThroughEvidence",
+    "firstThreeSeconds",
+  ],
+};
 
 function readEnvInt(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name]?.trim();
@@ -97,30 +161,7 @@ export function vertexVideoModelLabel(): string {
 }
 
 function parseAnalysisJson(raw: string): VideoAnalysisResult {
-  let text = raw.trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
-  }
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    text = text.slice(start, end + 1);
-  }
-
-  const candidates = [text, jsonrepair(text)];
-  let lastError: Error | null = null;
-  for (const candidate of candidates) {
-    try {
-      return JSON.parse(candidate) as VideoAnalysisResult;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-    }
-  }
-  throw new Error(
-    lastError
-      ? `Gemini video JSON parse failed: ${lastError.message}`
-      : "Gemini video JSON parse failed."
-  );
+  return parseJsonObject<VideoAnalysisResult>(raw);
 }
 
 function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisResult {
@@ -139,6 +180,9 @@ function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisResult {
     firstThreeSeconds: analysis.firstThreeSeconds?.trim(),
     dropOffMoments: analysis.dropOffMoments?.filter(Boolean),
     productVisibility: analysis.productVisibility?.trim(),
+    visualStyle: analysis.visualStyle?.trim(),
+    emotionalCharacteristics: analysis.emotionalCharacteristics?.filter(Boolean),
+    endingDescription: analysis.endingDescription?.trim(),
   };
 }
 
@@ -212,8 +256,9 @@ export async function analyzeVideoWithGeminiVertex(
     ],
     config: {
       temperature: 0.1,
-      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 3072, 512, 8192),
+      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 4096, 512, 8192),
       responseMimeType: "application/json",
+      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
     },
   });
 
@@ -282,6 +327,22 @@ export function formatGeminiVisualContextForGrading(
     lines.push("", "PRODUCT VISIBILITY:", analysis.productVisibility);
   }
 
+  if (analysis.visualStyle) {
+    lines.push("", "VISUAL STYLE:", analysis.visualStyle);
+  }
+
+  if (analysis.emotionalCharacteristics?.length) {
+    lines.push(
+      "",
+      "OBSERVABLE EMOTIONAL/ATTENTION CHARACTERISTICS (execution properties, not guaranteed viewer reactions):",
+      analysis.emotionalCharacteristics.join(", ")
+    );
+  }
+
+  if (analysis.endingDescription) {
+    lines.push("", "ENDING:", analysis.endingDescription);
+  }
+
   if (analysis.onScreenText) {
     lines.push("", "ON-SCREEN TEXT:", `"${analysis.onScreenText}"`);
   }
@@ -296,10 +357,11 @@ export function formatGeminiVisualContextForGrading(
 
   lines.push(
     "",
-    "RETENTION SCORING CONTRACT:",
-    "- Map cold scroll-stop → roughly the first 0–50 points of retentionScore.",
-    "- Map watch-through quality → roughly the remaining 0–50 points of retentionScore.",
-    "- Do not override these visual findings with assumptions — Gemini watched the video; you did not."
+    "RETENTION SCORING CONTRACT (retentionScore only):",
+    "- You did NOT watch this video. retentionScore must follow these Gemini watch signals — never copy quality, CTA strength, or offer clarity.",
+    "- Map coldScrollStopScore/watchThroughScore (0-10) to retention: ~3/10 → ~30 retention, ~5/10 → ~50, ~7/10 → ~70, ~9/10 → ~90. Table-stakes talking head/text alone is NOT 7+.",
+    "- If dropOffMoments lists 2+ timestamps, retentionScore should not exceed ~55 unless evidence strongly contradicts.",
+    "- Quote specific opening/pacing/timeline beats when scoring retention — generic strategy praise is invalid."
   );
 
   return lines.filter((l, i, arr) => !(l === "" && arr[i - 1] === "")).join("\n");

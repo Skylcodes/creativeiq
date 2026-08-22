@@ -9,6 +9,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname),
+      // `server-only` throws when imported outside the Next.js server runtime;
+      // stub it out so unit tests can import pipeline modules directly.
+      "server-only": path.resolve(__dirname, "test/stubs/server-only.ts"),
     },
   },
 });

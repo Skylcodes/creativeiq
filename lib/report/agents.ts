@@ -17,14 +17,14 @@ export type ReportAgentMeta = {
 export const REPORT_AGENTS: ReportAgentMeta[] = [
   {
     id: "skeptical_buyer",
-    name: "The Skeptical Buyer",
-    subtitle: "Simulates real purchase hesitation",
+    name: "The Real Viewer",
+    subtitle: "Simulates a real cold-feed viewing experience",
     icon: "buyer",
   },
   {
     id: "direct_response",
-    name: "The Direct Response Critic",
-    subtitle: "Scores hook, CTA, and scroll-stopping power",
+    name: "The Performance Expert",
+    subtitle: "Media-buyer evaluation of hook, offer, and funnel alignment",
     icon: "critic",
   },
   {

@@ -15,6 +15,7 @@ export type AngleTag = (typeof ANGLE_TAGS)[number];
 export type ConversionCategoryKey =
   | "message_match"
   | "hook_strength"
+  | "above_fold_clarity"
   | "social_proof"
   | "offer_clarity"
   | "lead_magnet_clarity"
@@ -100,6 +101,19 @@ export type CreativeScoreBreakdown = {
   retentionVerdict?: string;
 };
 
+export type VerdictLabel =
+  | "LAUNCH"
+  | "LAUNCH_WITH_FIXES"
+  | "TEST_SMALL"
+  | "REWORK";
+
+/** Deterministic launch-readiness verdict computed from overallFunnelScore. */
+export type Verdict = {
+  label: VerdictLabel;
+  /** Max 25 words, specific to this exact ad. */
+  rationale: string;
+};
+
 export type AnalysisReport = {
   schemaVersion: 1;
   generatedAt: string;
@@ -110,6 +124,9 @@ export type AnalysisReport = {
   /** Strategic messaging quality vs watchability/retention */
   creativeScoreBreakdown?: CreativeScoreBreakdown;
   conversionScore: ConversionScore;
+
+  /** Deterministic launch-readiness verdict — computed in application code, never by the model. */
+  verdict?: Verdict;
 
   headline: string; // one-line executive summary
   angleTags: AngleTag[];
@@ -276,6 +293,10 @@ export type VideoContext = {
   analyzedDurationSec?: number;
   videoDurationSec?: number;
   visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
+  /** Gemini cold-open thumb-stop score (0–10) — ground truth from watching the video */
+  coldScrollStopScore?: number;
+  /** Gemini watch-through / pacing quality score (0–10) */
+  watchThroughScore?: number;
   /** Non-fatal warnings from the video processing pipeline */
   processingNotes: string[];
 };

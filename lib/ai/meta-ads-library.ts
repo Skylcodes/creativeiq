@@ -3,8 +3,8 @@ import { buildToleranceSignalsFromAds } from "@/lib/ai/tolerance-signals";
 import type { CompetitorAd, MarketPatterns } from "@/lib/types/report";
 
 // ---------------------------------------------------------------------------
-// Meta Ad Library via Apify (primary) with Graph API fallback.
-// Pay-per-result — keep limits low; callers should cache aggressively.
+// Meta Ad Library via official Graph API (primary) with Apify fallback.
+// Keep limits low; callers should cache aggressively.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_ACTOR = "apify/facebook-ads-scraper";
@@ -530,7 +530,7 @@ export function buildCompetitiveInsights(
 }
 
 /**
- * Fetch competitor ads — Apify first, Graph API fallback.
+ * Fetch competitor ads — official Graph API first, Apify fallback.
  * Never throws; returns empty on failure.
  */
 export async function fetchMetaAdsLibrary(
@@ -544,14 +544,14 @@ export async function fetchMetaAdsLibrary(
   let ads: CompetitorAd[] = [];
   let source: MetaAdsFetchResult["source"] = "none";
 
-  if (apifyToken()) {
-    ads = await fetchViaApify(options);
-    if (ads.length) source = "apify";
-  }
-
-  if (!ads.length && graphToken()) {
+  if (graphToken()) {
     ads = await fetchViaGraphApi(options);
     if (ads.length) source = "graph_api";
+  }
+
+  if (!ads.length && apifyToken()) {
+    ads = await fetchViaApify(options);
+    if (ads.length) source = "apify";
   }
 
   const patterns = ads.length ? buildMarketPatterns(ads, query) : null;

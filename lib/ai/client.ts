@@ -1,6 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { jsonrepair } from "jsonrepair";
+import { parseJsonObject as parseJsonObjectShared } from "@/lib/ai/parse-json";
 
 export const CLAUDE_MODEL =
   process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6";
@@ -232,54 +232,8 @@ const JSON_OUTPUT_RULES = [
   "No trailing commas after the last array element or object property.",
 ].join(" ");
 
-function normalizeJsonText(raw: string): string {
-  let text = raw.trim();
-
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
-  }
-
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    text = text.slice(start, end + 1);
-  }
-
-  return text;
-}
-
-function stripTrailingCommas(json: string): string {
-  return json.replace(/,\s*([}\]])/g, "$1");
-}
-
-function tryParseJson<T>(text: string): T {
-  return JSON.parse(text) as T;
-}
-
 export function parseJsonObject<T>(raw: string): T {
-  const normalized = normalizeJsonText(raw);
-  const candidates = [
-    normalized,
-    stripTrailingCommas(normalized),
-    jsonrepair(normalized),
-    jsonrepair(stripTrailingCommas(normalized)),
-  ];
-
-  let lastError: Error | null = null;
-
-  for (const candidate of candidates) {
-    try {
-      return tryParseJson<T>(candidate);
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-    }
-  }
-
-  throw new Error(
-    lastError
-      ? `Could not parse JSON from Claude response: ${lastError.message}`
-      : "Could not parse JSON from Claude response."
-  );
+  return parseJsonObjectShared<T>(raw);
 }
 
 /**

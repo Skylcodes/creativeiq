@@ -18,12 +18,12 @@ import type { IntelligenceBrief, CompetitorAd, MarketPatterns } from "@/lib/type
 //
 // Tavily:  https://app.tavily.com/home  →  API Keys → TAVILY_API_KEY
 //
-// Meta Ad Library (recommended — Apify):
+// Meta Ad Library (primary — official Graph API):
+//   META_AD_LIBRARY_TOKEN — Facebook App with Ads Library API access
+//
+// Fallback Apify scraper:
 //   APIFY_API_TOKEN — https://console.apify.com/account/integrations
 //   Optional: APIFY_META_ADS_ACTOR_ID (default: apify/facebook-ads-scraper)
-//
-// Fallback Meta Graph API:
-//   META_AD_LIBRARY_TOKEN — Facebook App with Ads Library API access
 // ---------------------------------------------------------------------------
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days

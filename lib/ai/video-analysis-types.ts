@@ -18,6 +18,12 @@ export type VideoAnalysisResult = {
   dropOffMoments?: string[];
   /** When/how the product is shown */
   productVisibility?: string;
+  /** Execution style classification: raw UGC, polished UGC, talking head, product demo, cinematic, motion graphics, mixed, other */
+  visualStyle?: string;
+  /** Observable emotional/attention characteristics the execution communicates (not guaranteed viewer reactions) */
+  emotionalCharacteristics?: string[];
+  /** Final sequence: last frame, CTA, offer, spoken closing */
+  endingDescription?: string;
 };
 
 export type VisualAnalysisMode =
@@ -40,7 +46,13 @@ export const VIDEO_ANALYSIS_JSON_SCHEMA = `Return ONLY JSON:
   "watchThroughEvidence": "pacing/cuts/payoff that hold or lose attention after the stop",
   "firstThreeSeconds": "moment-by-moment description of the first ~3 seconds",
   "dropOffMoments": ["~0:06 dull hold with no new info", "..."],
-  "productVisibility": "when the product appears and how clearly it is shown"
+  "productVisibility": "when the product appears and how clearly it is shown",
+  "visualStyle": "one of: raw UGC, polished UGC, talking head, product demo, cinematic, motion graphics, mixed, other — describe the actual execution, not a quality judgment",
+  "emotionalCharacteristics": ["observable attention/emotional characteristics the execution communicates, e.g. curiosity, urgency, skepticism-inducing — not guaranteed viewer reactions"],
+  "endingDescription": "final sequence: last frame, CTA, offer, spoken closing"
 }
 
-coldScrollStopScore and watchThroughScore are integers 0-10. Be evidence-based — quote what is on screen/audio, do not invent beats that are not in the video.`;
+coldScrollStopScore and watchThroughScore are integers 0-10. Be evidence-based — quote what is on screen/audio.
+Scale (most ads are 3–6; 7+ must be earned by actual stop/hold, not by having a person, text, or product on screen):
+0–2 poor skip, 3–4 weak, 5–6 average/table-stakes, 7–8 good (stranger would stop and stay), 9–10 exceptional/rare.
+Do not invent beats. Do not depress an earned 8 for unused conventions. If dropOffMoments has 2+ items, watchThroughScore must be 6 or below.`;

@@ -1,22 +1,13 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { callClaudeJSON, type ImageInput } from "@/lib/ai/client";
+import { callClaudeJSON } from "@/lib/ai/client";
 import { evaluateCreative } from "@/lib/ai/evaluate-creative";
 import { getOrGenerateBrandProfile } from "@/lib/ai/brand-profile";
-import { formatBrandProfileForPrompt } from "@/lib/ai/brand-profile-prompt";
-import { buildIntelligenceBrief, formatIntelligenceForPrompt } from "@/lib/ai/intelligence";
-import {
-  buildImageCreativeBrief,
-  describeImageCreative,
-} from "@/lib/ai/image-creative";
+import { buildMarketIntelligence } from "@/lib/ai/market-intelligence";
 import {
   COMPARISON_SYNTHESIS_SYSTEM,
   buildComparisonScopeBlock,
 } from "@/lib/ai/prompts";
-import { getOrBuildCriteria, formatCriteriaForContext } from "@/lib/ai/criteria";
-import { isScrapeContentSufficient, scrapePage } from "@/lib/ai/scrape";
-import { buildVideoBrief, processVideoCreative } from "@/lib/ai/video";
-import type { VideoCreativeContext } from "@/lib/ai/video";
 import { ANALYSIS_PLATFORMS, COMPARISON_PLATFORMS } from "@/lib/analyses/constants";
 import {
   getCreativeGoalEvaluationBlock,
@@ -66,68 +57,6 @@ function variantAsAnalysisRow(
   };
 }
 
-async function buildVariantCreative(
-  supabase: SupabaseClient,
-  analysis: Analysis,
-  variant: StoredAnalysisVariant
-): Promise<{
-  text: string;
-  image?: ImageInput;
-  visionImage?: ImageInput;
-  kind: AnalysisReport["flags"]["creativeKind"];
-  videoContext?: VideoCreativeContext;
-}> {
-  const row = variantAsAnalysisRow(analysis, variant);
-
-  if (variant.creative_type === "script") {
-    return {
-      text: variant.script_content?.trim() || "(No script content provided.)",
-      kind: "script",
-    };
-  }
-
-  if (variant.creative_type === "video") {
-    const videoCtx = await processVideoCreative(supabase, row);
-    const { text } = buildVideoBrief(videoCtx, variant.creative_file_name ?? undefined);
-    return { text, kind: "video", videoContext: videoCtx };
-  }
-
-  const path = variant.creative_storage_path;
-  if (!path) return { text: "(Image creative missing.)", kind: "image" };
-
-  try {
-    const { data, error } = await supabase.storage
-      .from("analysis-creatives")
-      .download(path);
-    if (error || !data) throw new Error(error?.message ?? "download failed");
-    const buffer = Buffer.from(await data.arrayBuffer());
-    const mediaType =
-      variant.creative_mime_type === "image/png" ? "image/png" : "image/jpeg";
-    const image: ImageInput = {
-      mediaType,
-      base64Data: buffer.toString("base64"),
-    };
-    const visualDescription = await describeImageCreative(
-      image,
-      variant.creative_file_name ?? undefined
-    );
-    const text = buildImageCreativeBrief(
-      visualDescription,
-      variant.creative_file_name ?? undefined
-    );
-    return {
-      text,
-      visionImage: image,
-      kind: "image",
-    };
-  } catch {
-    return {
-      text: `Image creative could not be loaded (variant: "${variant.label}"). Proceed using brand, platform, and landing-page context and flag that the image was unavailable.`,
-      kind: "image",
-    };
-  }
-}
-
 type IndividualEvalResult = {
   variantId: string;
   label: string;
@@ -147,15 +76,10 @@ function enforceRankingsFromScores(
   rankings: ComparisonRanking[],
   individualResults: IndividualEvalResult[]
 ): ComparisonRanking[] {
-  const scoreById = new Map(
-    individualResults.map((r) => [r.variantId, r.score])
-  );
+  const scoreById = new Map(individualResults.map((r) => [r.variantId, r.score]));
 
   return rankings
-    .map((r) => ({
-      ...r,
-      score: scoreById.get(r.variantId) ?? r.score,
-    }))
+    .map((r) => ({ ...r, score: scoreById.get(r.variantId) ?? r.score }))
     .sort((a, b) => a.rank - b.rank);
 }
 
@@ -167,9 +91,7 @@ function buildRankingsFromScores(
     return enforceRankingsFromScores(synthesisRankings, individualResults);
   }
 
-  const reasonById = new Map(
-    synthesisRankings.map((r) => [r.variantId, r.reason])
-  );
+  const reasonById = new Map(synthesisRankings.map((r) => [r.variantId, r.reason]));
 
   return [...individualResults]
     .sort((a, b) => b.score - a.score)
@@ -185,6 +107,13 @@ function buildRankingsFromScores(
     }));
 }
 
+/**
+ * Runs the same Job 1-5 measurement pipeline once per variant (Pass 1,
+ * parallel), sharing a single market-intelligence brief across all variants
+ * since they share the same brand/category/platform — avoids N redundant
+ * Tavily/Meta calls. Pass 2 is a lightweight ranking/insights synthesis over
+ * the already-calibrated individual scores — it does not re-score anything.
+ */
 export async function runComparisonPipeline(
   supabase: SupabaseClient,
   analysis: Analysis,
@@ -200,76 +129,29 @@ export async function runComparisonPipeline(
       "full_creative",
     ];
   const platform = analysis.platforms[0] ?? "meta_feed";
-  const platformText = platformLabel(platform, analysis.platform_other);
+  const platformTextValue = platformLabel(platform, analysis.platform_other);
   const dimensionLabels = dimensions.map((d) => DIMENSION_LABELS[d]);
+  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
 
   const brandProfile = await getOrGenerateBrandProfile(supabase, workspace);
-  const brandProfileText = formatBrandProfileForPrompt(brandProfile);
 
-  const [intelligenceBrief, lp] = await Promise.all([
-    buildIntelligenceBrief(
-      supabase,
-      workspace.id,
-      brandProfile.category || brandProfile.brandName,
-      [platformText]
-    ).catch(() => null),
-    analysis.landing_page_url
-      ? scrapePage(analysis.landing_page_url)
-      : Promise.resolve(null),
-  ]);
-
-  const landingPageStatus: "ok" | "partial" | "failed" = !lp
-    ? "failed"
-    : lp.ok
-      ? isScrapeContentSufficient(lp)
-        ? "ok"
-        : "partial"
-      : "failed";
-  const landingPageText =
-    lp?.asPromptText ?? "(No landing page URL was provided.)";
-  const intelligenceBriefText = intelligenceBrief
-    ? formatIntelligenceForPrompt(intelligenceBrief)
-    : undefined;
-
-  // Build criteria checklist — same as normal analysis pipeline. This is
-  // cached per workspace (7-day TTL) so it hits cache on almost every call.
-  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
-  const criteriaList = await getOrBuildCriteria(
+  const marketIntelligence = await buildMarketIntelligence(
     supabase,
     workspace.id,
-    intelligenceBrief
-  ).catch(() => []);
-  const criteriaText = criteriaList.length > 0
-    ? formatCriteriaForContext(criteriaList, getCreativeGoalLabel(creativeGoal))
-    : undefined;
+    brandProfile.category || brandProfile.brandName,
+    [platformTextValue]
+  );
 
-  // Pass 1 — per variant: same funnel grading path as standalone analysis
+  // Pass 1 — per variant: identical Job 1-5 pipeline as standalone analysis.
   const individualResults: IndividualEvalResult[] = await Promise.all(
     variants.map(async (variant) => {
-      const creative = await buildVariantCreative(supabase, analysis, variant);
-
+      const variantRow = variantAsAnalysisRow(analysis, variant);
       const evaluation = await evaluateCreative(
-        {
-          brandProfileText,
-          creativeText: creative.text,
-          creativeIsImage: creative.kind === "image",
-          creativeIsVideo: creative.kind === "video",
-          creativeGoal: analysis.creative_goal,
-          landingPageText,
-          landingPageStatus,
-          lpError: lp?.error,
-          platformText,
-          intelligenceBriefText,
-          intelligenceBrief,
-          criteriaList,
-          visionImage: creative.visionImage,
-          variantLabel: variant.label,
-          testDimensions: dimensions,
-          creativeKind: creative.kind,
-          videoContext: creative.videoContext,
-          brandProfilePartial: brandProfile.partial,
-        },
-        { criteriaText }
+        supabase,
+        variantRow,
+        workspace,
+        marketIntelligence,
+        { testDimensions: dimensions }
       );
 
       return {
@@ -289,23 +171,21 @@ export async function runComparisonPipeline(
     })
   );
 
-  const variantDetails: ComparisonVariantDetail[] = individualResults.map(
-    (r) => ({
-      variantId: r.variantId,
-      label: r.label,
-      score: r.score,
-      creativeStrengthScore: r.creativeStrengthScore,
-      conversionScore: r.conversionScore,
-      scoreBreakdown: r.scoreBreakdown,
-      strengths: r.strengths,
-      weaknesses: r.weaknesses,
-      improvements: r.improvements,
-      productionNote: r.productionNote,
-      analysisReport: r.analysisReport,
-    })
-  );
+  const variantDetails: ComparisonVariantDetail[] = individualResults.map((r) => ({
+    variantId: r.variantId,
+    label: r.label,
+    score: r.score,
+    creativeStrengthScore: r.creativeStrengthScore,
+    conversionScore: r.conversionScore,
+    scoreBreakdown: r.scoreBreakdown,
+    strengths: r.strengths,
+    weaknesses: r.weaknesses,
+    improvements: r.improvements,
+    productionNote: r.productionNote,
+    analysisReport: r.analysisReport,
+  }));
 
-  // Pass 2 — comparative synthesis (ranking + insights; scores anchored to pass 1)
+  // Pass 2 — comparative synthesis (ranking + insights; scores anchored to pass 1).
   const synthesis = await callClaudeJSON<Omit<ComparisonReport, "variantDetails">>({
     system: COMPARISON_SYNTHESIS_SYSTEM,
     prompt: [
@@ -316,7 +196,7 @@ export async function runComparisonPipeline(
       buildComparisonScopeBlock(dimensionLabels, "ALL VARIANTS"),
       "",
       "=== PLATFORM ===",
-      platformText,
+      platformTextValue,
       "",
       "=== TEST DIMENSIONS ===",
       dimensionLabels.join(", "),
@@ -334,10 +214,10 @@ export async function runComparisonPipeline(
         null,
         2
       ),
-      ...(intelligenceBriefText
+      ...(marketIntelligence.briefText
         ? [
             "",
-            intelligenceBriefText,
+            marketIntelligence.briefText,
             "",
             "Benchmark variants against market intelligence above. Which variant is most likely to outperform competitors on hook, style, and positioning?",
           ]
@@ -349,10 +229,7 @@ export async function runComparisonPipeline(
     temperature: 0.6,
   });
 
-  const rankings = buildRankingsFromScores(
-    individualResults,
-    synthesis.rankings ?? []
-  );
+  const rankings = buildRankingsFromScores(individualResults, synthesis.rankings ?? []);
 
   const winnerEntry =
     rankings.find((r) => r.rank === 1) ?? rankings[0] ?? individualResults[0];
@@ -361,7 +238,7 @@ export async function runComparisonPipeline(
     schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     testDimensions: dimensions,
-    platform: platformText,
+    platform: platformTextValue,
     winnerVariantId: synthesis.winnerVariantId ?? winnerEntry.variantId,
     winnerVerdict:
       synthesis.winnerVerdict ??
@@ -374,13 +251,12 @@ export async function runComparisonPipeline(
       nextTest: "",
     },
     noneStrongEnough:
-      synthesis.noneStrongEnough ??
-      individualResults.every((r) => r.score < 65),
+      synthesis.noneStrongEnough ?? individualResults.every((r) => r.score < 65),
     recommendedHybrid: synthesis.recommendedHybrid,
     structuralDifferences: synthesis.structuralDifferences ?? "",
     competitiveInsights: synthesis.competitiveInsights?.length
       ? synthesis.competitiveInsights
-      : intelligenceBrief?.competitiveInsights,
+      : marketIntelligence.brief?.competitiveInsights,
   };
 
   const winner = rankings.find((r) => r.rank === 1) ?? rankings[0];

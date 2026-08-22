@@ -1159,6 +1159,24 @@ export function buildVideoBrief(
     lines.push("PRODUCT VISIBILITY:", ctx.geminiAnalysis.productVisibility);
   }
 
+  if (ctx.geminiAnalysis?.visualStyle) {
+    lines.push("");
+    lines.push("VISUAL STYLE:", ctx.geminiAnalysis.visualStyle);
+  }
+
+  if (ctx.geminiAnalysis?.emotionalCharacteristics?.length) {
+    lines.push("");
+    lines.push(
+      "OBSERVABLE EMOTIONAL/ATTENTION CHARACTERISTICS (execution properties, not guaranteed reactions):",
+      ctx.geminiAnalysis.emotionalCharacteristics.join(", ")
+    );
+  }
+
+  if (ctx.geminiAnalysis?.endingDescription) {
+    lines.push("");
+    lines.push("ENDING:", ctx.geminiAnalysis.endingDescription);
+  }
+
   if (ctx.visualTimeline?.length) {
     lines.push("");
     lines.push(
