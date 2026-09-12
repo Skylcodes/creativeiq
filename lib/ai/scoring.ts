@@ -97,17 +97,35 @@ function shouldCapToVisualEvidence(
   visualCap: number,
   geminiRaw: number
 ): boolean {
-  // Clear weakness on the 0-10 Gemini scale — always trust the cap when model exceeds it.
-  if (geminiRaw <= 4) return modelScore > visualCap;
-  // Average-or-better Gemini — only pull down when model is far above visual evidence.
-  return modelScore > visualCap + 12;
+  if (geminiRaw <= 7) return modelScore > visualCap;
+  // Strong Gemini (8+) — only pull down when model is far above visual evidence.
+  return modelScore > visualCap + 8;
+}
+
+/**
+ * Only raise toward Gemini evidence when BOTH watch signals are clearly strong (8+).
+ * Raising at 7 was letting mediocre Gemini grades (common for boring ads) pull
+ * scores up; the frame-sampling fallback accidentally scored bad ads better
+ * because it applied hard caps instead.
+ */
+function shouldRaiseToVisualEvidence(
+  modelScore: number,
+  visualFloor: number,
+  coldN: number,
+  watchN: number
+): boolean {
+  if (coldN < 8 || watchN < 8) return false;
+  return modelScore < visualFloor - 10;
 }
 
 /**
  * Calibrates scroll-stop, watch-through, and retention using Job 1 visual evidence.
- * Caps inflated model scores; never raises them. When Gemini is unavailable (frame
- * sampling only), applies conservative ceilings so bad ads cannot score higher
- * than good ads simply because full-video analysis failed.
+ * Caps inflated model scores toward weak Gemini signals AND raises under-scored
+ * model outputs toward clearly strong (7-10/10) Gemini signals — evidence must be
+ * able to move the score in either direction, or good creative can never be
+ * recognized as good. When Gemini is unavailable (frame sampling only), applies
+ * conservative ceilings so bad ads cannot score higher than good ads simply
+ * because full-video analysis failed.
  */
 export function calibrateScoresFromVisualEvidence(
   scores: {
@@ -143,16 +161,34 @@ export function calibrateScoresFromVisualEvidence(
 
     if (shouldCapToVisualEvidence(scrollStopScore, scrollCap, coldN)) {
       scrollStopScore = Math.min(scrollStopScore, scrollCap);
+    } else if (shouldRaiseToVisualEvidence(scrollStopScore, scrollCap, coldN, watchN)) {
+      scrollStopScore = Math.max(scrollStopScore, scrollCap);
     }
     if (shouldCapToVisualEvidence(watchThroughScore, watchCap, watchN)) {
       watchThroughScore = Math.min(watchThroughScore, watchCap);
+    } else if (shouldRaiseToVisualEvidence(watchThroughScore, watchCap, coldN, watchN)) {
+      watchThroughScore = Math.max(watchThroughScore, watchCap);
     }
-    if (
+    // Retention must track Gemini watch signals — never let marketing-quality
+    // inflation exceed what the video watcher reported.
+    if (coldN <= 6 || watchN <= 6 || dropCount >= 1) {
+      retentionScore = Math.min(retentionScore, retentionCap);
+    } else if (
       retentionScore > retentionCap + 8 ||
       (coldN <= 4 && retentionScore > retentionCap) ||
       (watchN <= 4 && retentionScore > retentionCap)
     ) {
       retentionScore = Math.min(retentionScore, retentionCap);
+    } else if (coldN >= 8 && watchN >= 8 && retentionScore < retentionCap - 10) {
+      retentionScore = Math.max(retentionScore, retentionCap);
+    } else if (retentionScore < retentionCap - 12) {
+      // Decent-but-not-exceptional evidence (7/7, 7/8, 8/7 — the ≥8/≥8 fast-raise
+      // above already handles the strongest case). Without this, a video with a
+      // 7/7 mapping to ~70 could sit at a model-chosen 50 with zero correction —
+      // a dead zone between the ≤6 cap branch and the ≥8/≥8 raise branch that let
+      // the model's rationale text ("maps to ~70") diverge from its own stored
+      // number with nothing to reconcile them.
+      retentionScore = retentionCap - 12;
     }
   } else if (weakVisual) {
     scrollStopScore = Math.min(scrollStopScore, 30);

@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON, type ImageInput } from "@/lib/ai/client";
 import {
   analyzeVideoWithGeminiVertex,
+  buildRetentionScoringContract,
   formatGeminiVisualContextForGrading,
   isGeminiVertexConfigured,
 } from "@/lib/ai/gemini-vertex-video";
@@ -61,7 +62,11 @@ export type VideoCreativeContext = {
 const MAX_GEMINI_INLINE_BYTES = 18 * 1024 * 1024;
 const MAX_VIDEO_FRAMES = readEnvInt("VIDEO_MAX_FRAMES", 12, 4, 16);
 const MIN_VIDEO_FRAMES = 4;
-/** Most paid social ads finish within 90s — cap visual sampling to control cost. */
+/**
+ * Frame-sampling FALLBACK ONLY (used when Gemini is unconfigured or fails).
+ * Gemini itself always receives the complete video — never trimmed — since
+ * retention/pacing/ending judgments require watching the whole thing.
+ */
 const MAX_ANALYSIS_DURATION_SEC = readEnvInt("VIDEO_MAX_DURATION_SEC", 90, 15, 180);
 /** Smaller frames = fewer vision tokens (480px ≈ 40% cheaper than 640px per frame). */
 const VIDEO_FRAME_WIDTH = readEnvInt("VIDEO_FRAME_WIDTH", 480, 320, 768);
@@ -263,7 +268,14 @@ async function probeVideoDurationSec(inPath: string): Promise<number | null> {
 }
 
 /**
- * Trim + compress video for a single inline Gemini Vertex call (cost control).
+ * Compress (never trim) the video for a single inline Gemini Vertex call.
+ * The COMPLETE video is always sent — retention, pacing, and ending
+ * judgments require watching the whole ad, not a truncated prefix. Only
+ * resolution/CRF are stepped down progressively to fit the inline payload
+ * budget. If the full video still doesn't fit even at the lowest quality
+ * step, this returns null and the caller degrades to frame sampling with an
+ * explicit note — it must never silently analyze a partial video as if it
+ * were complete.
  */
 async function prepareVideoBlobForGemini(
   videoBlob: Blob,
@@ -285,16 +297,14 @@ async function prepareVideoBlobForGemini(
     const probedDuration = await probeVideoDurationSec(inPath);
     const fullDurationSec =
       probedDuration && probedDuration > 0 ? probedDuration : undefined;
-    const analyzedDurationSec = fullDurationSec
-      ? Math.min(fullDurationSec, MAX_ANALYSIS_DURATION_SEC)
-      : MAX_ANALYSIS_DURATION_SEC;
+    // Full duration always — no trimming. Only used as a fallback estimate
+    // for `analyzedDurationSec` metadata when ffprobe fails.
+    const analyzedDurationSec = fullDurationSec ?? MAX_ANALYSIS_DURATION_SEC;
 
     const compress = (scale: string, crf: number) =>
       new Promise<void>((resolve, reject) => {
         getFfmpegCommand().then((FfmpegCommand) => {
           FfmpegCommand(inPath)
-            .seekInput(0)
-            .duration(analyzedDurationSec)
             .outputOptions([
               "-vf",
               scale,
@@ -307,7 +317,7 @@ async function prepareVideoBlobForGemini(
               "-c:a",
               "aac",
               "-b:a",
-              "64k",
+              "48k",
               "-movflags",
               "+faststart",
             ])
@@ -318,13 +328,23 @@ async function prepareVideoBlobForGemini(
         });
       });
 
-    await compress("scale=720:-2", 28);
-    let outStat = fs.statSync(outPath);
-    if (outStat.size > MAX_GEMINI_INLINE_BYTES) {
-      await compress("scale=480:-2", 32);
+    // Progressive quality ladder — duration is never reduced, only
+    // resolution/bitrate, so longer full-length videos can still fit.
+    const ladder: Array<[string, number]> = [
+      ["scale=720:-2", 28],
+      ["scale=480:-2", 32],
+      ["scale=360:-2", 36],
+      ["scale=240:-2", 40],
+    ];
+
+    let outStat: fs.Stats | null = null;
+    for (const [scale, crf] of ladder) {
+      await compress(scale, crf);
       outStat = fs.statSync(outPath);
+      if (outStat.size <= MAX_GEMINI_INLINE_BYTES) break;
     }
-    if (outStat.size > MAX_GEMINI_INLINE_BYTES) {
+
+    if (!outStat || outStat.size > MAX_GEMINI_INLINE_BYTES) {
       cleanupTempPaths(tempFiles);
       return null;
     }
@@ -903,7 +923,7 @@ export async function processVideoCreative(
           );
           const mb = (gemini.compressedBytes / 1024 / 1024).toFixed(1);
           notes.push(
-            `Visual analysis: Gemini Vertex full-video pass (${gemini.model}, ${mb}MB compressed, first ${Math.round(prepared.analyzedDurationSec)}s). Claude agents use Gemini visual ground truth for retention.`
+            `Visual analysis: Gemini Vertex watched the COMPLETE video (${gemini.model}, ${mb}MB compressed, ~${Math.round(prepared.analyzedDurationSec)}s full duration, no trimming). Claude agents use Gemini visual ground truth for retention.`
           );
         } catch (err) {
           notes.push(
@@ -1032,14 +1052,16 @@ function looksLikeMetaCritiqueFormat(ctx: VideoCreativeContext): boolean {
 
 export function buildVideoBrief(
   ctx: VideoCreativeContext,
-  fileName?: string
+  // Intentionally unused for grading: filenames must never influence any
+  // score. Kept in the signature so existing callers don't need to change.
+  _fileName?: string
 ): { text: string; thumbnailForAgents: null } {
   const lines: string[] = [
-    `AD CREATIVE — VIDEO${fileName ? ` ("${fileName}")` : ""}`,
+    "AD CREATIVE — VIDEO",
     "",
     "VIDEO VISUAL ANALYSIS (mandatory — read before critiquing visuals or on-screen text):",
     ctx.visualAnalysisMode === "gemini_vertex"
-      ? `- FULL VIDEO analyzed natively via Gemini Vertex${ctx.analyzedDurationSec ? ` (first ${Math.round(ctx.analyzedDurationSec)}s` : ""}${ctx.videoDurationSec ? ` of ~${Math.round(ctx.videoDurationSec)}s ad` : ""}${ctx.analyzedDurationSec ? ")" : ""}. Visual timeline reflects the complete watch — NOT frame sampling.`
+      ? `- COMPLETE VIDEO (all ~${Math.round(ctx.videoDurationSec ?? ctx.analyzedDurationSec ?? 0)}s, no trimming) analyzed natively via Gemini Vertex. Visual timeline reflects the entire watch, start to finish — NOT frame sampling, NOT a partial clip.`
       : ctx.visualAnalysisMode === "timeline_sampling"
         ? `- Frame-sampled coverage via ${ctx.frameCount} evenly spaced frames${ctx.analyzedDurationSec ? ` across the first ${Math.round(ctx.analyzedDurationSec)}s` : ""}${ctx.videoDurationSec ? ` of a ~${Math.round(ctx.videoDurationSec)}s ad` : ""} (~every 3s). Be conservative about timing between frames.`
         : `- Limited visual coverage (${ctx.frameCount} frame${ctx.frameCount !== 1 ? "s" : ""}) — be conservative about timing claims.`,
@@ -1152,6 +1174,11 @@ export function buildVideoBrief(
     for (const m of ctx.geminiAnalysis.dropOffMoments) {
       lines.push(`- ${m}`);
     }
+  }
+
+  if (ctx.visualAnalysisMode === "gemini_vertex" && ctx.geminiAnalysis) {
+    lines.push("");
+    lines.push(buildRetentionScoringContract(ctx.geminiAnalysis));
   }
 
   if (ctx.geminiAnalysis?.productVisibility) {

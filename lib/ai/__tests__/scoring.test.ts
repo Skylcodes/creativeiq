@@ -34,10 +34,20 @@ describe("calibrateScoresFromVisualEvidence", () => {
     expect(result.retentionScore).toBeLessThanOrEqual(36);
   });
 
-  it("does not crush good ads when Gemini scores are average (6-7) and model is aligned", () => {
+  it("caps inflated model scores when Gemini shows average (6-7) watch signals", () => {
     const result = calibrateScoresFromVisualEvidence(
       { scrollStopScore: 38, watchThroughScore: 36, retentionScore: 72 },
       { coldScrollStopScore: 6, watchThroughScore: 7 }
+    );
+    expect(result.scrollStopScore).toBe(30);
+    expect(result.watchThroughScore).toBe(35);
+    expect(result.retentionScore).toBeLessThanOrEqual(66);
+  });
+
+  it("does not cap model scores that already align with strong Gemini signals (8+)", () => {
+    const result = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 38, watchThroughScore: 36, retentionScore: 72 },
+      { coldScrollStopScore: 8, watchThroughScore: 8 }
     );
     expect(result.scrollStopScore).toBe(38);
     expect(result.watchThroughScore).toBe(36);
@@ -53,6 +63,57 @@ describe("calibrateScoresFromVisualEvidence", () => {
     expect(result.watchThroughScore).toBe(30);
     expect(result.retentionScore).toBe(50);
   });
+
+  it("raises conservatively low creative scores when Gemini shows clearly strong watch signals", () => {
+    // A genuinely excellent video (coldN=9, watchN=9) must not be stuck with an
+    // anchored, overly-cautious model score — evidence should pull it back up.
+    const result = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 20, watchThroughScore: 18, retentionScore: 40 },
+      { coldScrollStopScore: 9, watchThroughScore: 9 }
+    );
+    expect(result.scrollStopScore).toBe(45);
+    expect(result.watchThroughScore).toBe(45);
+    expect(result.retentionScore).toBe(90);
+  });
+
+  it("caps a bad ad when Gemini reports mediocre watch signals and the model inflates", () => {
+    const result = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 42, watchThroughScore: 40, retentionScore: 78 },
+      { coldScrollStopScore: 5, watchThroughScore: 5, dropOffMoments: ["~0:08"] }
+    );
+    expect(result.scrollStopScore).toBe(25);
+    expect(result.watchThroughScore).toBe(25);
+    expect(result.retentionScore).toBeLessThanOrEqual(50);
+  });
+
+  it("never raises retention above the drop-off-adjusted cap even with strong watch signals", () => {
+    // Gemini's own schema says 2+ drop-offs implies watchThroughScore should
+    // already be <=6, but guard the contradictory case defensively anyway.
+    const result = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 10, watchThroughScore: 40, retentionScore: 20 },
+      {
+        coldScrollStopScore: 9,
+        watchThroughScore: 8,
+        dropOffMoments: ["~0:04", "~0:12", "~0:20"],
+      }
+    );
+    expect(result.retentionScore).toBeLessThanOrEqual(55);
+  });
+
+  it("still discriminates a genuinely bad ad from a genuinely good ad after symmetric calibration", () => {
+    const badAd = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 30, watchThroughScore: 28, retentionScore: 55 },
+      { coldScrollStopScore: 2, watchThroughScore: 3, dropOffMoments: ["~0:03", "~0:08"] }
+    );
+    const goodAd = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 25, watchThroughScore: 25, retentionScore: 45 },
+      { coldScrollStopScore: 9, watchThroughScore: 8 }
+    );
+    expect(goodAd.retentionScore).toBeGreaterThan(badAd.retentionScore);
+    expect(goodAd.scrollStopScore + goodAd.watchThroughScore).toBeGreaterThan(
+      badAd.scrollStopScore + badAd.watchThroughScore
+    );
+  });
 });
 
 describe("anchorRetentionScore", () => {
@@ -62,9 +123,25 @@ describe("anchorRetentionScore", () => {
     ).toBe(36);
   });
 
-  it("does not raise a low model retention score", () => {
+  it("raises a conservatively low model retention score when Gemini shows clearly strong watch signals", () => {
+    // coldN=8, watchN=8 → retentionCap = 8*4 + 8*6 = 80. Model's 35 is far below
+    // that earned cap, so evidence must be able to raise it — otherwise a
+    // genuinely excellent video can never recover from an anchored model score.
     expect(
       anchorRetentionScore(35, { coldScrollStopScore: 8, watchThroughScore: 8 })
+    ).toBe(80);
+  });
+
+  it("does not raise a model retention score that is only mildly conservative", () => {
+    // Gap is within the 12-point tolerance buffer — no forced adjustment.
+    expect(
+      anchorRetentionScore(72, { coldScrollStopScore: 8, watchThroughScore: 8 })
+    ).toBe(72);
+  });
+
+  it("does not raise retention when Gemini signals are only average (below 7/10)", () => {
+    expect(
+      anchorRetentionScore(35, { coldScrollStopScore: 6, watchThroughScore: 6 })
     ).toBe(35);
   });
 
@@ -80,6 +157,27 @@ describe("anchorRetentionScore", () => {
         dropOffMoments: ["~0:04", "~0:12", "~0:20"],
       })
     ).toBeLessThanOrEqual(40);
+  });
+
+  it("closes the 7/7 dead zone — pulls a far-too-low model score up toward the contract target", () => {
+    // Reproduces a real production bug: Gemini reported cold=7/watch=7 (contract
+    // target ~70, per buildRetentionScoringContract's own mapping), the model's
+    // rationale text explicitly said "maps to retentionScore ~70", but the model's
+    // retentionScore field stored 50 — a dead zone between the ≤6 cap branch and
+    // the ≥8/≥8 raise branch let this self-contradiction through uncorrected.
+    const result = anchorRetentionScore(50, {
+      coldScrollStopScore: 7,
+      watchThroughScore: 7,
+    });
+    // retentionCap = 7*4 + 7*6 = 70; must land within 12 points of it, not sit at 50.
+    expect(result).toBeGreaterThanOrEqual(58);
+  });
+
+  it("does not touch a 7/8 retention score that is already close to its contract target", () => {
+    // retentionCap = 7*4 + 8*6 = 76; model's 76 is already exact — must pass through.
+    expect(
+      anchorRetentionScore(76, { coldScrollStopScore: 7, watchThroughScore: 8 })
+    ).toBe(76);
   });
 });
 

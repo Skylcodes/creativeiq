@@ -32,4 +32,24 @@ describe("parseJsonObject", () => {
     const result = parseJsonObject<{ primaryMessaging: string }>(raw);
     expect(result.primaryMessaging).toBe("hello");
   });
+
+  it("does not truncate at a } inside a string value (Gemini truncation case)", () => {
+    const raw =
+      '{"visualDescription": "The creator gestures } toward the product", "primaryMessaging": "buy now", "coldScrollStopScore": 5}';
+    const result = parseJsonObject<{
+      visualDescription: string;
+      primaryMessaging: string;
+      coldScrollStopScore: number;
+    }>(raw);
+    expect(result.visualDescription).toContain("gestures } toward");
+    expect(result.primaryMessaging).toBe("buy now");
+    expect(result.coldScrollStopScore).toBe(5);
+  });
+
+  it("repairs truncated JSON when the only } appears inside a string", () => {
+    const raw =
+      '{"visualDescription": "Ends with brace } in prose", "visualTimeline": ["~0:00 opening beat"';
+    const result = parseJsonObject<{ visualDescription: string }>(raw);
+    expect(result.visualDescription).toContain("brace } in prose");
+  });
 });

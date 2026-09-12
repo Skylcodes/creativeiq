@@ -81,7 +81,7 @@ export async function buildVisualIntelligence(
   } catch (err) {
     return {
       kind: "image",
-      briefText: `AD CREATIVE — STATIC IMAGE\n\n(Image creative could not be loaded — filename: "${analysis.creative_file_name ?? "creative"}". Proceed using brand, platform, and landing-page context.)`,
+      briefText: `AD CREATIVE — STATIC IMAGE\n\n(Image creative could not be loaded. Proceed using brand, platform, and landing-page context.)`,
       sourceNotes: [
         `Image creative failed to load: ${err instanceof Error ? err.message : "unknown error"}`,
       ],

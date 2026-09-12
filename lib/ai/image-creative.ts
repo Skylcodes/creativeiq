@@ -19,11 +19,13 @@ Be concrete and analytical. No filler.`;
  */
 export async function describeImageCreative(
   image: ImageInput,
-  fileName?: string
+  // Intentionally unused for grading: filenames must never influence any
+  // score. Kept in the signature so existing callers don't need to change.
+  _fileName?: string
 ): Promise<string> {
   return callClaude({
     system: IMAGE_CREATIVE_SYSTEM,
-    prompt: `Describe this ad creative image for analysis. Filename: "${fileName ?? "creative"}".`,
+    prompt: "Describe this ad creative image for analysis.",
     image,
     maxTokens: 500,
     temperature: 0.3,
@@ -33,10 +35,12 @@ export async function describeImageCreative(
 
 export function buildImageCreativeBrief(
   visualDescription: string,
-  fileName?: string
+  // Intentionally unused for grading: filenames must never influence any
+  // score. Kept in the signature so existing callers don't need to change.
+  _fileName?: string
 ): string {
   return [
-    `AD CREATIVE — STATIC IMAGE (not video)${fileName ? ` ("${fileName}")` : ""}`,
+    "AD CREATIVE — STATIC IMAGE (not video)",
     "",
     "FORMAT: Single-frame static ad — grade thumb-stop, in-frame copy, and visual hierarchy. Do not apply video watch-time or motion criteria.",
     "",
