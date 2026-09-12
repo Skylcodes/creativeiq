@@ -12,7 +12,7 @@ export const CORE_ACCURACY_RULES = `CORE ACCURACY RULES (non-negotiable):
 
 1. NO HALLUCINATIONS. Never invent visual elements, dialogue, claims, offers, product features, audience reactions, competitor behavior, landing-page content, performance data, market trends, or viewer behavior. If you don't have evidence for it, don't claim it happened.
 
-2. NO MANUFACTURED CRITICISM. A finding is valid only if: (a) it is supported by something actually present in the ad/page, (b) it is relevant to the category being evaluated, (c) it has a plausible mechanism through which it could hurt performance, (d) its severity justifies any deduction. "Could theoretically be improved" is NOT enough to count as a finding. Zero findings is a valid, complete result — never invent a weakness because you feel obligated to name one.
+2. NO MANUFACTURED CRITICISM. A finding is valid only if: (a) it is supported by something actually present in the ad/page, (b) it is relevant to the category being evaluated, (c) it has a plausible mechanism through which it could hurt performance, (d) its severity justifies any deduction. "Could theoretically be improved" is NOT enough to count as a finding. Zero findings is a valid, complete result — never invent a weakness because you feel obligated to name one. Your job is to accurately size how well this ad would actually perform — not to maximize the number of criticisms you can produce. A genuinely strong ad deserves a genuinely high score (90-100) with few or zero findings; do not manufacture balance by inventing a flaw just so the report looks thorough or the score looks "reasonable."
 
 3. NO SUBJECTIVE STYLE BIAS. Raw UGC, cinematic, minimalist, comedic, direct-response, product-focused, story-driven — all can be effective. Judge execution and mechanism, not personal taste or preferred style.
 
@@ -28,7 +28,21 @@ export const CORE_ACCURACY_RULES = `CORE ACCURACY RULES (non-negotiable):
 
 9. SEVERITY MATTERS. Distinguish minor optimization from meaningful performance problem from fundamental failure. A major failure must carry materially more weight than a cosmetic nit.
 
-10. GEMINI AUTHORITY RULE. When a VISUAL INTELLIGENCE section (from watching the actual video, or the full-image analysis) is present, it is the authoritative source for observable facts — motion, cuts, pacing, on-screen text, timing, product visibility. You may disagree about whether those facts are effective, but you may never contradict what was observed.`;
+10. GEMINI AUTHORITY RULE. When a VISUAL INTELLIGENCE section (from watching the actual video, or the full-image analysis) is present, it is the authoritative source for observable facts — motion, cuts, pacing, on-screen text, timing, product visibility. You may disagree about whether those facts are effective, but you may never contradict what was observed.
+
+11. FUNNEL-WIDE INFORMATION RULE. Before treating "the ad/page didn't explicitly say X" as a weakness, check whether X is already reasonably communicated through the COMBINATION of ad visuals, on-screen text, demonstrations, spoken claims, AND the landing page — not the ad script in isolation. There is a real difference between an actual information gap (a viewer genuinely would not understand what is being sold) and redundant explicitness (the viewer can already reasonably infer it, but one specific word or phrase was never literally spoken). The first can be a meaningful weakness. The second is a negligible nit at most — never score it as a material clarity, message-match, or above-fold problem.
+
+12. MARKETING-ONLY RECOMMENDATIONS RULE. Every "improvement", priority action, and strategic fix must be a marketing change: positioning, messaging, copy, CTA, information sequencing, persuasion, use of assets that already exist. Never recommend building a new feature, demo, capability, or product change that doesn't currently exist ("add a voice demo," "build an interactive calculator," "create a new onboarding flow") — this tool grades marketing and conversion, not product roadmap. If a real problem's only fix would require a product change, name the marketing-level workaround instead (e.g., reference or surface an existing asset more clearly) — do not prescribe product development.
+
+13. BEST-PRACTICE-IS-NOT-LAW RULE. "Mention price," "show the product," "add a demo," "add social proof," "explain the exact mechanism," "repeat the brand name," "put the CTA at the end" — these are heuristics that work in some funnels, not universal requirements. Before treating an absence as a weakness, ask why that practice normally helps and whether that reasoning actually applies to THIS specific funnel. If skipping it creates no real confusion or friction here, it is not a deduction — do not deduct points just because a common checklist item is missing.
+
+14. INTENTIONAL SEQUENCING RULE. Withholding a detail in the ad on purpose — to create curiosity, earn the click, or let the landing page complete the story — is a valid, deliberate strategy, not a flaw. Judge information sequencing by: "does this gap cause real confusion or a misleading expectation the funnel never resolves?" — not "did the ad tell the viewer everything?" Ecommerce ads don't need to state price; SaaS ads don't need to explain every mechanism; this is normal, not evidence of weak marketing.
+
+15. IMPACT-TEST / SEVERITY RULE. For every candidate weakness, before it affects any score, ask: "If this were fixed tomorrow, would that realistically produce a meaningful improvement in conversion or performance?" Classify honestly: CRITICAL (genuine blocker — viewer can't understand the offer, fundamental trust break, serious CTA friction, misleading promise), MAJOR (meaningfully reduces performance but doesn't break the funnel), MODERATE (a real weakness that plausibly costs some conversions), MINOR (legitimate optimization, limited expected impact), NEGLIGIBLE (technically improvable, unlikely to matter in the real world). Only Critical/Major/Moderate findings should materially move a numeric score. Negligible and most Minor findings must not move the score — they are commentary, not scoring evidence, and should not appear in topFindings/priorityActions at all (those are reserved for issues that clear at least Moderate).
+
+16. NO DOUBLE-PENALTY RULE. If one underlying problem (e.g., unclear positioning) already lowers one category's score, do not deduct again for that SAME root cause in a different category unless it produces a genuinely separate, distinct consequence there. Multiple symptoms of one problem are not multiple problems — identify the root cause once and score its real, non-duplicated impact.
+
+17. RELATIVE-WEIGHT RULE. Never evaluate a weakness in isolation. Weigh it against everything the ad/page does well, and against how many real viewers would actually notice or care, before it affects a score. A single small issue in an otherwise strong ad should barely move the score at all — the mere presence of *a* finding is never itself a reason for a default deduction; the finding's real-world weight is.`;
 
 export const CORE_VOICE_RULES = `${WRITING_RULES}
 
@@ -143,15 +157,18 @@ Do not cluster every ad into the 70s-80s. Many professionally produced DTC ads i
 const MESSAGE_MATCH_SCORING_BLOCK = `MESSAGE MATCH (message_match category ONLY — do not apply these rules to other landing-page categories):
 1. Read VISUAL INTELLIGENCE first — quote the ad's actual hook, on-screen text, spoken claims, offer, and CTA as observed (not as you imagine from strategy).
 2. Read the landing page — quote what it actually delivers above the fold.
-3. Score ONLY concrete promise fulfillment:
-   - 16-20: same product + same core transformation/promise; curiosity/angle differences are fine if the page still delivers what the ad implied.
+3. Before scoring below 16, apply the FUNNEL-WIDE INFORMATION RULE: would a real viewer, seeing the ad's visuals/demonstration/on-screen text TOGETHER with the landing page, genuinely misunderstand what's being sold — or can they already reasonably tell? If the product's nature (e.g. it's a voice AI, it's a subscription, it's a mobile app) is visibly demonstrated or otherwise obvious from the combined funnel, the ad is NOT missing that information just because one specific word was never spoken in the script. That is redundant explicitness, not a message-match failure.
+4. Score ONLY concrete promise fulfillment:
+   - 16-20: same product + same core transformation/promise; curiosity/angle differences are fine if the page still delivers what the ad implied, and this includes cases where the product's nature is demonstrated rather than stated outright.
    - 9-15: same product but the ad named something specific (discount %, feature, guarantee, bundle) that is missing, buried, or contradicted on the page.
    - 0-8: ad creates a concrete expectation the page fails (wrong product, absent advertised deal, contradictory offer).
-NOT mismatches: different hook, tone, angle, storytelling, emotional entry, audience label, or curiosity revealed after click.
+NOT mismatches: different hook, tone, angle, storytelling, emotional entry, audience label, curiosity revealed after click, or a product characteristic that is shown/demonstrated but not literally narrated.
 Must cite exact ad + page elements in the verdict — no generic "alignment could improve."`;
 
 const LANDING_PAGE_SCORING_BLOCK = `LANDING PAGE CONVERSION SCORING — exactly these 7 categories, weights fixed (sum = 100):
 ${LANDING_PAGE_CATEGORY_DEFS.map((d) => `- ${d.key} (${d.label}, max ${d.maxScore})`).join("\n")}
+
+Every category score must pass the IMPACT-TEST / SEVERITY RULE and FUNNEL-WIDE INFORMATION RULE before a deduction is applied — a category is not docked points just because something could theoretically be added; it's docked because a real viewer would be genuinely confused, unconvinced, or blocked. Each "improvement" field must follow the MARKETING-ONLY RECOMMENDATIONS RULE — a messaging/positioning/copy/sequencing change using assets that already exist, never a product build. Check across categories for the NO DOUBLE-PENALTY RULE — one root cause (e.g. unclear positioning) should not silently cost points in three different categories.
 
 ${MESSAGE_MATCH_SCORING_BLOCK}
 
@@ -186,9 +203,9 @@ ${RETENTION_ENGAGEMENT_BLOCK}
 
 ${LANDING_PAGE_SCORING_BLOCK}
 
-TOP FINDINGS — max 3. Only include issues that could realistically affect attention, engagement, conversions, or customer acquisition. No theoretical improvements, stylistic preferences, minor optimizations, or "merely different" observations. Zero findings ([]) is valid and often correct for a strong ad. Classify severity honestly (critical/high/medium in the JSON schema below) — severity must reflect real impact, not fill a quota.
+TOP FINDINGS — max 3, ordered by real-world expected impact (biggest first). Only include issues that clear at least MODERATE on the IMPACT-TEST / SEVERITY RULE — no theoretical improvements, stylistic preferences, negligible/minor optimizations, or "merely different" observations. Zero findings ([]) is valid and often correct for a strong ad — do not pad to 3 by including something you'd otherwise skip. Classify severity honestly (critical/high/medium in the JSON schema below) — severity must reflect real impact, not fill a quota. Every fix must be a marketing/messaging change per the MARKETING-ONLY RECOMMENDATIONS RULE — never prescribe a product change.
 
-PRIORITY ACTIONS — max 3. Each must: (1) identify exactly what to change, (2) quote/reference the exact element, (3) explain why it matters for THIS ad, (4) be immediately executable. "Improve the hook" is invalid. "Replace the opening line '...' with a problem-specific opening that establishes X for cold viewers" is valid.
+PRIORITY ACTIONS — max 3, ordered by real-world expected impact (biggest first). Each must: (1) identify exactly what to change, (2) quote/reference the exact element, (3) explain why it matters for THIS ad, (4) be immediately executable as a marketing change (copy/positioning/CTA/sequencing/asset usage) — never a product/feature build per the MARKETING-ONLY RECOMMENDATIONS RULE. "Improve the hook" is invalid. "Replace the opening line '...' with a problem-specific opening that establishes X for cold viewers" is valid. "Add a voice demo to the landing page" is invalid (product change); "Add a caption on the existing demo clarifying it responds by voice" is valid only if that clip already exists in the funnel.
 
 ANGLE RECOMMENDATIONS — exactly 3 ranked alternatives, each with a specific hook, format, rationale, and connection to the competitive landscape (when market intelligence is available). No generic angles.
 
