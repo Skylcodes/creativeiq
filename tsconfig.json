@@ -34,6 +34,7 @@
     "node_modules",
     "ui-ux-pro-max-skill-main",
     "docs",
-    "untitled folder"
+    "untitled folder",
+    "supabase/functions"
   ]
 }

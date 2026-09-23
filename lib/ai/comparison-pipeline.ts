@@ -9,6 +9,7 @@ import {
   buildComparisonScopeBlock,
 } from "@/lib/ai/prompts";
 import { ANALYSIS_PLATFORMS, COMPARISON_PLATFORMS } from "@/lib/analyses/constants";
+import { purgeAnalysisCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
 import {
   getCreativeGoalEvaluationBlock,
   getCreativeGoalLabel,
@@ -296,4 +297,11 @@ export async function runComparisonPipeline(
   if (error) {
     throw new Error(`Failed to save comparison report: ${error.message}`);
   }
+
+  // Result is durable — delete uploaded variant creatives (keep thumbs).
+  await purgeAnalysisCreativesAfterTerminalStatus(supabase, {
+    ...analysis,
+    variants: updatedVariants,
+    thumbnail_url: winnerVariant?.thumbnail_url ?? variants[0].thumbnail_url ?? null,
+  });
 }

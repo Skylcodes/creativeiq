@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDeconstructionPipeline } from "@/lib/ai/deconstruction-pipeline";
+import { purgeDeconstructionCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
 import { isValidInternalSecret } from "@/lib/internal-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdDeconstruction } from "@/lib/types/deconstruction";
@@ -50,6 +51,12 @@ export async function POST(request: Request, { params }: RouteContext) {
       })
       .eq("id", id);
 
+    await purgeDeconstructionCreativesAfterTerminalStatus(
+      supabase,
+      id,
+      deconstruction.input
+    );
+
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
@@ -72,6 +79,19 @@ export async function POST(request: Request, { params }: RouteContext) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
+
+    try {
+      await purgeDeconstructionCreativesAfterTerminalStatus(
+        supabase,
+        id,
+        deconstruction.input
+      );
+    } catch (cleanupErr) {
+      console.error(
+        "[deconstructions/worker] creative cleanup failed:",
+        cleanupErr instanceof Error ? cleanupErr.message : cleanupErr
+      );
+    }
 
     return NextResponse.json({ status: "failed", error: message }, { status: 500 });
   }

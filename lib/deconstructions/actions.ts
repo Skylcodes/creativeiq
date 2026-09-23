@@ -3,6 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
+  MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
+} from "@/lib/analyses/constants";
+import {
+  ALLOWED_CREATIVE_MIME_TYPES,
+  assertUploadedCreativeAllowed,
+} from "@/lib/analyses/creative-storage";
+import {
   normalizeLandingPageUrl,
   validateLandingPageUrl,
 } from "@/lib/analyses/validation";
@@ -60,6 +68,34 @@ export async function createDeconstruction(
 
   if (!input.input.creativeStoragePath) {
     return { success: false, error: "Upload the ad creative file." };
+  }
+
+  const creativeType = input.input.creativeType;
+  const mime = input.input.creativeMimeType;
+  const allowed =
+    creativeType === "image"
+      ? ALLOWED_CREATIVE_MIME_TYPES.image
+      : ALLOWED_CREATIVE_MIME_TYPES.video;
+  if (mime && !(allowed as readonly string[]).includes(mime)) {
+    return {
+      success: false,
+      error:
+        creativeType === "video"
+          ? "Only MP4 videos are supported."
+          : "Only JPG and PNG images are supported.",
+    };
+  }
+
+  const maxBytes =
+    creativeType === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+  const check = await assertUploadedCreativeAllowed(
+    supabase,
+    input.input.creativeStoragePath,
+    creativeType,
+    maxBytes
+  );
+  if (!check.ok) {
+    return { success: false, error: check.error };
   }
 
   const normalizedInput: DeconstructionInput = {

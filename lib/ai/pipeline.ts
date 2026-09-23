@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ANALYSIS_PLATFORMS } from "@/lib/analyses/constants";
+import { purgeAnalysisCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
 import { getOrGenerateBrandProfile } from "@/lib/ai/brand-profile";
 import { formatBrandProfileForPrompt } from "@/lib/ai/brand-profile-prompt";
 import { buildEvidenceContext } from "@/lib/ai/pipeline-prompts";
@@ -187,4 +188,7 @@ export async function runAnalysisPipeline(
   if (error) {
     throw new Error(`Failed to save report: ${error.message}`);
   }
+
+  // Result is durable — delete the uploaded creative. Keep video thumbnails for list UI.
+  await purgeAnalysisCreativesAfterTerminalStatus(supabase, analysis);
 }

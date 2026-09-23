@@ -20,6 +20,7 @@ import {
 } from "@/lib/ai/criteria";
 import { buildVideoBrief, processVideoCreative } from "@/lib/ai/video";
 import { scrapePage } from "@/lib/ai/scrape";
+import { purgeDeconstructionCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
 import type { AdDeconstruction, DeconstructionReport } from "@/lib/types/deconstruction";
 import type { CompetitorAd } from "@/lib/types/report";
 import type { Workspace } from "@/lib/types/workspace";
@@ -69,6 +70,11 @@ async function buildCreativeFromInput(
 
   if (input.creativeType === "image") {
     const path = input.creativeStoragePath;
+    if (!path) {
+      return {
+        text: "AD CREATIVE — STATIC IMAGE\n\n(Creative file was not available.)",
+      };
+    }
     try {
       const { data, error } = await supabase.storage
         .from("analysis-creatives")
@@ -266,4 +272,10 @@ export async function runDeconstructionPipeline(
   if (error) {
     throw new Error(`Failed to save deconstruction: ${error.message}`);
   }
+
+  await purgeDeconstructionCreativesAfterTerminalStatus(
+    supabase,
+    row.id,
+    row.input
+  );
 }

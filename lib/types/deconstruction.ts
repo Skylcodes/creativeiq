@@ -8,7 +8,8 @@ export type DeconstructionInput = {
   /** Competitor product landing page — used for brand identification & evidence check */
   landingPageUrl: string;
   creativeType: "image" | "video";
-  creativeStoragePath: string;
+  /** Cleared after analysis completes or fails — file is deleted from storage. */
+  creativeStoragePath?: string | null;
   creativeMimeType?: string;
   creativeFileName?: string;
   thumbnailUrl?: string;

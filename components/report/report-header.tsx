@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Analysis } from "@/lib/types/analysis";
 import type { AnalysisReport } from "@/lib/types/report";
 import {
-  filterReportFlagNotes,
   formatCreativeType,
   formatPlatforms,
   formatReportDate,
@@ -18,6 +17,8 @@ type ReportHeaderProps = {
   report: AnalysisReport;
   workspaceName: string;
   onOpenChat?: () => void;
+  onTrackLaunch?: () => void;
+  launchCount?: number;
 };
 
 export function ReportHeader({
@@ -25,16 +26,17 @@ export function ReportHeader({
   report,
   workspaceName,
   onOpenChat,
+  onTrackLaunch,
+  launchCount = 0,
 }: ReportHeaderProps) {
   const reportDate =
     report.generatedAt || analysis.completed_at || analysis.created_at;
-  const displayNotes = filterReportFlagNotes(report.flags.notes);
   const headline =
     report.headline ||
     "Analysis complete — review the sections below for strategic direction.";
 
   return (
-    <div className="dash-card overflow-hidden">
+    <div id="section-verdict" className="dash-card scroll-mt-24 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 md:px-6">
         <Link
           href="/dashboard"
@@ -102,47 +104,26 @@ export function ReportHeader({
         ))}
       </div>
 
-      <div className="border-t border-white/[0.08] px-4 py-3 md:px-5">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
-          Creative type
-        </p>
-        <p className="mt-0.5 text-sm text-white/70">
-          {formatCreativeType(analysis.creative_type)}
-        </p>
-      </div>
-
-      {displayNotes.length > 0 && (
-        <div className="border-t border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 md:px-5">
-          <div className="flex gap-2.5">
-            <svg
-              className="mt-0.5 shrink-0 text-amber-400"
-              width="15"
-              height="15"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden
-            >
-              <path
-                d="M8 1.5L15 14H1L8 1.5Z"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M8 6.5V9.5M8 11.5H8.01"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="space-y-1 text-xs leading-relaxed text-amber-100/80">
-              {displayNotes.map((note, i) => (
-                <p key={i}>{note}</p>
-              ))}
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-3 md:px-5">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
+            Creative type
+          </p>
+          <p className="mt-0.5 text-sm text-white/70">
+            {formatCreativeType(analysis.creative_type)}
+          </p>
         </div>
-      )}
+        {onTrackLaunch && (
+          <button
+            type="button"
+            onClick={onTrackLaunch}
+            className="text-sm font-medium text-accent-tertiary transition-colors hover:text-accent"
+          >
+            Track launch
+            {launchCount > 0 ? ` (${launchCount})` : ""} →
+          </button>
+        )}
+      </div>
     </div>
   );
 }

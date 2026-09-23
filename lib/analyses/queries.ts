@@ -22,9 +22,8 @@ function storagePathFromUrl(url: string): string | null {
 }
 
 function thumbnailStoragePath(analysis: Analysis): string | null {
-  if (analysis.creative_type === "image" && analysis.creative_storage_path) {
-    return analysis.creative_storage_path;
-  }
+  // Prefer dedicated thumbnail objects. Do not use creative_storage_path —
+  // originals are deleted after analysis completes/fails.
   if (analysis.thumbnail_url) {
     return storagePathFromUrl(analysis.thumbnail_url);
   }

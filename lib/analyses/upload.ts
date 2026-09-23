@@ -148,6 +148,15 @@ export async function uploadCreativeFile(
 
   const maxBytes = maxBytesForType(creativeType);
 
+  if (creativeType === "image") {
+    const allowed = ["image/jpeg", "image/png", "image/jpg"];
+    if (!allowed.includes(file.type)) {
+      return { error: "Only JPG and PNG images are supported." };
+    }
+  } else if (file.type !== "video/mp4") {
+    return { error: "Only MP4 videos are supported." };
+  }
+
   if (file.size > maxBytes) {
     return {
       error: `File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum is ${formatMegabytes(maxBytes)}.`,

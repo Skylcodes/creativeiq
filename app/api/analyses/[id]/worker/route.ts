@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAnalysisPipeline } from "@/lib/ai/pipeline";
 import { runComparisonPipeline } from "@/lib/ai/comparison-pipeline";
+import { purgeAnalysisCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
 import { isValidInternalSecret } from "@/lib/internal-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Analysis } from "@/lib/types/analysis";
@@ -51,6 +52,8 @@ export async function POST(request: Request, { params }: RouteContext) {
       })
       .eq("id", analysisId);
 
+    await purgeAnalysisCreativesAfterTerminalStatus(supabase, analysis);
+
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
@@ -75,6 +78,16 @@ export async function POST(request: Request, { params }: RouteContext) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", analysisId);
+
+    // Delete creatives on failure too — result will never be produced from this upload.
+    try {
+      await purgeAnalysisCreativesAfterTerminalStatus(supabase, analysis);
+    } catch (cleanupErr) {
+      console.error(
+        "[analyses/worker] creative cleanup failed:",
+        cleanupErr instanceof Error ? cleanupErr.message : cleanupErr
+      );
+    }
 
     return NextResponse.json({ status: "failed", error: message }, { status: 500 });
   }

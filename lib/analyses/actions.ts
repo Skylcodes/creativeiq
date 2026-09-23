@@ -1,7 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ANALYSIS_PLATFORMS, COMPARISON_PLATFORMS } from "@/lib/analyses/constants";
+import {
+  ANALYSIS_PLATFORMS,
+  COMPARISON_PLATFORMS,
+  MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
+} from "@/lib/analyses/constants";
+import {
+  ALLOWED_CREATIVE_MIME_TYPES,
+  assertUploadedCreativeAllowed,
+} from "@/lib/analyses/creative-storage";
 import { normalizeLandingPageUrl } from "@/lib/analyses/validation";
 import { createClient } from "@/lib/supabase/server";
 import { assertActionAllowed, blockedActionResult } from "@/lib/billing/gate";
@@ -13,6 +22,26 @@ import type {
   StoredAnalysisVariant,
 } from "@/lib/types/comparison";
 import { randomUUID } from "crypto";
+
+function validateCreativeMime(
+  creativeType: CreateAnalysisInput["creativeType"],
+  mime: string | null | undefined
+): string | null {
+  if (creativeType === "script") return null;
+  if (!mime) {
+    return "Creative MIME type is required for image/video uploads.";
+  }
+  const allowed =
+    creativeType === "image"
+      ? ALLOWED_CREATIVE_MIME_TYPES.image
+      : ALLOWED_CREATIVE_MIME_TYPES.video;
+  if (!(allowed as readonly string[]).includes(mime)) {
+    return creativeType === "video"
+      ? "Only MP4 videos are supported."
+      : "Only JPG and PNG images are supported.";
+  }
+  return null;
+}
 
 export type AnalysisActionResult =
   | { success: true; analysis: Analysis }
@@ -62,6 +91,38 @@ export async function createAnalysis(
 
   if (!workspace) {
     return { success: false, error: "Workspace not found." };
+  }
+
+  const mimeError = validateCreativeMime(
+    input.creativeType,
+    input.creativeMimeType
+  );
+  if (mimeError) {
+    return { success: false, error: mimeError };
+  }
+
+  if (
+    (input.creativeType === "image" || input.creativeType === "video") &&
+    input.creativeStoragePath
+  ) {
+    const maxBytes =
+      input.creativeType === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+    const check = await assertUploadedCreativeAllowed(
+      supabase,
+      input.creativeStoragePath,
+      input.creativeType,
+      maxBytes
+    );
+    if (!check.ok) {
+      return { success: false, error: check.error };
+    }
+  }
+
+  if (
+    (input.creativeType === "image" || input.creativeType === "video") &&
+    !input.creativeStoragePath
+  ) {
+    return { success: false, error: "Upload a creative file before running analysis." };
   }
 
   const title = buildAnalysisTitle(input.platforms, input.platformOther);
@@ -151,6 +212,41 @@ export async function createComparisonAnalysis(
     return { success: false, error: "Workspace not found." };
   }
 
+  for (const v of input.variants) {
+    const mimeError = validateCreativeMime(v.creativeType, v.creativeMimeType);
+    if (mimeError) {
+      return { success: false, error: `${v.label || "Variant"}: ${mimeError}` };
+    }
+    if (
+      (v.creativeType === "image" || v.creativeType === "video") &&
+      !v.creativeStoragePath
+    ) {
+      return {
+        success: false,
+        error: `${v.label || "Variant"}: upload a creative file before running.`,
+      };
+    }
+    if (
+      (v.creativeType === "image" || v.creativeType === "video") &&
+      v.creativeStoragePath
+    ) {
+      const maxBytes =
+        v.creativeType === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+      const check = await assertUploadedCreativeAllowed(
+        supabase,
+        v.creativeStoragePath,
+        v.creativeType,
+        maxBytes
+      );
+      if (!check.ok) {
+        return {
+          success: false,
+          error: `${v.label || "Variant"}: ${check.error}`,
+        };
+      }
+    }
+  }
+
   const storedVariants: StoredAnalysisVariant[] = input.variants.map(
     (v, i) => ({
       id: randomUUID(),
@@ -213,6 +309,8 @@ export async function createComparisonAnalysis(
 /**
  * Resets a failed analysis back to "processing" so the user can re-run it.
  * The client then re-triggers POST /api/analyses/[id]/run.
+ * Fails if the creative was already purged from storage after a failed run —
+ * user must start a new analysis with a fresh upload.
  */
 export async function resetAnalysisForRetry(
   analysisId: string
@@ -224,6 +322,36 @@ export async function resetAnalysisForRetry(
 
   if (!user) {
     return { success: false, error: "You must be signed in." };
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("analyses")
+    .select("id, creative_type, creative_storage_path, variants")
+    .eq("id", analysisId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { success: false, error: fetchError.message };
+  }
+  if (!existing) {
+    return { success: false, error: "Analysis not found." };
+  }
+
+  const needsFile =
+    existing.creative_type === "image" || existing.creative_type === "video";
+  if (needsFile) {
+    const variants = (existing.variants ?? []) as StoredAnalysisVariant[];
+    const hasPath =
+      Boolean(existing.creative_storage_path) ||
+      variants.some((v) => Boolean(v.creative_storage_path));
+    if (!hasPath) {
+      return {
+        success: false,
+        error:
+          "The uploaded creative was removed after the failed run. Start a new analysis and upload the file again.",
+      };
+    }
   }
 
   const now = new Date().toISOString();

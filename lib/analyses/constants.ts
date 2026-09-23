@@ -101,7 +101,8 @@ export type PlatformId = (typeof ANALYSIS_PLATFORMS)[number]["id"];
 export const CREATIVE_TABS = ["image", "video", "script"] as const;
 
 export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
-export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
+/** App + bucket hard cap for video creatives (was 500MB — unbounded storage risk). */
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 /** Standard Supabase upload is unreliable above ~6MB — use TUS above this. */
 export const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
 export const MIN_SCRIPT_LENGTH = 50;

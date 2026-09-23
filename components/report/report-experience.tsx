@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Analysis } from "@/lib/types/analysis";
 import type { HookLibraryEntry } from "@/lib/types/hook";
 import { normalizeReport } from "@/lib/report/normalize";
@@ -11,7 +11,12 @@ import { ReportChatLayout } from "@/components/chat/report-chat-layout";
 import { useReportChat } from "@/components/chat/use-report-chat";
 import { LaunchTracker } from "@/components/outcomes/launch-tracker";
 import { ReportHeader } from "./report-header";
-import { ReportTabs } from "./report-tabs";
+import { ReportNav, buildReportNavSections } from "./report-nav";
+import { TopPrioritySection } from "./sections/top-priority";
+import { CreativeAnalysisSection } from "./sections/creative-analysis";
+import { FunnelCheckSection } from "./sections/funnel-check";
+import { WhatToTestSection } from "./sections/what-to-test";
+import { ActionPlanSection } from "./sections/action-plan";
 import type { HookSaveContext } from "@/components/hooks/hook-row-actions";
 import type { LaunchWithOutcomes } from "@/lib/types/outcome";
 
@@ -37,12 +42,22 @@ export function ReportExperience({
   const report = normalizeReport(
     analysis.report && !isComparisonReport(analysis.report)
       ? analysis.report
-      : null,
+      : null
   );
   const [libraryHooks, setLibraryHooks] = useState(savedHooks);
+  const [launchOpen, setLaunchOpen] = useState(false);
   const hookLookup = buildHookLookup(libraryHooks);
   const { chatOpen, setChatOpen } = useReportChat();
   const contextLabel = getReportChatContextLabel(analysis);
+  const navSections = useMemo(
+    () => (report ? buildReportNavSections(report) : []),
+    [report]
+  );
+
+  const originalScript =
+    analysis.script_content?.trim() ||
+    report?.videoContext?.transcript?.trim() ||
+    null;
 
   const hookSaveBase: HookSaveContext | undefined = report
     ? {
@@ -62,6 +77,14 @@ export function ReportExperience({
     });
   }
 
+  if (!report) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center text-white/60">
+        Report data is unavailable for this analysis.
+      </div>
+    );
+  }
+
   return (
     <ReportChatLayout
       workspaceId={analysis.workspace_id}
@@ -70,23 +93,46 @@ export function ReportExperience({
       chatOpen={chatOpen}
       onChatOpenChange={setChatOpen}
     >
-      <div className="relative mx-auto max-w-5xl px-4 pb-16 pt-4 md:px-8 md:pb-20">
-        <div className="relative">
-          <ReportHeader
-            analysis={analysis}
-            report={report}
-            workspaceName={workspaceName}
-            onOpenChat={() => setChatOpen(true)}
-          />
-          <LaunchTracker analysis={analysis} launches={launches} />
-          <ReportTabs
-            report={report}
-            hookLookup={hookLookup}
-            hookSaveBase={hookSaveBase}
-            onHookSaved={handleHookSaved}
-          />
+      <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-4 md:px-8 md:pb-20">
+        <div className="lg:flex lg:items-start lg:gap-8">
+          <ReportNav sections={navSections} />
+
+          <div className="min-w-0 flex-1 space-y-10 md:space-y-12">
+            <ReportHeader
+              analysis={analysis}
+              report={report}
+              workspaceName={workspaceName}
+              onOpenChat={() => setChatOpen(true)}
+              onTrackLaunch={() => setLaunchOpen(true)}
+              launchCount={launches.length}
+            />
+
+            <TopPrioritySection report={report} />
+
+            <CreativeAnalysisSection
+              report={report}
+              originalScript={originalScript}
+              hookLookup={hookLookup}
+              hookSaveBase={hookSaveBase}
+              onHookSaved={handleHookSaved}
+            />
+
+            <FunnelCheckSection report={report} />
+
+            <WhatToTestSection report={report} />
+
+            <ActionPlanSection report={report} />
+          </div>
         </div>
       </div>
+
+      <LaunchTracker
+        analysis={analysis}
+        launches={launches}
+        variant="panel"
+        open={launchOpen}
+        onClose={() => setLaunchOpen(false)}
+      />
     </ReportChatLayout>
   );
 }

@@ -15,6 +15,10 @@ import { AddResultsModal } from "./add-results-modal";
 type LaunchTrackerProps = {
   analysis: Analysis;
   launches: LaunchWithOutcomes[];
+  /** Inline card (legacy) or slide-over panel */
+  variant?: "card" | "panel";
+  open?: boolean;
+  onClose?: () => void;
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -50,10 +54,17 @@ function outcomeSummary(
   return parts.length > 0 ? parts.join(" · ") : "No metrics recorded";
 }
 
-export function LaunchTracker({ analysis, launches }: LaunchTrackerProps) {
-  const router = useRouter();
-  const [logOpen, setLogOpen] = useState(false);
-  const [resultsFor, setResultsFor] = useState<LaunchWithOutcomes | null>(null);
+function LaunchTrackerBody({
+  analysis,
+  launches,
+  onLog,
+  onResults,
+}: {
+  analysis: Analysis;
+  launches: LaunchWithOutcomes[];
+  onLog: () => void;
+  onResults: (launch: LaunchWithOutcomes) => void;
+}) {
   const variants = (analysis.variants ?? []) as StoredAnalysisVariant[];
 
   function variantLabel(variantId: string | null): string | null {
@@ -62,7 +73,7 @@ export function LaunchTracker({ analysis, launches }: LaunchTrackerProps) {
   }
 
   return (
-    <div className="dash-card mt-4 px-4 py-4 md:px-6">
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">
@@ -74,11 +85,7 @@ export function LaunchTracker({ analysis, launches }: LaunchTrackerProps) {
               : `${launches.length} launch${launches.length === 1 ? "" : "es"} tracked · results are user-reported`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setLogOpen(true)}
-          className="btn-ghost text-xs"
-        >
+        <button type="button" onClick={onLog} className="btn-ghost text-xs">
           Log launch
         </button>
       </div>
@@ -127,7 +134,7 @@ export function LaunchTracker({ analysis, launches }: LaunchTrackerProps) {
               </div>
               <button
                 type="button"
-                onClick={() => setResultsFor(launch)}
+                onClick={() => onResults(launch)}
                 className="btn-ghost text-xs"
               >
                 {launch.outcomes.length > 0 ? "Update results" : "Add results"}
@@ -136,14 +143,29 @@ export function LaunchTracker({ analysis, launches }: LaunchTrackerProps) {
           ))}
         </ul>
       )}
+    </>
+  );
+}
 
+export function LaunchTracker({
+  analysis,
+  launches,
+  variant = "card",
+  open = false,
+  onClose,
+}: LaunchTrackerProps) {
+  const router = useRouter();
+  const [logOpen, setLogOpen] = useState(false);
+  const [resultsFor, setResultsFor] = useState<LaunchWithOutcomes | null>(null);
+
+  const modals = (
+    <>
       <LogLaunchModal
         analysis={analysis}
         open={logOpen}
         onClose={() => setLogOpen(false)}
         onLogged={() => router.refresh()}
       />
-
       {resultsFor && (
         <AddResultsModal
           launch={resultsFor}
@@ -153,6 +175,55 @@ export function LaunchTracker({ analysis, launches }: LaunchTrackerProps) {
           onSaved={() => router.refresh()}
         />
       )}
+    </>
+  );
+
+  if (variant === "panel") {
+    if (!open) return modals;
+    return (
+      <>
+        <div className="fixed inset-0 z-40">
+          <button
+            type="button"
+            aria-label="Close launch tracking"
+            className="absolute inset-0 bg-black/55"
+            onClick={onClose}
+          />
+          <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-white/[0.1] bg-[#0c0a14] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
+              <p className="font-semibold text-white">Track launch</p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg px-2 py-1 text-sm text-white/55 hover:bg-white/[0.06] hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-5">
+              <LaunchTrackerBody
+                analysis={analysis}
+                launches={launches}
+                onLog={() => setLogOpen(true)}
+                onResults={setResultsFor}
+              />
+            </div>
+          </aside>
+        </div>
+        {modals}
+      </>
+    );
+  }
+
+  return (
+    <div className="dash-card mt-4 px-4 py-4 md:px-6">
+      <LaunchTrackerBody
+        analysis={analysis}
+        launches={launches}
+        onLog={() => setLogOpen(true)}
+        onResults={setResultsFor}
+      />
+      {modals}
     </div>
   );
 }
