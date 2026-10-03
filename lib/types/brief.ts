@@ -35,6 +35,8 @@ export type BriefWizardInput = {
   angleIdea?: string;
   productionResource: ProductionResource;
   adBudget: AdBudget;
+  /** Freeform production instructions the predefined questions cannot capture. */
+  productionNotes?: string;
   creativeDuration: string;
   landingPageUrl: string;
 };
@@ -114,3 +116,14 @@ export type CreateBriefInput = {
   workspaceId: string;
   input: BriefWizardInput;
 };
+
+export type BriefRemixKind =
+  | "hook_punchier"
+  | "hook_natural"
+  | "hook_alternatives"
+  | "script_shorten"
+  | "script_conversational"
+  | "script_direct"
+  | "shots_simplify"
+  | "shots_broll"
+  | "shots_easier";

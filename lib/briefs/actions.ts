@@ -5,10 +5,13 @@ import { BRIEF_GOALS, briefPlatformLabels } from "@/lib/briefs/constants";
 import { createClient } from "@/lib/supabase/server";
 import { assertActionAllowed, blockedActionResult } from "@/lib/billing/gate";
 import type { ActionBlocked } from "@/lib/billing/account-types";
+import { remixBriefDocument } from "@/lib/ai/brief-remix";
 import type {
+  BriefRemixKind,
   BriefWizardInput,
   CreateBriefInput,
   CreativeBrief,
+  CreativeBriefDocument,
 } from "@/lib/types/brief";
 
 export type BriefActionResult =
@@ -156,6 +159,90 @@ export async function resetBriefForRetry(
 export type DeleteBriefResult =
   | { success: true }
   | { success: false; error: string };
+
+async function loadOwnedBrief(briefId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { supabase, user: null, brief: null };
+
+  const { data } = await supabase
+    .from("creative_briefs")
+    .select("*")
+    .eq("id", briefId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return { supabase, user, brief: data as CreativeBrief | null };
+}
+
+async function saveBriefDocument(
+  briefId: string,
+  userId: string,
+  document: CreativeBriefDocument
+): Promise<BriefActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("creative_briefs")
+    .update({
+      brief: document,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", briefId)
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .select("*")
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath(`/brief/${briefId}`);
+  return { success: true, brief: data as CreativeBrief };
+}
+
+export async function remixBriefSection(
+  briefId: string,
+  kind: BriefRemixKind
+): Promise<BriefActionResult> {
+  const { user, brief } = await loadOwnedBrief(briefId);
+  if (!user) return { success: false, error: "You must be signed in." };
+  if (!brief?.brief || brief.status !== "completed") {
+    return { success: false, error: "Brief is not ready to edit." };
+  }
+
+  try {
+    const next = await remixBriefDocument(brief.brief, kind);
+    return await saveBriefDocument(briefId, user.id, next);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not update that section.";
+    return { success: false, error: message };
+  }
+}
+
+export async function promoteBriefHook(
+  briefId: string,
+  rank: number
+): Promise<BriefActionResult> {
+  const { user, brief } = await loadOwnedBrief(briefId);
+  if (!user) return { success: false, error: "You must be signed in." };
+  if (!brief?.brief || brief.status !== "completed") {
+    return { success: false, error: "Brief is not ready to edit." };
+  }
+
+  const hooks = brief.brief.hookOptions ?? [];
+  const index = hooks.findIndex((h) => h.rank === rank);
+  if (index <= 0) return { success: true, brief };
+
+  const chosen = hooks[index];
+  const reordered = [chosen, ...hooks.filter((_, i) => i !== index)].map(
+    (hook, i) => ({ ...hook, rank: i + 1 })
+  );
+
+  return saveBriefDocument(briefId, user.id, {
+    ...brief.brief,
+    hookOptions: reordered,
+  });
+}
 
 export async function deleteBrief(briefId: string): Promise<DeleteBriefResult> {
   const supabase = await createClient();

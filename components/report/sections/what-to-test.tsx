@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { AnalysisReport } from "@/lib/types/report";
-import { PremiumCard } from "@/components/ui/premium-card";
+import { PlainPanel } from "../shared/plain-panel";
 
 const RANK_LABELS = ["Launch First", "Test Next", "Alternative Opportunity"];
 
@@ -29,17 +29,17 @@ export function WhatToTestSection({ report }: WhatToTestSectionProps) {
       {angles.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-3">
           {angles.slice(0, 3).map((angle, i) => (
-            <PremiumCard key={angle.rank} padding="md">
-              <span className="card-eyebrow font-bold tracking-[0.15em]">
+            <PlainPanel key={angle.rank} className="p-5 md:p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
                 Angle {angle.rank} — {RANK_LABELS[i] ?? "Consider"}
-              </span>
-              <h3 className="mt-2 font-display text-lg font-semibold text-text-primary">
+              </p>
+              <h3 className="mt-2 font-display text-lg font-semibold text-white">
                 {angle.angle}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+              <p className="mt-2 text-sm leading-relaxed text-white/75">
                 {angle.rationale}
               </p>
-            </PremiumCard>
+            </PlainPanel>
           ))}
         </div>
       ) : (

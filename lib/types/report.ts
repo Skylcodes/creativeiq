@@ -71,6 +71,15 @@ export type HookVariant = {
   predictedPerformance: "high" | "medium" | "experimental";
 };
 
+export type AnalysisRemixKind =
+  | "hook_punchier"
+  | "hook_natural"
+  | "hook_alternatives"
+  | "script_shorten"
+  | "script_conversational"
+  | "script_direct"
+  | "script_cta";
+
 export type ConversionBlocker = {
   title: string;
   detail: string;

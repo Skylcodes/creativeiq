@@ -16,6 +16,7 @@ export type BriefWizardState = {
   angleIdea: string;
   productionResource: ProductionResource | "";
   adBudget: AdBudget | "";
+  productionNotes: string;
   creativeDuration: string;
   landingPageUrl: string;
 };
@@ -47,6 +48,7 @@ export function createInitialBriefState(
     angleIdea: prefill?.angleIdea?.trim() ?? "",
     productionResource: "",
     adBudget: "",
+    productionNotes: "",
     creativeDuration: "",
     landingPageUrl: prefill?.landingPageUrl?.trim() || brandUrl?.trim() || "",
   };

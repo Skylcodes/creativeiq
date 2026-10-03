@@ -60,6 +60,15 @@ function buildInputContext(
     input.angleMode === "user_idea" && input.angleIdea?.trim()
       ? `=== USER'S ANGLE DIRECTION ===\n${input.angleIdea.trim()}`
       : "",
+    input.productionNotes?.trim()
+      ? [
+          "=== USER PRODUCTION INSTRUCTIONS (required — not optional color) ===",
+          input.productionNotes.trim().slice(0, 1500),
+          "These notes override generic format, filming, visual-style, disclaimer, and creator-direction defaults.",
+          "Follow them unless they clearly fight the campaign goal (for example: hide the product on a purchase campaign, or remove every CTA when the goal is leads).",
+          "When you follow a note, the script, shot list, production notes, and what-to-avoid must actually reflect it — do not mention the instruction and then write a different ad.",
+        ].join("\n")
+      : "",
   ].filter(Boolean);
 
   if (intelligenceBriefText) {

@@ -22,6 +22,9 @@ import type {
   StoredAnalysisVariant,
 } from "@/lib/types/comparison";
 import { randomUUID } from "crypto";
+import { remixReportCreative } from "@/lib/ai/report-remix";
+import { isComparisonReport } from "@/lib/report/normalize-comparison";
+import type { AnalysisRemixKind, HookVariant } from "@/lib/types/report";
 
 function validateCreativeMime(
   creativeType: CreateAnalysisInput["creativeType"],
@@ -482,4 +485,131 @@ export async function deleteAnalysis(
   revalidatePath("/analyses");
 
   return { success: true };
+}
+
+export type AnalysisRemixResult =
+  | { success: true; hookVariants: HookVariant[]; scriptRewrite: string }
+  | { success: false; error: string };
+
+async function saveReportCreative(
+  analysisId: string,
+  userId: string,
+  report: Record<string, unknown>,
+  hookVariants: HookVariant[],
+  scriptRewrite: string
+): Promise<AnalysisRemixResult> {
+  const supabase = await createClient();
+  const next = { ...report, hookVariants, scriptRewrite };
+  const { error } = await supabase
+    .from("analyses")
+    .update({
+      report: next,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", analysisId)
+    .eq("user_id", userId)
+    .eq("status", "completed");
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath(`/report/${analysisId}`);
+  return { success: true, hookVariants, scriptRewrite };
+}
+
+export async function remixAnalysisSection(
+  analysisId: string,
+  kind: AnalysisRemixKind
+): Promise<AnalysisRemixResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "You must be signed in." };
+
+  const { data } = await supabase
+    .from("analyses")
+    .select("id, status, report")
+    .eq("id", analysisId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!data?.report || data.status !== "completed") {
+    return { success: false, error: "This report is not ready to edit." };
+  }
+  if (isComparisonReport(data.report)) {
+    return { success: false, error: "Remix is available on single-ad reports." };
+  }
+
+  const report = data.report as {
+    headline?: string;
+    angleTags?: string[];
+    hookVariants?: HookVariant[];
+    scriptRewrite?: string;
+  };
+
+  try {
+    const next = await remixReportCreative({
+      kind,
+      headline: report.headline ?? "",
+      angle: (report.angleTags ?? []).join(", "),
+      hooks: report.hookVariants ?? [],
+      script: report.scriptRewrite ?? "",
+    });
+    return await saveReportCreative(
+      analysisId,
+      user.id,
+      data.report as Record<string, unknown>,
+      next.hooks,
+      next.script
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not update that section.";
+    return { success: false, error: message };
+  }
+}
+
+export async function promoteAnalysisHook(
+  analysisId: string,
+  rank: number
+): Promise<AnalysisRemixResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "You must be signed in." };
+
+  const { data } = await supabase
+    .from("analyses")
+    .select("id, status, report")
+    .eq("id", analysisId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!data?.report || data.status !== "completed" || isComparisonReport(data.report)) {
+    return { success: false, error: "This report is not ready to edit." };
+  }
+
+  const report = data.report as { hookVariants?: HookVariant[]; scriptRewrite?: string };
+  const hooks = [...(report.hookVariants ?? [])].sort((a, b) => a.rank - b.rank);
+  const index = hooks.findIndex((h) => h.rank === rank);
+  if (index <= 0) {
+    return {
+      success: true,
+      hookVariants: hooks,
+      scriptRewrite: report.scriptRewrite ?? "",
+    };
+  }
+
+  const chosen = hooks[index];
+  const reordered = [chosen, ...hooks.filter((_, i) => i !== index)].map((hook, i) => ({
+    ...hook,
+    rank: i + 1,
+  }));
+
+  return saveReportCreative(
+    analysisId,
+    user.id,
+    data.report as Record<string, unknown>,
+    reordered,
+    report.scriptRewrite ?? ""
+  );
 }

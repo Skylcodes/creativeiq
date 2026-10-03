@@ -93,36 +93,35 @@ export function ReportExperience({
       chatOpen={chatOpen}
       onChatOpenChange={setChatOpen}
     >
-      <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-4 md:px-8 md:pb-20">
-        <div className="lg:flex lg:items-start lg:gap-8">
-          <ReportNav sections={navSections} />
+      <div className="relative mx-auto w-full max-w-7xl px-4 pb-16 pt-2 md:px-8 md:pb-20">
+        <ReportNav sections={navSections} />
 
-          <div className="min-w-0 flex-1 space-y-10 md:space-y-12">
-            <ReportHeader
-              analysis={analysis}
-              report={report}
-              workspaceName={workspaceName}
-              onOpenChat={() => setChatOpen(true)}
-              onTrackLaunch={() => setLaunchOpen(true)}
-              launchCount={launches.length}
-            />
+        <div className="space-y-10 md:space-y-12">
+          <ReportHeader
+            analysis={analysis}
+            report={report}
+            workspaceName={workspaceName}
+            onOpenChat={() => setChatOpen(true)}
+            onTrackLaunch={() => setLaunchOpen(true)}
+            launchCount={launches.length}
+          />
 
-            <TopPrioritySection report={report} />
+          <TopPrioritySection report={report} />
 
-            <CreativeAnalysisSection
-              report={report}
-              originalScript={originalScript}
-              hookLookup={hookLookup}
-              hookSaveBase={hookSaveBase}
-              onHookSaved={handleHookSaved}
-            />
+          <CreativeAnalysisSection
+            analysisId={analysis.id}
+            report={report}
+            originalScript={originalScript}
+            hookLookup={hookLookup}
+            hookSaveBase={hookSaveBase}
+            onHookSaved={handleHookSaved}
+          />
 
-            <FunnelCheckSection report={report} />
+          <FunnelCheckSection report={report} />
 
-            <WhatToTestSection report={report} />
+          <WhatToTestSection report={report} />
 
-            <ActionPlanSection report={report} />
-          </div>
+          <ActionPlanSection report={report} />
         </div>
       </div>
 

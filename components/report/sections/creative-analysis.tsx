@@ -1,20 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import type { AnalysisReport, AgentFinding } from "@/lib/types/report";
+import type { AnalysisRemixKind, AnalysisReport, HookVariant } from "@/lib/types/report";
 import type { HookLibraryEntry } from "@/lib/types/hook";
-import { agentsForReport } from "@/lib/report/agents";
-import { AgentIcon } from "../shared/agent-icon";
+import { promoteAnalysisHook, remixAnalysisSection } from "@/lib/analyses/actions";
 import { CopyButton } from "../shared/copy-button";
 import {
   HookRowActions,
   matchHookInLibrary,
   type HookSaveContext,
 } from "@/components/hooks/hook-row-actions";
-import { PremiumCard } from "@/components/ui/premium-card";
+import { PlainPanel } from "../shared/plain-panel";
 import { CreativeScoreBreakdownCard } from "../shared/creative-score-breakdown";
+import { useToast } from "@/components/shared/toast";
 
 type CreativeAnalysisSectionProps = {
+  analysisId: string;
   report: AnalysisReport;
   originalScript?: string | null;
   hookLookup?: Map<string, HookLibraryEntry>;
@@ -22,29 +23,18 @@ type CreativeAnalysisSectionProps = {
   onHookSaved?: (hook: HookLibraryEntry) => void;
 };
 
-/** Short, plain takeaway for agent cards — prefer first key finding over long summaries. */
-function agentQuickTake(finding: AgentFinding | undefined): string {
-  const findingLine = finding?.keyFindings?.[0]?.trim();
-  if (findingLine) {
-    const sentence = findingLine.split(/(?<=[.!?])\s+/)[0] ?? findingLine;
-    return sentence.length > 160 ? `${sentence.slice(0, 157).trim()}…` : sentence;
-  }
+const HOOK_REMIX: { kind: AnalysisRemixKind; label: string }[] = [
+  { kind: "hook_punchier", label: "Make punchier" },
+  { kind: "hook_natural", label: "Make more natural" },
+  { kind: "hook_alternatives", label: "Give alternatives" },
+];
 
-  const summary = finding?.summary?.trim();
-  if (!summary) return "No quick takeaway available.";
-
-  const first = summary.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ");
-  return first.length > 180 ? `${first.slice(0, 177).trim()}…` : first;
-}
-
-function agentBullets(finding: AgentFinding | undefined): string[] {
-  return (finding?.keyFindings ?? [])
-    .slice(0, 3)
-    .map((line) => {
-      const sentence = line.split(/(?<=[.!?])\s+/)[0] ?? line;
-      return sentence.length > 120 ? `${sentence.slice(0, 117).trim()}…` : sentence;
-    });
-}
+const SCRIPT_REMIX: { kind: AnalysisRemixKind; label: string }[] = [
+  { kind: "script_shorten", label: "Shorten" },
+  { kind: "script_conversational", label: "Make more conversational" },
+  { kind: "script_direct", label: "Make more direct" },
+  { kind: "script_cta", label: "Sharpen the CTA" },
+];
 
 function truncateScript(text: string, maxChars = 900): string {
   const trimmed = text.trim();
@@ -127,21 +117,47 @@ function ScriptComparison({
 }
 
 export function CreativeAnalysisSection({
+  analysisId,
   report,
   originalScript,
   hookLookup,
   hookSaveBase,
   onHookSaved,
 }: CreativeAnalysisSectionProps) {
-  const [agentsOpen, setAgentsOpen] = useState(false);
-
-  const allHooks = [...report.hookVariants].sort((a, b) => a.rank - b.rank);
-  const hookStrong = (report.creativeStrengthScore ?? 0) >= 80;
-  const hooks = hookStrong ? allHooks.slice(0, 1) : allHooks.slice(0, 5);
-
-  const featuredAgents = agentsForReport(report).filter(
-    (a) => a.id === "skeptical_buyer" || a.id === "direct_response"
+  const { showToast } = useToast();
+  const [hooks, setHooks] = useState<HookVariant[]>(() =>
+    [...report.hookVariants].sort((a, b) => a.rank - b.rank)
   );
+  const [script, setScript] = useState(report.scriptRewrite ?? "");
+  const [pending, setPending] = useState<AnalysisRemixKind | null>(null);
+  const [promoting, setPromoting] = useState(false);
+
+  const recommended = hooks[0];
+  const alternatives = hooks.slice(1);
+
+  async function remix(kind: AnalysisRemixKind) {
+    setPending(kind);
+    const result = await remixAnalysisSection(analysisId, kind);
+    setPending(null);
+    if (!result.success) {
+      showToast(result.error);
+      return;
+    }
+    setHooks([...result.hookVariants].sort((a, b) => a.rank - b.rank));
+    setScript(result.scriptRewrite);
+    showToast("Updated.");
+  }
+
+  async function useHook(rank: number) {
+    setPromoting(true);
+    const result = await promoteAnalysisHook(analysisId, rank);
+    setPromoting(false);
+    if (!result.success) {
+      showToast(result.error);
+      return;
+    }
+    setHooks([...result.hookVariants].sort((a, b) => a.rank - b.rank));
+  }
 
   return (
     <section id="section-creative" className="scroll-mt-24 space-y-8">
@@ -161,52 +177,94 @@ export function CreativeAnalysisSection({
         />
       )}
 
-      {hooks.length > 0 && (
+      {hooks.length > 0 && recommended && (
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wider text-white/45">
             Hook rewrites
           </h3>
-          <div className="mt-4 space-y-3">
-            {hooks.map((hook) => {
-              const entry = hookLookup
-                ? matchHookInLibrary(hook.hook, hookLookup)
-                : undefined;
-              return (
-                <PremiumCard
-                  key={hook.rank}
-                  padding="md"
-                  className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                      {hookStrong ? "Optimization" : `Hook #${hook.rank}`}
-                    </p>
-                    <p className="mt-2 font-display text-lg font-semibold leading-snug text-text-primary md:text-xl">
-                      &ldquo;{hook.hook}&rdquo;
-                    </p>
-                    {hook.rationale && (
-                      <p className="mt-2 text-sm text-text-secondary">{hook.rationale}</p>
-                    )}
-                  </div>
-                  <HookRowActions
-                    hookText={hook.hook}
-                    hookEntry={entry}
-                    saveContext={
-                      hookSaveBase
-                        ? {
-                            ...hookSaveBase,
-                            angleTags: report.angleTags ?? [],
-                            notes: hook.rationale ?? null,
-                            captureKeySuffix: `variant-${hook.rank}`,
+          <PlainPanel className="mt-4 p-5 md:p-6">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-accent-tertiary">
+              Recommended hook
+            </p>
+            <p className="mt-2 font-display text-lg font-semibold leading-snug text-text-primary md:text-xl">
+              &ldquo;{recommended.hook}&rdquo;
+            </p>
+            <div className="mt-3">
+              <HookRowActions
+                hookText={recommended.hook}
+                hookEntry={
+                  hookLookup ? matchHookInLibrary(recommended.hook, hookLookup) : undefined
+                }
+                saveContext={
+                  hookSaveBase
+                    ? {
+                        ...hookSaveBase,
+                        angleTags: report.angleTags ?? [],
+                        notes: recommended.rationale ?? null,
+                        captureKeySuffix: `variant-${recommended.rank}`,
+                      }
+                    : undefined
+                }
+                onSaved={onHookSaved}
+              />
+            </div>
+            {recommended.rationale && (
+              <Disclosure title="Why this version">
+                <p className="text-sm leading-relaxed text-text-secondary">
+                  {recommended.rationale}
+                </p>
+              </Disclosure>
+            )}
+            {alternatives.length > 0 && (
+              <Disclosure title="Try another hook">
+                <ul className="space-y-3">
+                  {alternatives.map((hook) => (
+                    <li
+                      key={hook.rank}
+                      className="rounded-xl border border-white/[0.1] bg-[#1e1a2a] px-3 py-3"
+                    >
+                      <p className="text-sm font-medium text-text-primary">
+                        &ldquo;{hook.hook}&rdquo;
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={promoting || pending !== null}
+                          onClick={() => useHook(hook.rank)}
+                          className="min-h-10 rounded-lg px-3 text-xs font-semibold text-accent hover:bg-white/5 disabled:opacity-50"
+                        >
+                          Use this hook
+                        </button>
+                        <HookRowActions
+                          hookText={hook.hook}
+                          hookEntry={
+                            hookLookup ? matchHookInLibrary(hook.hook, hookLookup) : undefined
                           }
-                        : undefined
-                    }
-                    onSaved={onHookSaved}
-                  />
-                </PremiumCard>
-              );
-            })}
-          </div>
+                          saveContext={
+                            hookSaveBase
+                              ? {
+                                  ...hookSaveBase,
+                                  angleTags: report.angleTags ?? [],
+                                  notes: hook.rationale ?? null,
+                                  captureKeySuffix: `variant-${hook.rank}`,
+                                }
+                              : undefined
+                          }
+                          onSaved={onHookSaved}
+                        />
+                      </div>
+                      {hook.rationale && (
+                        <Disclosure title="Why this version">
+                          <p className="text-sm text-text-secondary">{hook.rationale}</p>
+                        </Disclosure>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Disclosure>
+            )}
+            <RemixRow actions={HOOK_REMIX} pending={pending} onRemix={remix} />
+          </PlainPanel>
         </div>
       )}
 
@@ -215,11 +273,14 @@ export function CreativeAnalysisSection({
           Script rewrite
         </h3>
         <div className="mt-4">
-          {report.scriptRewrite ? (
-            <ScriptComparison
-              original={originalScript?.trim() || null}
-              rewrite={report.scriptRewrite}
-            />
+          {script ? (
+            <>
+              <ScriptComparison
+                original={originalScript?.trim() || null}
+                rewrite={script}
+              />
+              <RemixRow actions={SCRIPT_REMIX} pending={pending} onRemix={remix} prominent />
+            </>
           ) : (
             <p className="text-sm text-white/45">
               Full script rewrite was not generated for this report.
@@ -227,63 +288,67 @@ export function CreativeAnalysisSection({
           )}
         </div>
       </div>
-
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-white/45">
-            Agent insights
-          </h3>
-          <button
-            type="button"
-            onClick={() => setAgentsOpen((o) => !o)}
-            className="text-xs font-semibold text-accent-tertiary lg:hidden"
-          >
-            {agentsOpen ? "Collapse" : "Expand"}
-          </button>
-        </div>
-
-        <div className={`mt-4 space-y-3 ${agentsOpen ? "block" : "hidden lg:block"}`}>
-          {featuredAgents.map((agent) => {
-            const finding = report.agentFindings.find((f) => f.agentId === agent.id);
-            const bullets = agentBullets(finding);
-            return (
-              <PremiumCard key={agent.id} padding="md">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-                    <AgentIcon icon={agent.icon} size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-text-primary">{agent.name}</p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
-                      {agentQuickTake(finding)}
-                    </p>
-                    {bullets.length > 1 && (
-                      <ul className="mt-3 space-y-1.5">
-                        {bullets.slice(1).map((item, i) => (
-                          <li key={i} className="flex gap-2 text-sm text-text-primary">
-                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                            <span className="leading-relaxed">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              </PremiumCard>
-            );
-          })}
-        </div>
-
-        {!agentsOpen && (
-          <button
-            type="button"
-            onClick={() => setAgentsOpen(true)}
-            className="mt-3 text-sm font-medium text-accent-tertiary lg:hidden"
-          >
-            Show agent insights →
-          </button>
-        )}
-      </div>
     </section>
+  );
+}
+
+function Disclosure({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex min-h-10 w-full items-center justify-between gap-3 text-left text-sm font-medium text-white/70 hover:text-white"
+      >
+        <span>{title}</span>
+        <span aria-hidden className="text-xs text-white/40">
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+      {open && <div className="mt-2 pb-1">{children}</div>}
+    </div>
+  );
+}
+
+function RemixRow({
+  actions,
+  pending,
+  onRemix,
+  prominent = false,
+}: {
+  actions: { kind: AnalysisRemixKind; label: string }[];
+  pending: AnalysisRemixKind | null;
+  onRemix: (kind: AnalysisRemixKind) => void;
+  prominent?: boolean;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+      {actions.map((action) => {
+        const busy = pending === action.kind;
+        return (
+          <button
+            key={action.kind}
+            type="button"
+            disabled={pending !== null}
+            onClick={() => onRemix(action.kind)}
+            className={
+              prominent
+                ? "min-h-10 rounded-full border border-white/30 bg-white/[0.1] px-4 text-sm font-semibold text-white hover:border-white/50 hover:bg-white/[0.16] disabled:opacity-50"
+                : "min-h-10 rounded-full border border-white/10 px-3 text-xs font-medium text-white/70 hover:border-white/25 hover:text-white disabled:opacity-50"
+            }
+          >
+            {busy ? "Updating…" : action.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

@@ -17,7 +17,7 @@ type ReportNavProps = {
 };
 
 function statusDot(section: ReportNavSection): string {
-  if (section.status === "ok") return "#0d9488";
+  if (section.status === "ok") return "#4ade80";
   if (section.status === "warn") return "#d97706";
   if (section.status === "critical") return "#ef4444";
   if (typeof section.score === "number") {
@@ -110,72 +110,36 @@ export function ReportNav({ sections }: ReportNavProps) {
   }, [ids]);
 
   return (
-    <>
-      {/* Mobile sticky jump bar */}
-      <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-white/[0.08] bg-[#080711]/95 px-4 py-2.5 backdrop-blur-md lg:hidden">
-        <label className="sr-only" htmlFor="report-jump">
-          Jump to section
-        </label>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
-            Jump to
-          </span>
-          <select
-            id="report-jump"
-            value={active}
-            onChange={(e) => {
-              setActive(e.target.value);
-              scrollToSection(e.target.value);
-            }}
-            className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-medium text-white outline-none"
-          >
-            {sections.map((s) => (
-              <option key={s.id} value={s.id} className="bg-[#120f1e] text-white">
-                {s.label}
-                {s.meta ? ` · ${s.meta}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Desktop sticky left rail */}
-      <nav
-        aria-label="Report sections"
-        className="sticky top-6 hidden w-[200px] shrink-0 self-start lg:block"
-      >
-        <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">
-          On this report
-        </p>
-        <ul className="space-y-0.5">
+    <nav aria-label="Report sections" className="sticky top-0 z-20 mb-8 pt-2">
+      <div className="rounded-2xl border border-white/20 bg-white/[0.07] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        <ul className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((s) => {
             const isActive = active === s.id;
             return (
-              <li key={s.id}>
+              <li key={s.id} className="shrink-0">
                 <button
                   type="button"
+                  aria-current={isActive ? "location" : undefined}
                   onClick={() => {
                     setActive(s.id);
                     scrollToSection(s.id);
                   }}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                  className={`flex min-h-11 items-center gap-2.5 rounded-xl px-3.5 py-2 text-left transition-colors ${
                     isActive
-                      ? "bg-white/[0.08] text-white"
-                      : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
+                      ? "bg-accent text-white shadow-[0_6px_18px_-8px_rgba(105,71,255,0.9)]"
+                      : "text-white/75 hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <span
-                    className="h-2 w-2 shrink-0 rounded-full"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-black/20"
                     style={{ backgroundColor: statusDot(s) }}
                     aria-hidden
                   />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-                    {s.label}
-                  </span>
+                  <span className="whitespace-nowrap text-sm font-semibold">{s.label}</span>
                   {s.meta != null && (
                     <span
-                      className={`shrink-0 text-[11px] font-semibold tabular-nums ${
-                        isActive ? "text-white/70" : "text-white/35"
+                      className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
+                        isActive ? "bg-black/25 text-white" : "bg-white/[0.08] text-white/80"
                       }`}
                     >
                       {s.meta}
@@ -186,7 +150,7 @@ export function ReportNav({ sections }: ReportNavProps) {
             );
           })}
         </ul>
-      </nav>
-    </>
+      </div>
+    </nav>
   );
 }

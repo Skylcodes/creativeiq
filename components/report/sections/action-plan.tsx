@@ -10,11 +10,12 @@ import {
   StrategicBreakdown,
   hasStrategicBreakdown,
 } from "../shared/strategic-breakdown";
+import { PlainPanel } from "../shared/plain-panel";
 
 const categoryColors: Record<string, string> = {
-  Creative: "bg-accent/10 text-accent",
-  "Landing Page": "bg-accent-secondary/10 text-accent-secondary",
-  Funnel: "bg-[#3b2b9f]/10 text-[#3b2b9f]",
+  Creative: "bg-white/[0.06] text-[#d7ccff]",
+  "Landing Page": "bg-white/[0.06] text-[#b7f7ef]",
+  Funnel: "bg-white/[0.06] text-[#d7ccff]",
 };
 
 type ActionPlanSectionProps = {
@@ -29,28 +30,28 @@ function ActionCard({
   rank: number;
 }) {
   return (
-    <div className="dash-card rounded-xl p-4 md:p-5">
+    <PlainPanel className="p-4 md:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 font-display text-lg font-bold text-accent">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] font-display text-lg font-bold text-white">
           {rank}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                categoryColors[item.category] ?? "bg-white/10 text-white/70"
+                categoryColors[item.category] ?? "bg-white/[0.06] text-white/75"
               }`}
             >
               {item.category}
             </span>
-            <span className="rounded-full bg-accent-secondary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-secondary">
+            <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/80">
               {impactLabel(item.impact)} impact
             </span>
-            <span className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
+            <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">
               {effortLabel(item.effort)}
             </span>
           </div>
-          <p className="mt-2 text-[15px] font-medium leading-relaxed text-text-primary">
+          <p className="mt-2 text-[15px] font-medium leading-relaxed text-white">
             {item.action}
           </p>
           {hasStrategicBreakdown(item) && (
@@ -58,7 +59,7 @@ function ActionCard({
           )}
         </div>
       </div>
-    </div>
+    </PlainPanel>
   );
 }
 

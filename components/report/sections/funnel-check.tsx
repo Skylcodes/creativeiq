@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { motion } from "framer-motion";
 import type { AnalysisReport, ConversionCategory } from "@/lib/types/report";
 import {
@@ -10,38 +9,23 @@ import {
 } from "@/lib/report/utils";
 import { ScoreHero } from "../shared/score-hero";
 
-function CategoryCard({
-  cat,
-  compact,
-}: {
-  cat: ConversionCategory;
-  compact: boolean;
-}) {
+function CategoryCard({ cat }: { cat: ConversionCategory }) {
   const pct = categoryPercent(cat);
   const color = getReportScoreColor(pct);
 
-  if (compact) {
-    return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 opacity-70">
-        <h3 className="text-sm font-medium text-white/70">{cat.label}</h3>
-        <span className="text-sm font-semibold tabular-nums" style={{ color }}>
-          {cat.score}
-          <span className="font-medium text-white/35">/{cat.maxScore}</span>
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div className="dashboard-panel p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-text-primary">{cat.label}</h3>
-        <span className="text-sm font-bold" style={{ color }}>
+    <div
+      className="rounded-2xl border border-white/[0.1] bg-white/[0.045] p-5"
+      style={{ boxShadow: `inset 4px 0 0 ${color}` }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-base font-semibold text-white">{cat.label}</h3>
+        <span className="font-display text-2xl font-bold leading-none tabular-nums" style={{ color }}>
           {cat.score}
-          <span className="font-medium text-text-muted">/{cat.maxScore}</span>
+          <span className="ml-0.5 text-sm font-medium text-white/40">/{cat.maxScore}</span>
         </span>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/[0.05]">
+      <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-black/30">
         <motion.div
           className="h-full rounded-full"
           style={{ background: color }}
@@ -50,10 +34,10 @@ function CategoryCard({
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-text-secondary">{cat.verdict}</p>
+      <p className="mt-3 text-sm leading-relaxed text-white/75">{cat.verdict}</p>
       {cat.improvement && (
-        <p className="mt-2 text-sm leading-relaxed text-accent">
-          <span className="font-semibold">Fix:</span> {cat.improvement}
+        <p className="mt-2 text-sm leading-relaxed text-white">
+          <span className="font-semibold text-accent-tertiary">Fix:</span> {cat.improvement}
         </p>
       )}
     </div>
@@ -65,13 +49,9 @@ type FunnelCheckSectionProps = {
 };
 
 export function FunnelCheckSection({ report }: FunnelCheckSectionProps) {
-  const [showAll, setShowAll] = useState(false);
   const categories = report.conversionScore?.categories ?? [];
   const hasFunnelContinuity = categories.some((c) => c.key === "funnel_continuity");
   const continuity = hasFunnelContinuity ? getFunnelContinuity(report) : null;
-
-  const passing = categories.filter((c) => categoryPercent(c) >= 80);
-  const weak = categories.filter((c) => categoryPercent(c) < 80);
 
   return (
     <section id="section-funnel" className="scroll-mt-24 space-y-6">
@@ -106,21 +86,21 @@ export function FunnelCheckSection({ report }: FunnelCheckSectionProps) {
         <div
           className={`rounded-2xl px-5 py-4 ring-1 ${
             continuity.aligned
-              ? "bg-[#0d9488]/[0.06] ring-[#0d9488]/20"
+              ? "bg-[#4ade80]/[0.06] ring-[#4ade80]/20"
               : "bg-[#ef4444]/[0.06] ring-[#ef4444]/20"
           }`}
         >
           <div className="flex items-start gap-3">
             <div
               className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                continuity.aligned ? "bg-[#0d9488]/15" : "bg-[#ef4444]/15"
+                continuity.aligned ? "bg-[#4ade80]/15" : "bg-[#ef4444]/15"
               }`}
             >
               {continuity.aligned ? (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <path
                     d="M3.5 8L6.5 11L12.5 4.5"
-                    stroke="#0d9488"
+                    stroke="#4ade80"
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -140,7 +120,7 @@ export function FunnelCheckSection({ report }: FunnelCheckSectionProps) {
             <div>
               <p
                 className={`font-semibold ${
-                  continuity.aligned ? "text-[#0d9488]" : "text-[#ef4444]"
+                  continuity.aligned ? "text-[#4ade80]" : "text-[#ef4444]"
                 }`}
               >
                 {continuity.message}
@@ -158,43 +138,11 @@ export function FunnelCheckSection({ report }: FunnelCheckSectionProps) {
           <h3 className="font-display text-lg font-semibold text-white">
             Category breakdown
           </h3>
-          <p className="mt-1 text-sm text-white/55">
-            Weak categories are expanded. Strong ones stay compact until you expand them.
-          </p>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {weak.map((cat) => (
-              <CategoryCard key={cat.key} cat={cat} compact={false} />
-            ))}
-            {(showAll ? passing : []).map((cat) => (
-              <CategoryCard key={cat.key} cat={cat} compact={false} />
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {categories.map((cat) => (
+              <CategoryCard key={cat.key} cat={cat} />
             ))}
           </div>
-
-          {!showAll && passing.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {passing.map((cat) => (
-                <CategoryCard key={cat.key} cat={cat} compact />
-              ))}
-              <button
-                type="button"
-                onClick={() => setShowAll(true)}
-                className="mt-2 text-sm font-semibold text-accent-tertiary hover:text-accent"
-              >
-                Show all categories →
-              </button>
-            </div>
-          )}
-
-          {showAll && passing.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAll(false)}
-              className="mt-4 text-sm font-semibold text-white/50 hover:text-white/80"
-            >
-              Collapse passing categories
-            </button>
-          )}
         </div>
       )}
     </section>

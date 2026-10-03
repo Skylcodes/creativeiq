@@ -7,9 +7,9 @@ import type {
   PriorityAction,
 } from "@/lib/types/report";
 
-/** Report score bands per product spec */
+/** Report score bands. High scores use a light green, not teal. */
 export function getReportScoreColor(score: number): string {
-  if (score >= 85) return "#0d9488";
+  if (score >= 85) return "#4ade80";
   if (score >= 60) return "#d97706";
   return "#ef4444";
 }
@@ -21,7 +21,7 @@ export function getReportScoreLabel(score: number): string {
 }
 
 export function getReportScoreBg(score: number): string {
-  if (score >= 85) return "rgba(13, 148, 136, 0.08)";
+  if (score >= 85) return "rgba(74, 222, 128, 0.12)";
   if (score >= 60) return "rgba(217, 119, 6, 0.08)";
   return "rgba(239, 68, 68, 0.08)";
 }

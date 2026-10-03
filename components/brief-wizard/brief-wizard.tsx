@@ -148,6 +148,7 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
     productionResource:
       state.productionResource as BriefWizardInput["productionResource"],
     adBudget: state.adBudget as BriefWizardInput["adBudget"],
+    productionNotes: state.productionNotes.trim() || undefined,
     creativeDuration: state.creativeDuration,
     landingPageUrl: state.landingPageUrl.trim() || workspace.brand_url || "",
   });
@@ -503,6 +504,28 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                         ))}
                       </div>
                     </div>
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">
+                        Additional notes / instructions
+                      </p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        Optional. Use this when the options above can&apos;t
+                        capture how the ad should actually be made.
+                      </p>
+                      <textarea
+                        value={state.productionNotes}
+                        onChange={(e) =>
+                          setState((p) => ({
+                            ...p,
+                            productionNotes: e.target.value,
+                          }))
+                        }
+                        maxLength={1500}
+                        rows={5}
+                        placeholder="e.g. talking-head UGC, meme cut, screen recording of the app, required disclaimer, film in a car, no music, product must be in hand by second 2"
+                        className="input-field mt-3 min-h-[7.5rem] text-sm leading-relaxed"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -556,6 +579,15 @@ export function BriefWizard({ workspace, prefill }: BriefWizardProps) {
                         }
                       </span>
                     </p>
+                    {state.productionNotes.trim() && (
+                      <p className="text-sm">
+                        <span className="text-text-muted">Notes:</span>{" "}
+                        <span className="font-medium">
+                          {state.productionNotes.trim().slice(0, 140)}
+                          {state.productionNotes.trim().length > 140 ? "…" : ""}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
