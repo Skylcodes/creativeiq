@@ -5,6 +5,7 @@ import {
   countAccountUsage,
   evaluateAccountState,
   setAccountStatus,
+  type AccountState,
 } from "@/lib/billing/account";
 import { getTrialConfig } from "@/lib/billing/trial-limits";
 import {
@@ -48,6 +49,63 @@ function messageFor(reason: BlockReason, feature: ActionFeature): string {
   }
 }
 
+function trialStillOpen(state: AccountState): boolean {
+  if (!state.trial_ends_at) return true;
+  return new Date(state.trial_ends_at).getTime() > Date.now();
+}
+
+/**
+ * Trial / unpaid-paywall allowance check.
+ * Admin account_limit_overrides take precedence over default trial caps.
+ *
+ * Important: exhausting a hardwall feature flips the account to `paywalled`.
+ * Overrides must still be honored for unpaid paywalled users, otherwise the
+ * admin UI can show remaining allowance while the gate hard-blocks.
+ */
+async function assertTrialAllowance(
+  userId: string,
+  feature: ActionFeature,
+  state: AccountState,
+  options?: { restoreTrialingOnAllow?: boolean }
+): Promise<GateResult> {
+  const override = await getAccountLimitOverride(userId, feature);
+  const trialConfig = await getTrialConfig();
+  const limit = override ?? trialConfig.limits[feature] ?? 0;
+
+  if (limit === -1) {
+    if (
+      options?.restoreTrialingOnAllow &&
+      state.account_status === "paywalled" &&
+      trialStillOpen(state)
+    ) {
+      await setAccountStatus(userId, "trialing");
+    }
+    return { allowed: true };
+  }
+
+  if (limit === 0) {
+    return { allowed: false, reason: "trial_limit", feature };
+  }
+
+  const used = await countTrialUsage(userId, feature);
+  if (used >= limit) {
+    if (trialConfig.hardwallFeatures.includes(feature)) {
+      await setAccountStatus(userId, "paywalled");
+    }
+    return { allowed: false, reason: "trial_limit", feature };
+  }
+
+  if (
+    options?.restoreTrialingOnAllow &&
+    state.account_status === "paywalled" &&
+    trialStillOpen(state)
+  ) {
+    await setAccountStatus(userId, "trialing");
+  }
+
+  return { allowed: true };
+}
+
 /**
  * THE server-side gate. Re-verified at the moment of every AI-consuming action.
  * Never trust client state — this is the call that actually matters.
@@ -83,35 +141,25 @@ export async function assertActionAllowed(
       return { allowed: true };
     }
 
-    case "paywalled":
-      return { allowed: false, reason: "paywalled", feature };
+    case "paywalled": {
+      // Cancelled / unpaid subscribers stay hard-blocked.
+      if (state.stripe_subscription_id) {
+        return { allowed: false, reason: "paywalled", feature };
+      }
+
+      // Trial-exhaust paywall: honor admin overrides + remaining trial caps.
+      if (!countTrial) return { allowed: true };
+      return assertTrialAllowance(userId, feature, state, {
+        restoreTrialingOnAllow: true,
+      });
+    }
 
     case "payment_failed":
       return { allowed: false, reason: "payment_failed", feature };
 
     case "trialing": {
       if (!countTrial) return { allowed: true };
-
-      const override = await getAccountLimitOverride(userId, feature);
-      const trialConfig = await getTrialConfig();
-      const limit =
-        override ?? trialConfig.limits[feature] ?? 0;
-
-      if (limit === -1) return { allowed: true };
-
-      if (limit === 0) {
-        return { allowed: false, reason: "trial_limit", feature };
-      }
-
-      const used = await countTrialUsage(userId, feature);
-      if (used >= limit) {
-        if (trialConfig.hardwallFeatures.includes(feature)) {
-          await setAccountStatus(userId, "paywalled");
-        }
-        return { allowed: false, reason: "trial_limit", feature };
-      }
-
-      return { allowed: true };
+      return assertTrialAllowance(userId, feature, state);
     }
 
     default:

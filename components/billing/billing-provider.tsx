@@ -30,6 +30,38 @@ type BillingContextValue = {
 
 const BillingContext = createContext<BillingContextValue | undefined>(undefined);
 
+/** True when usage summary still has room for this gated feature. */
+function featureHasRemaining(
+  usageSummary: AccountUsageSummary,
+  feature: ActionFeature
+): boolean {
+  const row = usageSummary.features.find((f) => f.key === feature);
+  if (!row) return false;
+  if (row.unlimited) return true;
+  return row.used < row.limit;
+}
+
+/**
+ * Unpaid trial-exhaust accounts can still act when an admin override (or
+ * unused trial cap) leaves remaining allowance. Paid/cancelled paywalls stay blocked.
+ */
+function unpaidPaywallHasRemaining(
+  snapshot: AccountSnapshot,
+  usageSummary: AccountUsageSummary,
+  feature?: ActionFeature
+): boolean {
+  if (snapshot.status !== "paywalled") return false;
+  if (usageSummary.hasPaidSubscription) return false;
+  if (feature) return featureHasRemaining(usageSummary, feature);
+  return (
+    featureHasRemaining(usageSummary, "funnel_analyses") ||
+    featureHasRemaining(usageSummary, "variant_comparisons") ||
+    featureHasRemaining(usageSummary, "creative_briefs") ||
+    featureHasRemaining(usageSummary, "ad_deconstructions") ||
+    featureHasRemaining(usageSummary, "chat_messages")
+  );
+}
+
 export function BillingProvider({
   snapshot,
   usageSummary,
@@ -41,25 +73,33 @@ export function BillingProvider({
 }) {
   const [modal, setModal] = useState<ModalState>(null);
 
-  const isHardBlocked =
-    snapshot.status === "paywalled" || snapshot.status === "payment_failed";
-
-  const canActNow = snapshot.isAdmin || !isHardBlocked;
+  const canActNow = (() => {
+    if (snapshot.isAdmin) return true;
+    if (snapshot.status === "payment_failed") return false;
+    if (snapshot.status === "paywalled") {
+      return unpaidPaywallHasRemaining(snapshot, usageSummary);
+    }
+    return true;
+  })();
 
   const ensureCanAct = useCallback(
     (feature: ActionFeature) => {
       if (snapshot.isAdmin) return true;
-      if (snapshot.status === "paywalled") {
-        setModal({ reason: "paywalled", feature });
-        return false;
-      }
       if (snapshot.status === "payment_failed") {
         setModal({ reason: "payment_failed", feature });
         return false;
       }
+      if (snapshot.status === "paywalled") {
+        // Admin override / remaining trial allowance — don't hard-block the UI.
+        if (unpaidPaywallHasRemaining(snapshot, usageSummary, feature)) {
+          return true;
+        }
+        setModal({ reason: "paywalled", feature });
+        return false;
+      }
       return true;
     },
-    [snapshot.isAdmin, snapshot.status]
+    [snapshot, usageSummary]
   );
 
   const showBlocked = useCallback((blocked: ActionBlocked) => {
@@ -97,7 +137,7 @@ export function useBilling() {
 // ─── Slim status banner (trial countdown / payment grace) ────────────────────
 
 export function BillingBanner() {
-  const { snapshot, openUpgrade } = useBilling();
+  const { snapshot, canActNow, openUpgrade } = useBilling();
   const router = useRouter();
 
   if (snapshot.isAdmin) return null;
@@ -123,6 +163,9 @@ export function BillingBanner() {
   }
 
   if (snapshot.status === "paywalled") {
+    // Skip the hard paywall banner when an admin override still leaves room.
+    if (canActNow) return null;
+
     return (
       <BannerShell tone="danger">
         <span>

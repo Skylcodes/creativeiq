@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/auth";
+import { setAccountStatus } from "@/lib/billing/account";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +91,24 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // If this account was hardwalled by trial exhaustion, reopen the trial
+  // window when an admin raises an allowance and the trial hasn't expired.
+  const { data: profile } = await db
+    .from("profiles")
+    .select("account_status, stripe_subscription_id, trial_ends_at")
+    .eq("id", body.user_id)
+    .maybeSingle();
+
+  if (
+    profile?.account_status === "paywalled" &&
+    !profile.stripe_subscription_id &&
+    body.override_limit_value !== 0 &&
+    (!profile.trial_ends_at ||
+      new Date(profile.trial_ends_at as string).getTime() > Date.now())
+  ) {
+    await setAccountStatus(body.user_id, "trialing");
   }
 
   const { data: userData } = await db.auth.admin.getUserById(body.user_id);
