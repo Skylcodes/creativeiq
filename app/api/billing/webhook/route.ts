@@ -27,6 +27,33 @@ function getPeriodEnd(subscription: Stripe.Subscription): string | null {
   return unixToIso(item?.current_period_end);
 }
 
+/**
+ * Recent Stripe invoice payloads no longer always expose `invoice.subscription`.
+ * Prefer the legacy field, then fall back to parent.subscription_details.
+ */
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const legacy = (invoice as unknown as { subscription?: string | { id?: string } })
+    .subscription;
+  if (typeof legacy === "string" && legacy) return legacy;
+  if (legacy && typeof legacy === "object" && typeof legacy.id === "string") {
+    return legacy.id;
+  }
+
+  const parent = (
+    invoice as unknown as {
+      parent?: {
+        subscription_details?: { subscription?: string | { id?: string } };
+      };
+    }
+  ).parent?.subscription_details?.subscription;
+
+  if (typeof parent === "string" && parent) return parent;
+  if (parent && typeof parent === "object" && typeof parent.id === "string") {
+    return parent.id;
+  }
+  return null;
+}
+
 async function userIdForCustomer(customerId: string): Promise<string | null> {
   const db = createAdminClient();
   const { data } = await db
@@ -175,18 +202,27 @@ export async function POST(request: Request) {
         if (!tierKey) break;
 
         // Renewal moment → re-snapshot the tier's current live limits.
-        const subId =
-          (invoice as unknown as { subscription?: string }).subscription ?? null;
+        const subId = getInvoiceSubscriptionId(invoice);
         let periodEnd: string | null = unixToIso(invoice.period_end);
         if (subId) {
           const subscription = await stripe.subscriptions.retrieve(subId);
           periodEnd = getPeriodEnd(subscription) ?? periodEnd;
         }
 
+        // Never overwrite a known subscription id with null if invoice shape changed.
+        const { data: existing } = await db
+          .from("profiles")
+          .select("stripe_subscription_id")
+          .eq("id", userId)
+          .maybeSingle();
+        const resolvedSubId =
+          subId ??
+          ((existing?.stripe_subscription_id as string | null) ?? null);
+
         await activateSubscription(
           userId,
           tierKey,
-          subId,
+          resolvedSubId,
           (profile?.subscription_interval as "month" | "year") ?? "month",
           periodEnd,
           { resnapshot: true }
