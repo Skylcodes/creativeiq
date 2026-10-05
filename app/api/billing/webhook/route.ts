@@ -254,9 +254,34 @@ export async function POST(request: Request) {
           }
         }
 
-        // If the subscription was cancelled/inactive, paywall and stop.
-        if (subscription.status === "canceled" || subscription.status === "unpaid") {
-          await setAccountStatus(userId, "paywalled");
+        // Terminal / delinquent statuses must not be overwritten back to active.
+        if (
+          subscription.status === "canceled" ||
+          subscription.status === "unpaid" ||
+          subscription.status === "incomplete_expired"
+        ) {
+          await setAccountStatus(userId, "paywalled", {
+            stripe_subscription_id: null,
+          });
+          break;
+        }
+
+        if (
+          subscription.status === "past_due" ||
+          subscription.status === "incomplete"
+        ) {
+          await setAccountStatus(userId, "payment_failed", {
+            payment_failed_at: new Date().toISOString(),
+            stripe_subscription_id: subscription.id,
+            subscription_tier_key: newTier.key,
+            subscription_interval: interval,
+            current_period_end: periodEnd,
+          });
+          break;
+        }
+
+        // Only treat clearly healthy subscriptions as active.
+        if (subscription.status !== "active" && subscription.status !== "trialing") {
           break;
         }
 
