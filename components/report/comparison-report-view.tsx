@@ -26,6 +26,8 @@ import {
   normalizeComparisonReport,
   getWinnerFromReport,
 } from "@/lib/report/normalize-comparison";
+import { downloadComparisonPdf } from "@/lib/report/export-comparison";
+import { ExportButton } from "@/components/shared/export-button";
 
 type ComparisonReportViewProps = {
   analysis: Analysis;
@@ -315,6 +317,12 @@ export function ComparisonReportView({
             </Link>
             <div className="flex flex-wrap items-center gap-3">
               <ChatOpenButton onClick={() => setChatOpen(true)} />
+              <ExportButton
+                label="Export"
+                onExport={() =>
+                  downloadComparisonPdf(analysis, report, workspaceName)
+                }
+              />
               <span className="text-xs text-text-muted">
                 {workspaceName} · {formatAnalysisDateTime(analysis.created_at)}
               </span>

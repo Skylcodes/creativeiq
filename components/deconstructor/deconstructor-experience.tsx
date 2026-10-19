@@ -5,6 +5,8 @@ import { PremiumCard } from "@/components/ui/premium-card";
 import { PageShell } from "@/components/ui/page-shell";
 import type { AdDeconstruction, DeconstructionReport } from "@/lib/types/deconstruction";
 import { CriteriaChecklist } from "@/components/report/shared/criteria-checklist";
+import { downloadDeconstructionPdf } from "@/lib/deconstructions/export";
+import { ExportButton } from "@/components/shared/export-button";
 
 type DeconstructorExperienceProps = {
   deconstruction: AdDeconstruction;
@@ -65,9 +67,18 @@ export function DeconstructorExperience({
         <h1 className="font-display text-2xl font-semibold tracking-[-0.045em] text-white md:text-3xl">
           {deconstruction.title}
         </h1>
-        <Link href="/deconstructor" className="btn-ghost text-sm">
-          All deconstructions
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButton
+            label="Export"
+            className="btn-ghost text-sm"
+            onExport={() =>
+              downloadDeconstructionPdf(deconstruction, report)
+            }
+          />
+          <Link href="/deconstructor" className="btn-ghost text-sm">
+            All deconstructions
+          </Link>
+        </div>
       </div>
 
       {creativePreviewUrl && (

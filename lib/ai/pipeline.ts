@@ -12,7 +12,11 @@ import { runScoringSynthesis } from "@/lib/ai/scoring";
 import { withTimeout } from "@/lib/ai/pipeline/timeout";
 import { buildAnalysisReport } from "@/lib/report/build-report";
 import { isScrapeContentSufficient, scrapePage } from "@/lib/ai/scrape";
-import { getCreativeGoalLabel, normalizeCreativeGoal } from "@/lib/analyses/creative-goals";
+import {
+  getCreativeGoalEvaluationBlock,
+  getCreativeGoalLabel,
+  normalizeCreativeGoal,
+} from "@/lib/analyses/creative-goals";
 import type { MarketIntelligenceResult, VisualIntelligence } from "@/lib/ai/pipeline-types";
 import type { Analysis } from "@/lib/types/analysis";
 import type { AnalysisReport } from "@/lib/types/report";
@@ -105,6 +109,7 @@ export async function runFullAnalysis(
     brandProfileText,
     platformText: platformText(analysis),
     creativeGoalLabel,
+    creativeGoalEvaluationBlock: getCreativeGoalEvaluationBlock(creativeGoal),
     creativeBriefText: visualIntelligence.briefText,
     creativeKind: visualIntelligence.kind,
     landingPageText,

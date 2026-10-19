@@ -50,7 +50,9 @@ export function ActiveDashboard({
               <span className="text-gradient-accent">{displayName}</span>
             </h1>
           </div>
-          <WorkspaceHeader workspace={workspace} compact />
+          <div className="hidden sm:block">
+            <WorkspaceHeader workspace={workspace} compact />
+          </div>
         </div>
       </FadeUp>
 

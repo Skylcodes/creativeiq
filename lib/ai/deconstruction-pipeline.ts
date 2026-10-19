@@ -107,9 +107,10 @@ function criteriaForHonestAnalysis(criteriaList: RawCriteria[]): string {
   const creative = criteriaList.filter((c) => c.category !== "landing_page");
   return [
     "Evaluate against these creative criteria only (landing page criteria = N/A, use pass: null).",
-    "Relevance gate: mark pass=false only when the item applies to this ad's job and the gap creates a real mechanism of harm.",
+    "Apply CORE ACCURACY RULES from the system prompt — especially BEST-PRACTICE-IS-NOT-LAW, CONVERSION IMPACT GATE, and CREATIVE-FORMAT AWARENESS.",
+    "Relevance gate: mark pass=false only when the item applies to this ad's job AND the gap creates a real conversion-harm mechanism (not 'could be improved').",
     "If an item is not needed for this creative approach, mark pass=null and do not mention it as a weakness.",
-    "In-ad price is never a quality factor — mark C4 null unless the ad explicitly promised a specific deal.",
+    "In-ad price is never a quality factor — mark C4 null unless the ad explicitly promised a specific deal (PRICE RULE).",
     "In-ad social proof is not required — mark C2 null unless the ad made a hard proof-led claim.",
     ...creative.map((c) => `${c.id}. ${c.label} [when: ${c.appliesWhen}]`),
   ].join("\n");

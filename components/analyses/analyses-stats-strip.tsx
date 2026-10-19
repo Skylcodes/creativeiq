@@ -10,7 +10,7 @@ type AnalysesStatsStripProps = {
 
 export function AnalysesStatsStrip({ metrics }: AnalysesStatsStripProps) {
   return (
-    <div className="grid gap-3.5 sm:grid-cols-3">
+    <div className="grid grid-cols-3 gap-2 sm:gap-3.5">
       <MetricTile
         label="Total Analyses"
         tone="orange"

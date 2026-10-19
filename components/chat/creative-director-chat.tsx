@@ -337,7 +337,7 @@ export function CreativeDirectorChat({
                 type="button"
                 onClick={onNewChat}
                 disabled={isResponding}
-                className="dash-btn-secondary px-3 py-1.5 text-xs disabled:opacity-40"
+                className="dash-btn-secondary !hidden px-3 py-1.5 text-xs disabled:opacity-40 lg:!inline-flex"
               >
                 New chat
               </button>
@@ -346,9 +346,9 @@ export function CreativeDirectorChat({
               type="button"
               onClick={() => void handleClear()}
               disabled={isResponding || noActiveChat}
-              className="rounded-lg px-2.5 py-1 text-xs font-medium text-white/45 hover:text-white/70 disabled:opacity-40"
+              className="min-h-9 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white/45 hover:text-white/70 disabled:opacity-40"
             >
-              Clear conversation
+              Clear
             </button>
           </div>
         </div>

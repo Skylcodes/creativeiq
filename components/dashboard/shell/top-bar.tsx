@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import { UserMenu } from "./user-menu";
+import { MobileBottomNav } from "./mobile-bottom-nav";
 import { MobileNav } from "./mobile-nav";
 import type { AccountUsageSummary } from "@/lib/billing/usage-summary-types";
 import { isAtWorkspaceLimit } from "@/lib/billing/usage-summary-types";
@@ -42,20 +43,28 @@ export function TopBar({
               <path d="M3 5H15M3 9H15M3 13H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <div className="min-w-0 lg:hidden">
+          <div className="min-w-0 max-w-[42vw] lg:hidden sm:max-w-[14rem]">
             <WorkspaceSwitcher variant="dark" canAddWorkspace={canAddWorkspace} />
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2">
-          <Link href="/analyses/new" className="dash-btn-topbar px-2.5 sm:px-[0.9375rem]">
+          <Link
+            href="/analyses/new"
+            className="dash-btn-topbar min-h-9 min-w-9 px-2.5 sm:px-[0.9375rem]"
+            aria-label="New Analysis"
+          >
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
             </svg>
             <span className="hidden sm:inline">New Analysis</span>
           </Link>
 
-          <button type="button" className="app-topbar-icon-btn" aria-label="Notifications">
+          <button
+            type="button"
+            className="app-topbar-icon-btn !hidden sm:!flex"
+            aria-label="Notifications"
+          >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
               <path d="M9 2C6.5 2 5 4 5 6.5V10L3 13H15L13 10V6.5C13 4 11.5 2 9 2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
               <path d="M7.5 14.5C7.8 15.3 8.4 16 9 16C9.6 16 10.2 15.3 10.5 14.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -71,6 +80,8 @@ export function TopBar({
           />
         </div>
       </header>
+
+      <MobileBottomNav onOpenMenu={() => setMobileNavOpen(true)} />
 
       <MobileNav
         open={mobileNavOpen}

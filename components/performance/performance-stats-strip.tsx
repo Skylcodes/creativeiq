@@ -30,18 +30,18 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay, ease: EASE_PREMIUM }}
     >
-      <PremiumCard padding="md" className="dash-card !border-white/10 !bg-white/[0.04] p-5 md:p-6">
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
+      <PremiumCard padding="md" className="dash-card !border-white/10 !bg-white/[0.04] p-3.5 sm:p-5 md:p-6">
+        <p className="text-[9px] font-bold uppercase leading-tight tracking-[0.1em] text-white/40 sm:text-[11px] sm:tracking-[0.12em]">
           {label}
         </p>
         <p
-          className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-white"
+          className="mt-1.5 font-display text-2xl font-semibold tracking-[-0.04em] text-white sm:mt-2 sm:text-3xl"
           style={accent ? { color: accent } : undefined}
         >
           {value}
         </p>
         {sub && (
-          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/55">
+          <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/55 sm:mt-1.5 sm:text-xs">
             {sub}
           </p>
         )}
@@ -52,7 +52,7 @@ function StatCard({
 
 export function PerformanceStatsStrip({ stats }: PerformanceStatsStripProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
       <StatCard
         label="Average Funnel Score"
         value={stats.averageFunnelScore !== null ? String(stats.averageFunnelScore) : "—"}

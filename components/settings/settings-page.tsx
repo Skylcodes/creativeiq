@@ -80,15 +80,15 @@ export function SettingsPage({
           className="lg:sticky lg:top-6 lg:self-start"
           aria-label="Settings sections"
         >
-          <ul className="dash-card grid grid-cols-2 gap-1 p-1.5 sm:grid-cols-4 lg:flex lg:flex-col lg:overflow-visible">
+          <ul className="dash-card grid grid-cols-4 gap-1 overflow-x-auto p-1.5 lg:flex lg:flex-col lg:overflow-visible">
             {NAV_ITEMS.map((item) => {
               const active = activeSection === item.id;
               return (
-                <li key={item.id}>
+                <li key={item.id} className="min-w-0">
                   <button
                     type="button"
                     onClick={() => scrollToSection(item.id)}
-                    className={`dropdown-item w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium ${
+                    className={`dropdown-item min-h-11 w-full rounded-xl px-2 py-2.5 text-center text-[12px] font-medium sm:px-3 sm:text-left sm:text-sm lg:text-left ${
                       active
                         ? "dropdown-item-active"
                         : "text-white/55"

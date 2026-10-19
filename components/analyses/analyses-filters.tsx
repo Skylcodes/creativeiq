@@ -72,8 +72,9 @@ export function AnalysesFilters({
         />
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+      <div className="grid grid-cols-2 gap-2.5 lg:flex lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
         <FilterSelect
+          className="col-span-2 lg:col-auto"
           label="Sort by"
           value={params.sort}
           options={SORT_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
@@ -117,19 +118,25 @@ function FilterSelect({
   value,
   options,
   onChange,
+  className = "",
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
+  className?: string;
 }) {
   return (
-    <label className="flex min-w-[160px] flex-1 items-center gap-2 text-sm lg:flex-none">
-      <span className="shrink-0 text-white/40">{label}</span>
+    <label
+      className={`flex min-w-0 flex-col gap-1 text-sm sm:min-w-[160px] sm:flex-1 sm:flex-row sm:items-center sm:gap-2 lg:flex-none ${className}`}
+    >
+      <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-white/40 sm:text-sm sm:normal-case sm:tracking-normal">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="input-field w-full px-3 py-2 text-sm font-medium"
+        className="input-field min-h-11 w-full px-3 py-2 text-sm font-medium sm:min-h-0"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

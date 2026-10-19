@@ -100,29 +100,29 @@ export function MetricTile({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay, ease: EASE_PREMIUM }}
-      className="dash-card dash-card-interactive group relative overflow-hidden p-5 md:p-6"
+      className="dash-card dash-card-interactive group relative overflow-hidden p-3 sm:p-5 md:p-6"
       style={{
         borderTopWidth: 2,
         borderTopColor: accent.top,
         background: `radial-gradient(ellipse 80% 60% at 12% 0%, ${accent.glow}, transparent 55%), rgba(255, 255, 255, 0.04)`,
       }}
     >
-      <div className="relative flex items-start justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
+      <div className="relative flex items-start justify-between gap-2 sm:gap-3">
+        <p className="text-[9px] font-bold uppercase leading-tight tracking-[0.1em] text-white/40 sm:text-[11px] sm:tracking-[0.12em]">
           {label}
         </p>
         {icon && (
           <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${accent.iconWrap}`}
+            className={`hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border sm:flex ${accent.iconWrap}`}
           >
             {icon}
           </div>
         )}
       </div>
-      <p className="relative mt-3 font-display text-[1.75rem] font-semibold tracking-[-0.04em] text-white md:text-[2rem]">
+      <p className="relative mt-2 font-display text-[1.35rem] font-semibold tracking-[-0.04em] text-white sm:mt-3 sm:text-[1.75rem] md:text-[2rem]">
         {value}
         {suffix && (
-          <span className="ml-0.5 text-lg font-medium text-white/45">
+          <span className="ml-0.5 text-sm font-medium text-white/45 sm:text-lg">
             {suffix}
           </span>
         )}

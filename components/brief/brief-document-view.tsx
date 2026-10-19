@@ -206,7 +206,7 @@ export function BriefDocumentView({
               {copying ? "Copying…" : "Copy brief"}
             </button>
             <button type="button" onClick={handlePdf} disabled={downloading} className="btn-outline min-h-10 text-xs">
-              {downloading ? "Generating…" : "Download PDF"}
+              {downloading ? "Exporting…" : "Export PDF"}
             </button>
           </div>
         </div>

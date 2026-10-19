@@ -51,7 +51,7 @@ export function MobileNav({
         aria-label="Close menu"
         onClick={onClose}
       />
-      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,300px)] flex-col border-r border-white/[0.08] bg-[#0a0714]/98 shadow-[24px_0_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,300px)] flex-col border-r border-white/[0.08] bg-[#0a0714]/98 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] shadow-[24px_0_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
           <Logo href="/dashboard" size="sm" tone="dark" />
           <button

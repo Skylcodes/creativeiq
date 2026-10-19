@@ -1,4 +1,5 @@
 import type { CreativeBriefDocument } from "@/lib/types/brief";
+import { createTextPdf, slugifyFilename } from "@/lib/export/pdf";
 
 export function briefToPlainText(doc: CreativeBriefDocument): string {
   const lines: string[] = [
@@ -53,67 +54,49 @@ export function briefToPlainText(doc: CreativeBriefDocument): string {
 
 export async function downloadBriefPdf(
   doc: CreativeBriefDocument,
-  filename: string
+  filename?: string
 ): Promise<void> {
-  const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ unit: "pt", format: "letter" });
-  const margin = 48;
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const maxWidth = pageWidth - margin * 2;
-  let y = margin;
+  const pdf = await createTextPdf();
+  const name =
+    filename ??
+    `creative-brief-${slugifyFilename(doc.angle.name)}.pdf`;
 
-  const addText = (text: string, size = 10, bold = false) => {
-    pdf.setFontSize(size);
-    pdf.setFont("helvetica", bold ? "bold" : "normal");
-    const lines = pdf.splitTextToSize(text, maxWidth);
-    for (const line of lines) {
-      if (y > pdf.internal.pageSize.getHeight() - margin) {
-        pdf.addPage();
-        y = margin;
-      }
-      pdf.text(line, margin, y);
-      y += size * 1.35;
-    }
-    y += 6;
-  };
+  pdf.addHeading("Creative Brief", 18);
+  pdf.addBody(doc.header.strategicRationale);
 
-  addText("CREATIVE BRIEF", 18, true);
-  addText(doc.header.strategicRationale, 10);
-  y += 4;
-
-  addText("Campaign Overview", 13, true);
-  addText(
+  pdf.addHeading("Campaign Overview");
+  pdf.addBody(
     `Goal: ${doc.header.campaignGoal} · Platform: ${doc.header.platform}\nAudience: ${doc.header.targetAudience} · ${doc.header.audienceTemperature}\nProduction: ${doc.header.productionResources}`
   );
 
-  addText("The Angle", 13, true);
-  addText(`${doc.angle.name}\n${doc.angle.explanation}`);
+  pdf.addHeading("The Angle");
+  pdf.addBody(`${doc.angle.name}\n${doc.angle.explanation}`);
 
-  addText("Hook Options", 13, true);
+  pdf.addHeading("Hook Options");
   for (const h of doc.hookOptions) {
-    addText(`#${h.rank} — ${h.hook}\n${h.rationale}`);
+    pdf.addBody(`#${h.rank} — ${h.hook}\n${h.rationale}`);
   }
 
-  addText("Script", 13, true);
-  addText(doc.script);
+  pdf.addHeading("Script");
+  pdf.addBody(doc.script);
 
-  addText("Shot List", 13, true);
+  pdf.addHeading("Shot List");
   for (const s of doc.shotList) {
-    addText(
+    pdf.addBody(
       `Shot ${s.shotNumber}: ${s.onScreen}${s.textOverlay ? ` [${s.textOverlay}]` : ""} — ${s.direction}`
     );
   }
 
-  addText("Production Notes", 13, true);
-  addText(doc.productionNotes);
+  pdf.addHeading("Production Notes");
+  pdf.addBody(doc.productionNotes);
 
-  addText("CTA Guidance", 13, true);
-  addText(
+  pdf.addHeading("CTA Guidance");
+  pdf.addBody(
     `Primary: ${doc.ctaGuidance.primary}\nAlternative: ${doc.ctaGuidance.alternative}\n${doc.ctaGuidance.placement}`
   );
 
-  addText("What To Avoid", 13, true);
-  addText(doc.whatToAvoid.map((w) => `• ${w}`).join("\n"));
+  pdf.addHeading("What To Avoid");
+  pdf.addBody(doc.whatToAvoid.map((w) => `• ${w}`).join("\n"));
 
-  pdf.save(filename);
+  pdf.save(name);
 }

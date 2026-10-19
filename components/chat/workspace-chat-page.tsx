@@ -60,7 +60,7 @@ export function WorkspaceChatPage({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="shrink-0 border-b border-white/[0.08] bg-[#080711]/60 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 sm:py-4 md:px-10 lg:px-12 xl:max-w-7xl">
+        <div className="mx-auto max-w-6xl px-3 py-3 sm:px-6 sm:py-4 md:px-10 lg:px-12 xl:max-w-7xl">
           <PageHeader
             title="Creative Director"
             description="Open-ended strategic conversations across your creative portfolio."
@@ -86,7 +86,7 @@ export function WorkspaceChatPage({
                       setSelectedAnalysisId(value);
                     }
                   }}
-                  className="dash-card w-full cursor-pointer px-3.5 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-accent/25"
+                  className="dash-card min-h-11 w-full cursor-pointer px-3.5 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-accent/25"
                 >
                   <option value="workspace">Full workspace context</option>
                   {analysisOptions.map((option) => (

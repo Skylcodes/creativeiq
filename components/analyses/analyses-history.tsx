@@ -87,12 +87,12 @@ export function AnalysesHistory({
         title="Analyses"
         description="Every funnel intelligence report for your workspace"
         action={
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
             <NewAnalysisCta label="New Analysis" size="compact" />
             <CompareVariantsCta size="compact" />
             <Link
               href="/brief"
-              className="text-[13px] font-medium text-accent-tertiary hover:text-accent"
+              className="inline-flex min-h-11 items-center justify-center text-[13px] font-medium text-accent-tertiary hover:text-accent sm:min-h-0 sm:justify-start"
             >
               Creative Briefs →
             </Link>

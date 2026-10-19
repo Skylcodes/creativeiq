@@ -11,7 +11,6 @@ import {
   type HookSaveContext,
 } from "@/components/hooks/hook-row-actions";
 import { PlainPanel } from "../shared/plain-panel";
-import { CreativeScoreBreakdownCard } from "../shared/creative-score-breakdown";
 import { useToast } from "@/components/shared/toast";
 
 type CreativeAnalysisSectionProps = {
@@ -170,11 +169,10 @@ export function CreativeAnalysisSection({
         </p>
       </div>
 
-      {report.creativeScoreBreakdown && (
-        <CreativeScoreBreakdownCard
-          breakdown={report.creativeScoreBreakdown}
-          blendedScore={report.creativeStrengthScore}
-        />
+      {report.creativeScoreBreakdown?.retentionVerdict && (
+        <p className="text-sm leading-relaxed text-white/70">
+          {report.creativeScoreBreakdown.retentionVerdict}
+        </p>
       )}
 
       {hooks.length > 0 && recommended && (

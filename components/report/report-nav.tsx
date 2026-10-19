@@ -32,19 +32,26 @@ function scrollToSection(id: string) {
   el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function bandStatus(score: number): ReportNavSection["status"] {
+  if (score >= 85) return "ok";
+  if (score >= 60) return "warn";
+  return "critical";
+}
+
 export function buildReportNavSections(report: AnalysisReport): ReportNavSection[] {
   const actions = report.priorityActions ?? [];
   const angles = report.angleRecommendations ?? [];
   const funnel = report.overallFunnelScore ?? 0;
   const creative = report.creativeStrengthScore ?? 0;
   const conversion = report.conversionScore?.total ?? 0;
+  const verdictLabel = report.verdict?.label?.replace(/_/g, " ");
 
   return [
     {
       id: "section-verdict",
       label: "Verdict",
-      score: funnel,
-      meta: `${funnel}`,
+      meta: verdictLabel,
+      status: bandStatus(funnel),
     },
     {
       id: "section-actions",
@@ -55,14 +62,12 @@ export function buildReportNavSections(report: AnalysisReport): ReportNavSection
     {
       id: "section-creative",
       label: "Creative Analysis",
-      score: creative,
-      meta: `${creative}`,
+      status: bandStatus(creative),
     },
     {
       id: "section-funnel",
       label: "Funnel Check",
-      score: conversion,
-      meta: `${conversion}`,
+      status: bandStatus(conversion),
     },
     {
       id: "section-test-next",
@@ -110,9 +115,12 @@ export function ReportNav({ sections }: ReportNavProps) {
   }, [ids]);
 
   return (
-    <nav aria-label="Report sections" className="sticky top-0 z-20 mb-8 pt-2">
+    <nav
+      aria-label="Report sections"
+      className="sticky top-0 z-20 -mx-1 mb-6 px-1 pt-1 sm:mb-8 sm:pt-2"
+    >
       <div className="rounded-2xl border border-white/20 bg-white/[0.07] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-        <ul className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ul className="flex gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((s) => {
             const isActive = active === s.id;
             return (
@@ -124,7 +132,7 @@ export function ReportNav({ sections }: ReportNavProps) {
                     setActive(s.id);
                     scrollToSection(s.id);
                   }}
-                  className={`flex min-h-11 items-center gap-2.5 rounded-xl px-3.5 py-2 text-left transition-colors ${
+                  className={`flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors sm:gap-2.5 sm:px-3.5 ${
                     isActive
                       ? "bg-accent text-white shadow-[0_6px_18px_-8px_rgba(105,71,255,0.9)]"
                       : "text-white/75 hover:bg-white/[0.06] hover:text-white"
@@ -135,10 +143,12 @@ export function ReportNav({ sections }: ReportNavProps) {
                     style={{ backgroundColor: statusDot(s) }}
                     aria-hidden
                   />
-                  <span className="whitespace-nowrap text-sm font-semibold">{s.label}</span>
+                  <span className="whitespace-nowrap text-[13px] font-semibold sm:text-sm">
+                    {s.label}
+                  </span>
                   {s.meta != null && (
                     <span
-                      className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
+                      className={`max-w-[7rem] truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:max-w-none sm:text-[11px] ${
                         isActive ? "bg-black/25 text-white" : "bg-white/[0.08] text-white/80"
                       }`}
                     >

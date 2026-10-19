@@ -33,16 +33,16 @@ export function ChatSessionsSidebar({
 }: ChatSessionsSidebarProps) {
   if (compact) {
     return (
-      <div className="flex items-center gap-2 border-b border-white/[0.08] bg-[#080711]/40 px-3 py-2 backdrop-blur-xl">
+      <div className="flex items-center gap-2 border-b border-white/[0.08] bg-[#080711]/40 px-3 py-2.5 backdrop-blur-xl">
         <button
           type="button"
           onClick={onNewChat}
-          className="dash-btn-secondary shrink-0 px-3 py-1.5 text-[12px]"
+          className="dash-btn-secondary min-h-10 shrink-0 px-3 py-2 text-[12px]"
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden>
             <path d="M7 2V12M2 7H12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
           </svg>
-          New chat
+          New
         </button>
         {sessions.length > 0 && (
           <select
@@ -50,7 +50,7 @@ export function ChatSessionsSidebar({
             onChange={(e) => {
               if (e.target.value) onSelect(e.target.value);
             }}
-            className="input-field min-w-0 flex-1 truncate px-2.5 py-1.5 text-[12px]"
+            className="input-field min-h-10 min-w-0 flex-1 truncate px-2.5 py-2 text-[12px]"
             aria-label="Previous chats"
           >
             {sessions.map((session) => (

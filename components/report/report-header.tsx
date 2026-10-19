@@ -8,9 +8,10 @@ import {
   formatPlatforms,
   formatReportDate,
 } from "@/lib/report/utils";
+import { downloadReportPdf } from "@/lib/report/export";
 import { ChatOpenButton } from "@/components/chat/chat-open-button";
 import { CreativeGoalBadge } from "@/components/shared/creative-goal-badge";
-import { ScoreHero } from "./shared/score-hero";
+import { ExportButton } from "@/components/shared/export-button";
 
 type ReportHeaderProps = {
   analysis: Analysis;
@@ -55,14 +56,12 @@ export function ReportHeader({
         </Link>
         <div className="flex items-center gap-2">
           {onOpenChat && <ChatOpenButton onClick={onOpenChat} />}
-          <button
-            type="button"
-            disabled
-            title="Export coming soon"
-            className="btn-ghost cursor-not-allowed text-xs opacity-50"
-          >
-            Export
-          </button>
+          <ExportButton
+            label="Export"
+            onExport={() =>
+              downloadReportPdf(analysis, report, workspaceName)
+            }
+          />
         </div>
       </div>
 
@@ -73,17 +72,17 @@ export function ReportHeader({
         <h1 className="mt-2 font-display text-xl font-semibold leading-snug tracking-[-0.03em] text-white md:text-2xl">
           {headline}
         </h1>
+        {report.verdict?.rationale && (
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
+            {report.verdict.rationale}
+          </p>
+        )}
 
-        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <ScoreHero
-            score={report.overallFunnelScore}
-            label="Overall funnel score"
-            size="compact"
-          />
+        <div className="mt-5">
           <CreativeGoalBadge
             goal={analysis.creative_goal}
             showContext
-            className="sm:max-w-xs sm:text-right"
+            className="sm:max-w-xs"
           />
         </div>
       </div>

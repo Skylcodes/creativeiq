@@ -1,4 +1,16 @@
 import "server-only";
+import {
+  CORE_ACCURACY_RULES,
+  CREATIVE_JUDGMENT_FOR_GENERATION,
+  SCORE_BAND_CALIBRATION,
+} from "@/lib/ai/evaluation-principles";
+
+// Re-export canonical evaluation principles so feature prompts share one source.
+export {
+  CORE_ACCURACY_RULES,
+  CREATIVE_JUDGMENT_FOR_GENERATION,
+  SCORE_BAND_CALIBRATION,
+};
 
 // ---------------------------------------------------------------------------
 // Shared writing standards — every agent, simulation, and extraction output.
@@ -95,67 +107,8 @@ CRITICAL — two parts, both required:
 
 INVALID: outputting only a production note with no spoken script. INVALID: describing format without writing the script.`;
 
-// ---------------------------------------------------------------------------
-// Score-band calibration — shared discrimination standard for any pass that
-// scores creatives against the 0-100 bands (comparison synthesis today).
-// The main analysis pipeline (lib/ai/pipeline-prompts.ts) uses its own
-// calibration text tuned for the viewer/performance-expert/scoring jobs.
-// ---------------------------------------------------------------------------
-
-export const DEDUCTION_VALIDITY_GATE = `DEDUCTION VALIDITY GATE (applies before every score deduction and every topBlocker):
-
-Do NOT invent weaknesses. Strong dimensions may score high with zero deductions. Empty topBlockers is valid and preferred when no material flaw exists.
-
-Before deducting points or writing a blocker, verify ALL of:
-1. EVIDENCE — quote what is observable in the creative/page
-2. MATERIALITY — it would realistically hurt THIS category's performance
-3. CAUSALITY — clear link from the issue to worse outcomes (not preference)
-4. SEVERITY — classify critical / moderate / minor honestly
-5. COUNTEREVIDENCE — if something else in the creative mitigates it, do not deduct
-
-"Could theoretically be improved" / "another strategy might also work" / "not every best practice" / "I prefer a different style" / "hypothetically optimized further" → NOT a deduction.
-Only deduct for: "This is a meaningful, evidence-backed weakness that would reduce performance in this category."
-
-Score what is present. Do not force symmetry between strengths and weaknesses. A 9/10 does not require inventing a flaw. A 10/10 is allowed when warranted.`;
-
-export const SCORE_BAND_CALIBRATION = `SCORE BAND CALIBRATION (accuracy — discriminate quality; do not invent flaws):
-
-${DEDUCTION_VALIDITY_GATE}
-
-Your job is to SEPARATE excellent, good, average, weak, and poor creatives. Do NOT compress everything into 60–75. Do NOT refuse high scores when evidence supports them. Do NOT invent weaknesses to "balance" strengths.
-
-Band guide (applies independently to strategicScore and retentionScore). Use the decade that matches observable performance — do not park everything in 70–75:
-
-- 90–100 EXCEPTIONAL: Would clearly outperform a typical feed ad in this niche. Opening earns attention, viewers stay to the message, the selected goal is executed. Not "perfect" — "no material reason this would underperform." Rare.
-- 80–89 EXCELLENT: Strong on the dimension being scored. One minor optional polish is allowed. Viewers would realistically stop and stay (retention) / the sell is convincing (strategic).
-- 70–79 GOOD: Clearly above average. Core job is done. A real but limited weakness may exist — not a stack of hypothetical improvements.
-- 60–69 AVERAGE: Functional and forgettable. Completeness (hook+CTA+product) lives here. Mixed watch probability. Default for "fine but not distinctive."
-- 50–59 WEAK: Meaningful performance problems. Many viewers miss the message or the sell doesn't earn care.
-- 40–49 VERY WEAK: Multiple severe issues. Likely scroll-away or disbelief.
-- 0–39 POOR: Fundamentally ineffective on this dimension.
-
-Observable checkpoints (do not skip from 50 to 75, or from 85 to 68, without matching evidence):
-- 90 vs 80: 90 = no material issue; 80 = strong with one real limitation that does not break the job
-- 80 vs 70: 80 = strangers would likely stay/buy-in; 70 = above average but a specific, evidenced drag exists
-- 70 vs 60: 70 = works; 60 = competent structure, unremarkable execution, many would not stay or not care
-- 60 vs 50: 50 = a serious attention or persuasion failure, not just "meh"
-- 50 vs 40 and below: accumulating failures that would stop the selected goal
-
-"Has a hook + a CTA + a visible product + grammatical copy" is AVERAGE completeness (60–69), not automatic GOOD. A creative that actually holds attention AND sells well belongs in 80+ even if you can imagine an alternate approach.
-
-Do NOT inflate because: hook-form exists, CTA exists, product shown, production polished, "this could work."
-Do NOT deflate because: another style exists, a best practice is unused, a hypothetical improvement exists, or you feel obligated to find a flaw.
-
-EVIDENCE RULE: Score only what is observable. Do not invent audience reactions, historical performance, or missing details. Also do not invent weaknesses without observable material harm.
-
-HALO RULE: Grade dimensions independently. Strong hook ≠ strong ad. Clear CTA ≠ compelling creative. Professional production ≠ engagement. One weakness must not drag unrelated dimensions.
-
-SCORE WHAT IS THERE — NOT WHAT COULD THEORETICALLY BE ADDED:
-- Do NOT dock for absent elements that don't create friction for this creative type/goal.
-- Do NOT penalize omitted product features outside this ad's chosen angle.
-- Do NOT raise a weak execution just because a missing element "could be added later."
-
-CONSISTENCY RULE: Strengths raise only the dimensions they improve. Weaknesses lower only the dimensions they harm. Zero critical checklist fails does NOT require 65+ if the ad fails to earn attention — and a clearly strong ad with zero material flaws SHOULD score 80+ without manufactured criticism.`;
+/** @deprecated Use CORE_ACCURACY_RULES (rules 2, 14, 16, 21) from evaluation-principles. */
+export const DEDUCTION_VALIDITY_GATE = `DEDUCTION VALIDITY GATE — follow CORE ACCURACY RULES (especially NO MANUFACTURED CRITICISM, BEST-PRACTICE-IS-NOT-LAW, IMPACT-TEST / SEVERITY, and CONVERSION IMPACT GATE). Do not invent weaknesses. "Could theoretically be improved" is never a deduction.`;
 
 // ---------------------------------------------------------------------------
 // Angle recommendation standard — reused by the comparison/brief generators.
@@ -215,11 +168,11 @@ SCOPE RULES (same as funnel analysis):
 - AD CREATIVE is the primary subject. Landing page is supporting context only — do not run a landing page audit.
 - ONE ad = ONE job. Do not penalize for missing product features from the brand profile.
 - VALID BUYER: ad audience need not match landing page ICP copy — if they could buy the product, grade the ad for reaching them; never call it "wrong audience."
-- Apply SCORE_BAND_CALIBRATION exactly. Score observable execution. Strong work gets strong scores. Weak work gets weak scores.
+- Interpret provided scores using SCORE_BAND_CALIBRATION (same bands as Analysis). Do NOT rescore.
 - Quote exact phrases and visual elements from THIS variant.`;
 }
 
-export const COMPARISON_SYNTHESIS_SYSTEM = `You are the Verdict Agent running a head-to-head variant comparison for a DTC brand. You have the same voice, standards, and scoring discipline as a funnel analysis final briefing.
+export const COMPARISON_SYNTHESIS_SYSTEM = `You are the Verdict Agent running a head-to-head variant comparison for a DTC brand. You share the SAME evaluation philosophy as funnel Analysis — not a separate grading system.
 
 If a CREATIVE GOAL section appears in your prompt, rank and explain variants exclusively through that goal's framework — it overrides default conversion-first assumptions.
 
@@ -227,10 +180,13 @@ If a REAL WORLD INTELLIGENCE BRIEF is provided, benchmark variants against activ
 
 ${WRITING_RULES}
 
+${CORE_ACCURACY_RULES}
+
 ${SCORE_BAND_CALIBRATION}
 
 RANKING RULES (critical for accuracy):
-- Individual variant scores are ALREADY CALIBRATED. Use them as-is in rankings — do NOT invent new scores.
+- Individual variant scores are ALREADY CALIBRATED by the Analysis pipeline. Use them as-is in rankings — do NOT invent new scores, do NOT re-apply deductions, do NOT reinterpret absence of best practices as new weaknesses.
+- When explaining why A beat B, only cite differences that would actually affect conversion for THIS goal/format (CONVERSION IMPACT GATE). "Variant B doesn't show price / demo / social proof" is NOT a ranking reason unless that absence creates real friction for this creative.
 - Rank by score first. If scores are within 3 points, use qualitative judgment on the tested dimension(s) to break ties — explain why in reason.
 - reason must be platform-specific, product-specific, and quote structural differences — not generic copywriting advice.
 - winnerVerdict: one sentence the user reads first — decisive, quotes what won.
@@ -275,6 +231,8 @@ ${ANTI_SLOP_RULES}
 
 ${STRATEGIC_CONTEXT_RULES}
 
+${CREATIVE_JUDGMENT_FOR_GENERATION}
+
 ${ANGLE_EXPERTISE}
 
 GENERATION RULES:
@@ -307,6 +265,8 @@ ${WRITING_RULES}
 ${ANTI_SLOP_RULES}
 
 ${STRATEGIC_CONTEXT_RULES}
+
+${CREATIVE_JUDGMENT_FOR_GENERATION}
 
 HOW YOU DECIDE (do this internally, then write the brief as decisions — not as a checklist):
 - Pick ONE job for this ad based on the campaign goal and audience temperature. Cold purchase traffic is not a brand film. A retargeting sale is not a founder origin story unless that is the fastest way to the click. Brand awareness is feeling and recognition, not a hard offer.
