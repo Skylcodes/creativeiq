@@ -8,8 +8,15 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "fluent-ffmpeg",
     "@ffmpeg-installer/ffmpeg",
+    "@ffprobe-installer/ffprobe",
     "@google/genai",
   ],
+  outputFileTracingIncludes: {
+    "/*": [
+      "./node_modules/@ffmpeg-installer/**/*",
+      "./node_modules/@ffprobe-installer/**/*",
+    ],
+  },
   // Keep Turbopack scoped to this app (avoids scanning sibling folders in the repo).
   turbopack: {
     root: path.resolve(__dirname),

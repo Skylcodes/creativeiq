@@ -11,6 +11,11 @@ import {
   formatGeminiVisualContextForGrading,
   isGeminiVertexConfigured,
 } from "@/lib/ai/gemini-vertex-video";
+import {
+  getFfmpegCommand,
+  probeVideoDurationSec,
+  reportedVideoDurationSec,
+} from "@/lib/ai/video-probe";
 import type {
   VideoAnalysisResult,
   VisualAnalysisMode,
@@ -174,12 +179,7 @@ async function extractAudioFromVideo(
   try {
     // Dynamic imports keep these out of the static bundle graph so Turbopack
     // never tries to resolve the platform-specific binary package.json paths.
-    const [{ default: FfmpegCommand }, { default: ffmpegInstaller }] = await Promise.all([
-      import("fluent-ffmpeg"),
-      import("@ffmpeg-installer/ffmpeg"),
-    ]);
-
-    FfmpegCommand.setFfmpegPath(ffmpegInstaller.path);
+    const FfmpegCommand = await getFfmpegCommand();
 
     fs.writeFileSync(inPath, Buffer.from(await videoBlob.arrayBuffer()));
 
@@ -204,15 +204,6 @@ async function extractAudioFromVideo(
     }
     return null;
   }
-}
-
-async function getFfmpegCommand() {
-  const [{ default: FfmpegCommand }, { default: ffmpegInstaller }] = await Promise.all([
-    import("fluent-ffmpeg"),
-    import("@ffmpeg-installer/ffmpeg"),
-  ]);
-  FfmpegCommand.setFfmpegPath(ffmpegInstaller.path);
-  return FfmpegCommand;
 }
 
 function cleanupTempPaths(paths: string[]) {
@@ -253,20 +244,6 @@ function buildFrameTimemarks(durationSec: number, count: number): string[] {
   return marks;
 }
 
-async function probeVideoDurationSec(inPath: string): Promise<number | null> {
-  try {
-    const FfmpegCommand = await getFfmpegCommand();
-    return await new Promise((resolve, reject) => {
-      FfmpegCommand.ffprobe(inPath, (err, metadata) => {
-        if (err) reject(err);
-        else resolve(metadata.format.duration ?? null);
-      });
-    });
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Compress (never trim) the video for a single inline Gemini Vertex call.
  * The COMPLETE video is always sent — retention, pacing, and ending
@@ -283,7 +260,7 @@ async function prepareVideoBlobForGemini(
 ): Promise<{
   blob: Blob;
   fullDurationSec?: number;
-  analyzedDurationSec: number;
+  analyzedDurationSec?: number;
   tempFiles: string[];
 } | null> {
   const tmpDir = os.tmpdir();
@@ -294,12 +271,10 @@ async function prepareVideoBlobForGemini(
 
   try {
     fs.writeFileSync(inPath, Buffer.from(await videoBlob.arrayBuffer()));
-    const probedDuration = await probeVideoDurationSec(inPath);
-    const fullDurationSec =
-      probedDuration && probedDuration > 0 ? probedDuration : undefined;
-    // Full duration always — no trimming. Only used as a fallback estimate
-    // for `analyzedDurationSec` metadata when ffprobe fails.
-    const analyzedDurationSec = fullDurationSec ?? MAX_ANALYSIS_DURATION_SEC;
+    const fullDurationSec = reportedVideoDurationSec(
+      await probeVideoDurationSec(inPath)
+    );
+    const analyzedDurationSec = fullDurationSec;
 
     const compress = (scale: string, crf: number) =>
       new Promise<void>((resolve, reject) => {
@@ -370,7 +345,7 @@ async function extractVideoFrames(
   frames: ImageInput[];
   frameTimestamps: string[];
   durationSec?: number;
-  analyzedDurationSec: number;
+  analyzedDurationSec?: number;
   tempFiles: string[];
 } | null> {
   const tmpDir = os.tmpdir();
@@ -383,10 +358,12 @@ async function extractVideoFrames(
     fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(inPath, Buffer.from(await videoBlob.arrayBuffer()));
 
-    const probedDuration = await probeVideoDurationSec(inPath);
-    const fullDurationSec =
-      probedDuration && probedDuration > 0 ? probedDuration : MAX_ANALYSIS_DURATION_SEC;
-    const plan = framePlan(fullDurationSec);
+    const probedDuration = reportedVideoDurationSec(
+      await probeVideoDurationSec(inPath)
+    );
+    // Sampling window is an internal cap only. Reported duration is probe-only.
+    const samplingWindowSec = probedDuration ?? MAX_ANALYSIS_DURATION_SEC;
+    const plan = framePlan(samplingWindowSec);
     const timemarks = buildFrameTimemarks(plan.analyzedDurationSec, plan.frameCount);
     const FfmpegCommand = await getFfmpegCommand();
     const scale = `${VIDEO_FRAME_WIDTH}x?`;
@@ -433,8 +410,8 @@ async function extractVideoFrames(
     return {
       frames,
       frameTimestamps: timemarks.slice(0, frames.length),
-      durationSec: fullDurationSec,
-      analyzedDurationSec: plan.analyzedDurationSec,
+      durationSec: probedDuration,
+      analyzedDurationSec: probedDuration ? plan.analyzedDurationSec : undefined,
       tempFiles,
     };
   } catch {
@@ -922,8 +899,12 @@ export async function processVideoCreative(
             }
           );
           const mb = (gemini.compressedBytes / 1024 / 1024).toFixed(1);
+          const knownDuration =
+            prepared.fullDurationSec ?? prepared.analyzedDurationSec;
           notes.push(
-            `Visual analysis: Gemini Vertex watched the COMPLETE video (${gemini.model}, ${mb}MB compressed, ~${Math.round(prepared.analyzedDurationSec)}s full duration, no trimming). Claude agents use Gemini visual ground truth for retention.`
+            knownDuration
+              ? `Visual analysis: Gemini Vertex watched the COMPLETE video (${gemini.model}, ${mb}MB compressed, ~${Math.round(knownDuration)}s full duration, no trimming). Claude agents use Gemini visual ground truth for retention.`
+              : `Visual analysis: Gemini Vertex watched the COMPLETE video (${gemini.model}, ${mb}MB compressed, no trimming). Claude agents use Gemini visual ground truth for retention.`
           );
         } catch (err) {
           notes.push(
@@ -963,11 +944,16 @@ export async function processVideoCreative(
         : "full video";
       const analyzedLabel =
         extracted.durationSec &&
+        extracted.analyzedDurationSec != null &&
         extracted.analyzedDurationSec < extracted.durationSec - 1
           ? `first ${extracted.analyzedDurationSec.toFixed(0)}s`
           : "full length";
+      const intervalNote =
+        extracted.analyzedDurationSec && frameCount
+          ? ` (~every ${(extracted.analyzedDurationSec / frameCount).toFixed(1)}s)`
+          : "";
       notes.push(
-        `Visual analysis fallback: ${frameCount} frames across ${analyzedLabel} of ${durationLabel} (~every ${(extracted.analyzedDurationSec / frameCount).toFixed(1)}s) via Claude Haiku.`
+        `Visual analysis fallback: ${frameCount} frames across ${analyzedLabel} of ${durationLabel}${intervalNote} via Claude Haiku.`
       );
       cleanupTempPaths(extracted.tempFiles);
     } else {
@@ -1061,7 +1047,9 @@ export function buildVideoBrief(
     "",
     "VIDEO VISUAL ANALYSIS (mandatory — read before critiquing visuals or on-screen text):",
     ctx.visualAnalysisMode === "gemini_vertex"
-      ? `- COMPLETE VIDEO (all ~${Math.round(ctx.videoDurationSec ?? ctx.analyzedDurationSec ?? 0)}s, no trimming) analyzed natively via Gemini Vertex. Visual timeline reflects the entire watch, start to finish — NOT frame sampling, NOT a partial clip.`
+      ? ctx.videoDurationSec ?? ctx.analyzedDurationSec
+        ? `- COMPLETE VIDEO (all ~${Math.round(ctx.videoDurationSec ?? ctx.analyzedDurationSec ?? 0)}s, no trimming) analyzed natively via Gemini Vertex. Visual timeline reflects the entire watch, start to finish — NOT frame sampling, NOT a partial clip.`
+        : `- COMPLETE VIDEO (no trimming) analyzed natively via Gemini Vertex. Visual timeline reflects the entire watch, start to finish — NOT frame sampling, NOT a partial clip.`
       : ctx.visualAnalysisMode === "timeline_sampling"
         ? `- Frame-sampled coverage via ${ctx.frameCount} evenly spaced frames${ctx.analyzedDurationSec ? ` across the first ${Math.round(ctx.analyzedDurationSec)}s` : ""}${ctx.videoDurationSec ? ` of a ~${Math.round(ctx.videoDurationSec)}s ad` : ""} (~every 3s). Be conservative about timing between frames.`
         : `- Limited visual coverage (${ctx.frameCount} frame${ctx.frameCount !== 1 ? "s" : ""}) — be conservative about timing claims.`,
