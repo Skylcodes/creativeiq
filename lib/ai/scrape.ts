@@ -1,4 +1,5 @@
 import "server-only";
+import { withTransientRetry } from "@/lib/ai/pipeline/transient";
 
 export type ScrapeResult = {
   ok: boolean;
@@ -441,24 +442,37 @@ export async function scrapePage(rawUrl: string): Promise<ScrapeResult> {
   };
 
   try {
-    const { html, status } = await fetchHtml(url);
+    return await withTransientRetry(async () => {
+      const { html, status } = await fetchHtml(url);
 
-    if (!status || status >= 400) {
-      return {
-        ...base,
-        asPromptText: buildPromptText(base),
-        error: `Landing page returned HTTP ${status}.`,
-      };
-    }
+      if (!status || status >= 400) {
+        const error = `Landing page returned HTTP ${status}.`;
+        if (status === 429 || status >= 500) {
+          const err = Object.assign(new Error(error), { status });
+          throw err;
+        }
+        return {
+          ...base,
+          asPromptText: buildPromptText(base),
+          error,
+        };
+      }
 
-    const result = parseHtml(url, html);
-    return { ...result, asPromptText: buildPromptText(result) };
+      const result = parseHtml(url, html);
+      return { ...result, asPromptText: buildPromptText(result) };
+    });
   } catch (err) {
+    const status =
+      err && typeof err === "object" && "status" in err
+        ? Number((err as { status?: number }).status)
+        : undefined;
     const error =
       err instanceof Error
-        ? err.name === "AbortError"
+        ? err.name === "AbortError" || /timed out|timeout/i.test(err.message)
           ? "Landing page request timed out."
-          : err.message
+          : status && status >= 400
+            ? `Landing page returned HTTP ${status}.`
+            : err.message
         : "Unknown scraping error.";
     return { ...base, asPromptText: buildPromptText(base), error };
   }

@@ -9,6 +9,7 @@ import { buildVisualIntelligence } from "@/lib/ai/visual-intelligence";
 import { buildMarketIntelligence } from "@/lib/ai/market-intelligence";
 import { runEvaluators } from "@/lib/ai/evaluators";
 import { runScoringSynthesis } from "@/lib/ai/scoring";
+import { logWorkerStage } from "@/lib/ai/pipeline/log-stage";
 import { withTimeout } from "@/lib/ai/pipeline/timeout";
 import { buildAnalysisReport } from "@/lib/report/build-report";
 import { isScrapeContentSufficient, scrapePage } from "@/lib/ai/scrape";
@@ -60,15 +61,9 @@ export async function runFullAnalysis(
   workspace: Workspace,
   options: { marketIntelligence?: MarketIntelligenceResult } = {}
 ): Promise<RunFullAnalysisResult> {
-  const brandProfile = await getOrGenerateBrandProfile(supabase, workspace);
-  const brandProfileText = formatBrandProfileForPrompt(brandProfile);
-  const platforms = platformText(analysis).split(", ").filter(Boolean);
-  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
-  const creativeGoalLabel = getCreativeGoalLabel(creativeGoal);
-
-  // JOB 1 + JOB 2 — parallel. Landing page scrape runs alongside since it's
-  // independent of both and needed before Job 3/4.
-  const [visualIntelligence, marketIntelligence, lp] = await Promise.all([
+  // Visual intel and LP scrape do not consume brand-profile output, so they
+  // start immediately. Market intel still waits on the brand category/name.
+  const visualPromise = logWorkerStage("visual", () =>
     withTimeout(
       buildVisualIntelligence(supabase, analysis),
       VISUAL_INTELLIGENCE_TIMEOUT_MS,
@@ -78,22 +73,41 @@ export async function runFullAnalysis(
         analysis,
         err instanceof Error ? err.message : "unknown error"
       )
-    ),
-    options.marketIntelligence
-      ? Promise.resolve(options.marketIntelligence)
-      : withTimeout(
-          buildMarketIntelligence(
-            supabase,
-            workspace.id,
-            brandProfile.category || brandProfile.brandName,
-            platforms
-          ),
-          MARKET_INTELLIGENCE_TIMEOUT_MS,
-          (): MarketIntelligenceResult => ({ brief: null, degraded: true })
-        ),
+    )
+  );
+  const scrapePromise = logWorkerStage("scrape", () =>
     analysis.landing_page_url
       ? scrapePage(analysis.landing_page_url)
-      : Promise.resolve(null),
+      : Promise.resolve(null)
+  );
+
+  const brandProfile = await logWorkerStage("brand", () =>
+    getOrGenerateBrandProfile(supabase, workspace)
+  );
+  const brandProfileText = formatBrandProfileForPrompt(brandProfile);
+  const platforms = platformText(analysis).split(", ").filter(Boolean);
+  const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
+  const creativeGoalLabel = getCreativeGoalLabel(creativeGoal);
+
+  // JOB 1 + JOB 2 — parallel. Landing page scrape runs alongside since it's
+  // independent of both and needed before Job 3/4.
+  const [visualIntelligence, marketIntelligence, lp] = await Promise.all([
+    visualPromise,
+    options.marketIntelligence
+      ? Promise.resolve(options.marketIntelligence)
+      : logWorkerStage("market", () =>
+          withTimeout(
+            buildMarketIntelligence(
+              supabase,
+              workspace.id,
+              brandProfile.category || brandProfile.brandName,
+              platforms
+            ),
+            MARKET_INTELLIGENCE_TIMEOUT_MS,
+            (): MarketIntelligenceResult => ({ brief: null, degraded: true })
+          )
+        ),
+    scrapePromise,
   ]);
 
   const landingPageStatus: "ok" | "partial" | "failed" = !lp
@@ -118,36 +132,40 @@ export async function runFullAnalysis(
   });
 
   // JOB 3 — two independent evaluators, parallel (inside runEvaluators).
-  const { viewer, performanceExpert } = await runEvaluators({
-    cachedContext: evidenceContext,
-  });
+  const { viewer, performanceExpert } = await logWorkerStage("evaluators", () =>
+    runEvaluators({
+      cachedContext: evidenceContext,
+    })
+  );
 
   // JOB 4 — single scoring/synthesis call. Composites computed deterministically inside.
-  const scoring = await runScoringSynthesis({
-    cachedContext: evidenceContext,
-    prompt: [
-      "=== REAL VIEWER TRANSCRIPT ===",
-      viewer.raw,
-      "",
-      "=== PERFORMANCE EXPERT TRANSCRIPT ===",
-      performanceExpert.raw,
-      "",
-      "Score this ad now using the evidence above. Output the complete JSON report.",
-    ].join("\n"),
-    fallbacks: {
-      viewerRaw: viewer.raw,
-      performanceExpertRaw: performanceExpert.raw,
-    },
-    visualRetentionSignals:
-      visualIntelligence.kind === "video"
-        ? {
-            coldScrollStopScore: visualIntelligence.coldScrollStopScore,
-            watchThroughScore: visualIntelligence.watchThroughScore,
-            dropOffMoments: visualIntelligence.dropOffMoments,
-            visualAnalysisMode: visualIntelligence.videoContext?.visualAnalysisMode,
-          }
-        : undefined,
-  });
+  const scoring = await logWorkerStage("scoring", () =>
+    runScoringSynthesis({
+      cachedContext: evidenceContext,
+      prompt: [
+        "=== REAL VIEWER TRANSCRIPT ===",
+        viewer.raw,
+        "",
+        "=== PERFORMANCE EXPERT TRANSCRIPT ===",
+        performanceExpert.raw,
+        "",
+        "Score this ad now using the evidence above. Output the complete JSON report.",
+      ].join("\n"),
+      fallbacks: {
+        viewerRaw: viewer.raw,
+        performanceExpertRaw: performanceExpert.raw,
+      },
+      visualRetentionSignals:
+        visualIntelligence.kind === "video"
+          ? {
+              coldScrollStopScore: visualIntelligence.coldScrollStopScore,
+              watchThroughScore: visualIntelligence.watchThroughScore,
+              dropOffMoments: visualIntelligence.dropOffMoments,
+              visualAnalysisMode: visualIntelligence.videoContext?.visualAnalysisMode,
+            }
+          : undefined,
+    })
+  );
 
   // JOB 5 — deterministic formatting into the existing report schema.
   const report = buildAnalysisReport({
@@ -176,19 +194,21 @@ export async function runAnalysisPipeline(
 ): Promise<void> {
   const { report } = await runFullAnalysis(supabase, analysis, workspace);
 
-  const { error } = await supabase
-    .from("analyses")
-    .update({
-      report,
-      funnel_score: report.overallFunnelScore,
-      conversion_score: report.conversionScore.total,
-      creative_strength_score: report.creativeStrengthScore,
-      status: "completed",
-      error_message: null,
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", analysis.id);
+  const { error } = await logWorkerStage("persist", async () =>
+    supabase
+      .from("analyses")
+      .update({
+        report,
+        funnel_score: report.overallFunnelScore,
+        conversion_score: report.conversionScore.total,
+        creative_strength_score: report.creativeStrengthScore,
+        status: "completed",
+        error_message: null,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", analysis.id)
+  );
 
   if (error) {
     throw new Error(`Failed to save report: ${error.message}`);

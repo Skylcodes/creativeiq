@@ -7,6 +7,12 @@ const AUTH_ROUTES = ["/sign-in", "/sign-up", "/forgot-password"];
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/login" || pathname.startsWith("/login/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/sign-in";
+    return NextResponse.redirect(url);
+  }
+
   const isProtected = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );

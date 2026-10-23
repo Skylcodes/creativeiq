@@ -1,6 +1,11 @@
 import "server-only";
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
 import { parseJsonObject } from "@/lib/ai/parse-json";
+import { withTimeoutReject } from "@/lib/ai/pipeline/timeout";
+import { withTransientRetry } from "@/lib/ai/pipeline/transient";
+
+/** Per-call cap so a hung Vertex request can retry or degrade inside Job 1's budget. */
+const GEMINI_CALL_TIMEOUT_MS = 180_000;
 import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
@@ -284,29 +289,34 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
+  const response = await withTransientRetry(() =>
+    withTimeoutReject(
+      ai.models.generateContent({
+        model,
+        contents: [
           {
-            inlineData: {
-              mimeType,
-              data: base64Video,
-            },
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64Video,
+                },
+              },
+              { text: promptParts.join("\n") },
+            ],
           },
-          { text: promptParts.join("\n") },
         ],
-      },
-    ],
-    config: {
-      temperature: 0.1,
-      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
-      responseMimeType: "application/json",
-      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
-    },
-  });
+        config: {
+          temperature: 0.1,
+          maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
+          responseMimeType: "application/json",
+          responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
+        },
+      }),
+      GEMINI_CALL_TIMEOUT_MS
+    )
+  );
 
   const rawText = response.text?.trim();
   if (!rawText) {
