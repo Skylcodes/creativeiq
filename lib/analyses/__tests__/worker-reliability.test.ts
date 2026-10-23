@@ -176,6 +176,20 @@ describe("withDeadline", () => {
     await vi.advanceTimersByTimeAsync(PIPELINE_DEADLINE_MS);
     await assertion;
   });
+
+  it("swallows late pipeline rejections after the deadline fires", async () => {
+    vi.useFakeTimers();
+    let rejectLate!: (reason: Error) => void;
+    const late = new Promise<string>((_, reject) => {
+      rejectLate = reject;
+    });
+    const pending = withDeadline(late, 50);
+    const assertion = expect(pending).rejects.toThrow(WORKER_TIMEOUT_MESSAGE);
+    await vi.advanceTimersByTimeAsync(50);
+    await assertion;
+    rejectLate(new Error("late persist failed"));
+    await Promise.resolve();
+  });
 });
 
 describe("watchdog constants", () => {
@@ -186,5 +200,29 @@ describe("watchdog constants", () => {
   it("self-aborts at 270s and retriggers after 45s", () => {
     expect(PIPELINE_DEADLINE_MS).toBe(270_000);
     expect(WORKER_RETRIGGER_AFTER_MS).toBe(45_000);
+  });
+
+  it("treats a cleared lock + fresh start as a new attempt, not an immediate expire", () => {
+    const started = Date.now();
+    expect(
+      shouldExpireAnalysis(
+        {
+          status: "processing",
+          processing_started_at: iso(started),
+          updated_at: iso(started),
+        },
+        started + 1_000
+      )
+    ).toBe(false);
+    expect(
+      shouldRetriggerWorker(
+        row({
+          processing_started_at: iso(started),
+          updated_at: iso(started),
+          worker_locked_at: null,
+        }),
+        started + 1_000
+      )
+    ).toBe(false);
   });
 });

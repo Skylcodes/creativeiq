@@ -64,10 +64,18 @@ export async function withDeadline<T>(
   message: string = WORKER_TIMEOUT_MESSAGE
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  const guarded = promise.catch((err) => {
+    if (timedOut) return undefined as T;
+    throw err;
+  });
   return Promise.race([
-    promise,
+    guarded,
     new Promise<T>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(message)), ms);
+      timer = setTimeout(() => {
+        timedOut = true;
+        reject(new Error(message));
+      }, ms);
     }),
   ]).finally(() => {
     if (timer) clearTimeout(timer);

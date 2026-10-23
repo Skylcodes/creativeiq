@@ -65,6 +65,7 @@ export async function expireStuckAnalyses(
       error_message: ANALYSIS_TIMEOUT_MESSAGE,
       updated_at: new Date().toISOString(),
     })
+    .eq("status", "processing")
     .in("id", ids);
 
   if (updateError) {

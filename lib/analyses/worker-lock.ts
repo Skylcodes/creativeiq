@@ -1,19 +1,23 @@
 /**
  * Atomic single-flight lease for the analysis worker.
  * A second invocation cannot claim a row that already has worker_locked_at.
+ *
+ * Query builders are thenables (Supabase PostgrestBuilder), not full Promises.
  */
+type LockQuery = {
+  eq: (column: string, value: unknown) => LockQuery;
+  is: (column: string, value: unknown) => LockQuery;
+  select: (columns?: string) => LockQuery;
+  maybeSingle: () => PromiseLike<{
+    data: { id: string } | null;
+    error: { message: string } | null;
+  }>;
+};
 
 export type WorkerLockClient = {
   from: (table: string) => {
-    update: (values: Record<string, unknown>) => WorkerLockQuery;
+    update: (values: Record<string, unknown>) => LockQuery;
   };
-};
-
-type WorkerLockQuery = {
-  eq: (column: string, value: unknown) => WorkerLockQuery;
-  is: (column: string, value: unknown) => WorkerLockQuery;
-  select: (columns: string) => WorkerLockQuery;
-  maybeSingle: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
 };
 
 export async function claimAnalysisWorkerLock(

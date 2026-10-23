@@ -290,7 +290,7 @@ export async function runComparisonPipeline(
 
   const winnerVariant = updatedVariants.find((v) => v.id === winner?.variantId);
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("analyses")
     .update({
       report,
@@ -304,10 +304,16 @@ export async function runComparisonPipeline(
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", analysis.id);
+    .eq("id", analysis.id)
+    .eq("status", "processing")
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error(`Failed to save comparison report: ${error.message}`);
+  }
+  if (!data) {
+    return;
   }
 
   // Result is durable — delete uploaded variant creatives (keep thumbs).

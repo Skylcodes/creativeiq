@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { runAnalysisPipeline } from "@/lib/ai/pipeline";
 import { runComparisonPipeline } from "@/lib/ai/comparison-pipeline";
 import { purgeAnalysisCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
-import { claimAnalysisWorkerLock } from "@/lib/analyses/worker-lock";
+import {
+  claimAnalysisWorkerLock,
+  type WorkerLockClient,
+} from "@/lib/analyses/worker-lock";
 import {
   PIPELINE_DEADLINE_MS,
   withDeadline,
@@ -49,7 +52,11 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const lockedAt = new Date().toISOString();
-  const claimed = await claimAnalysisWorkerLock(supabase, analysisId, lockedAt);
+  const claimed = await claimAnalysisWorkerLock(
+    supabase as unknown as WorkerLockClient,
+    analysisId,
+    lockedAt
+  );
   if (!claimed) {
     console.log(`[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms skipped locked`);
     return NextResponse.json({ status: "already_running" });
@@ -69,7 +76,8 @@ export async function POST(request: Request, { params }: RouteContext) {
         error_message: "Workspace not found.",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", analysisId);
+      .eq("id", analysisId)
+      .eq("status", "processing");
 
     await purgeAnalysisCreativesAfterTerminalStatus(supabase, analysis);
 
@@ -98,7 +106,8 @@ export async function POST(request: Request, { params }: RouteContext) {
         error_message: message.slice(0, 500),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", analysisId);
+      .eq("id", analysisId)
+      .eq("status", "processing");
 
     // Delete creatives on failure too — result will never be produced from this upload.
     try {

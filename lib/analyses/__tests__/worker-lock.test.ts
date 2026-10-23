@@ -77,6 +77,23 @@ describe("claimAnalysisWorkerLock", () => {
     expect(client.state.row.worker_locked_at).toBe("2026-10-23T00:00:00.000Z");
   });
 
+  it("can be claimed again after a retry clears the lock", async () => {
+    const client = createFakeClient({
+      id: "a1",
+      status: "processing",
+      worker_locked_at: "2026-10-23T00:00:00.000Z",
+    });
+
+    expect(await claimAnalysisWorkerLock(client, "a1", "2026-10-23T00:02:00.000Z")).toBe(
+      false
+    );
+
+    client.state.row.worker_locked_at = null;
+    expect(await claimAnalysisWorkerLock(client, "a1", "2026-10-23T00:02:00.000Z")).toBe(
+      true
+    );
+  });
+
   it("refuses to claim a completed row", async () => {
     const client = createFakeClient({
       id: "a1",

@@ -200,7 +200,7 @@ export async function runAnalysisPipeline(
   const { report } = await runFullAnalysis(supabase, analysis, workspace);
 
   await logWorkerStage("persist", analysis.id, async () => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("analyses")
       .update({
         report,
@@ -212,10 +212,16 @@ export async function runAnalysisPipeline(
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", analysis.id);
+      .eq("id", analysis.id)
+      .eq("status", "processing")
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to save report: ${error.message}`);
+    }
+    if (!data) {
+      return;
     }
 
     // Result is durable — delete the uploaded creative. Keep video thumbnails for list UI.

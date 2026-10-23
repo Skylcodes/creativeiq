@@ -53,6 +53,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         status: "processing",
         error_message: null,
         processing_started_at: now,
+        worker_locked_at: null,
         updated_at: now,
       })
       .eq("id", id)
