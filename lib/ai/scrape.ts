@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  isTransientStatus,
+  withTransientRetryResult,
+} from "@/lib/ai/pipeline/transient";
 
 export type ScrapeResult = {
   ok: boolean;
@@ -406,7 +410,7 @@ function parseHtml(url: string, html: string): Omit<ScrapeResult, "asPromptText"
   };
 }
 
-async function fetchHtml(url: string): Promise<{ html: string; status: number }> {
+async function fetchHtmlOnce(url: string): Promise<{ html: string; status: number }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
@@ -425,6 +429,13 @@ async function fetchHtml(url: string): Promise<{ html: string; status: number }>
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchHtml(url: string): Promise<{ html: string; status: number }> {
+  return withTransientRetryResult(
+    () => fetchHtmlOnce(url),
+    (result) => isTransientStatus(result.status)
+  );
 }
 
 export async function scrapePage(rawUrl: string): Promise<ScrapeResult> {

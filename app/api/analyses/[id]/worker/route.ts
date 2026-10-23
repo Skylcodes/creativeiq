@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { runAnalysisPipeline } from "@/lib/ai/pipeline";
 import { runComparisonPipeline } from "@/lib/ai/comparison-pipeline";
 import { purgeAnalysisCreativesAfterTerminalStatus } from "@/lib/analyses/creative-storage";
+import { claimAnalysisWorkerLock } from "@/lib/analyses/worker-lock";
+import {
+  PIPELINE_DEADLINE_MS,
+  withDeadline,
+} from "@/lib/analyses/worker-reliability";
 import { isValidInternalSecret } from "@/lib/internal-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Analysis } from "@/lib/types/analysis";
@@ -18,6 +23,9 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const { id: analysisId } = await params;
+  const workerStartedAt = Date.now();
+  console.log(`[worker] start ${analysisId}`);
+
   const supabase = createAdminClient();
 
   const { data: analysisRow, error: analysisError } = await supabase
@@ -27,13 +35,24 @@ export async function POST(request: Request, { params }: RouteContext) {
     .maybeSingle();
 
   if (analysisError || !analysisRow) {
+    console.log(`[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms not_found`);
     return NextResponse.json({ error: "Analysis not found" }, { status: 404 });
   }
 
   const analysis = analysisRow as Analysis;
 
-  if (analysis.status === "completed") {
-    return NextResponse.json({ status: "completed" });
+  if (analysis.status === "completed" || analysis.status === "failed") {
+    console.log(
+      `[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms skipped ${analysis.status}`
+    );
+    return NextResponse.json({ status: analysis.status });
+  }
+
+  const lockedAt = new Date().toISOString();
+  const claimed = await claimAnalysisWorkerLock(supabase, analysisId, lockedAt);
+  if (!claimed) {
+    console.log(`[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms skipped locked`);
+    return NextResponse.json({ status: "already_running" });
   }
 
   const { data: workspaceRow, error: workspaceError } = await supabase
@@ -54,6 +73,7 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     await purgeAnalysisCreativesAfterTerminalStatus(supabase, analysis);
 
+    console.log(`[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms failed workspace`);
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
@@ -61,10 +81,11 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   try {
     if (analysis.analysis_mode === "comparison") {
-      await runComparisonPipeline(supabase, analysis, workspace);
+      await withDeadline(runComparisonPipeline(supabase, analysis, workspace), PIPELINE_DEADLINE_MS);
     } else {
-      await runAnalysisPipeline(supabase, analysis, workspace);
+      await withDeadline(runAnalysisPipeline(supabase, analysis, workspace), PIPELINE_DEADLINE_MS);
     }
+    console.log(`[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms completed`);
     return NextResponse.json({ status: "completed" });
   } catch (err) {
     const message =
@@ -89,6 +110,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       );
     }
 
+    console.log(`[worker] end ${analysisId} ${Date.now() - workerStartedAt}ms failed`);
     return NextResponse.json({ status: "failed", error: message }, { status: 500 });
   }
 }

@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [{ source: "/login", destination: "/sign-in", permanent: false }];
+  },
   serverExternalPackages: [
     "fluent-ffmpeg",
     "@ffmpeg-installer/ffmpeg",
