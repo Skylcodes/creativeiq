@@ -1,8 +1,8 @@
 import "server-only";
 import { after } from "next/server";
 import {
-  getAppOrigin,
-  getInternalSecretHeader,
+  getInternalWorkerHeaders,
+  getInternalWorkerOrigin,
 } from "@/lib/internal-auth";
 
 /** Long enough to dispatch the worker request; the worker keeps running after this aborts. */
@@ -13,15 +13,19 @@ export function triggerBackgroundWorker(
   request: Request,
   path: string
 ): void {
-  const origin = getAppOrigin(request);
-  const secret = getInternalSecretHeader();
+  const origin = getInternalWorkerOrigin(request);
+  const headers = getInternalWorkerHeaders();
 
-  if (!secret["x-internal-secret"]) {
+  if (!headers["x-internal-secret"]) {
     console.error(
       "[worker] INTERNAL_API_SECRET is not set — background job was not triggered."
     );
     return;
   }
+
+  console.log(
+    `[worker] trigger ${path} origin=${origin} dep=${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`
+  );
 
   // Keep the caller alive until the worker request is actually dispatched;
   // a bare `void fetch` can be dropped when the serverless response returns.
@@ -29,7 +33,7 @@ export function triggerBackgroundWorker(
     fetch(`${origin}${path}`, {
       method: "POST",
       headers: {
-        ...secret,
+        ...headers,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(WORKER_TRIGGER_TIMEOUT_MS),

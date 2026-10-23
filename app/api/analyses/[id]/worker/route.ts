@@ -27,7 +27,9 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   const { id: analysisId } = await params;
   const workerStartedAt = Date.now();
-  console.log(`[worker] start ${analysisId}`);
+  console.log(
+    `[worker] start ${analysisId} dep=${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`
+  );
 
   const supabase = createAdminClient();
 
