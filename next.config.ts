@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  async redirects() {
+    return [{ source: "/login", destination: "/sign-in", permanent: false }];
+  },
 };
 
 export default nextConfig;

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { fetchAnalysisStatus } from "@/lib/analyses/poll-status";
 
 type ReportPendingProps = {
   analysisId: string;
@@ -14,15 +14,10 @@ export function ReportPending({ analysisId }: ReportPendingProps) {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createClient();
     let cancelled = false;
 
     const timer = setInterval(async () => {
-      const { data } = await supabase
-        .from("analyses")
-        .select("status")
-        .eq("id", analysisId)
-        .maybeSingle();
+      const data = await fetchAnalysisStatus(analysisId);
       if (cancelled) return;
       if (data?.status === "completed" || data?.status === "failed") {
         router.refresh();

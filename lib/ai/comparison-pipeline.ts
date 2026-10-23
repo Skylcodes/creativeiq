@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON } from "@/lib/ai/client";
+import { logWorkerStage } from "@/lib/ai/pipeline/log-stage";
 import { evaluateCreative } from "@/lib/ai/evaluate-creative";
 import { getOrGenerateBrandProfile } from "@/lib/ai/brand-profile";
 import { buildMarketIntelligence } from "@/lib/ai/market-intelligence";
@@ -134,17 +135,23 @@ export async function runComparisonPipeline(
   const dimensionLabels = dimensions.map((d) => DIMENSION_LABELS[d]);
   const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
 
-  const brandProfile = await getOrGenerateBrandProfile(supabase, workspace);
+  const brandProfile = await logWorkerStage("brand", () =>
+    getOrGenerateBrandProfile(supabase, workspace)
+  );
 
-  const marketIntelligence = await buildMarketIntelligence(
-    supabase,
-    workspace.id,
-    brandProfile.category || brandProfile.brandName,
-    [platformTextValue]
+  const marketIntelligence = await logWorkerStage("market", () =>
+    buildMarketIntelligence(
+      supabase,
+      workspace.id,
+      brandProfile.category || brandProfile.brandName,
+      [platformTextValue]
+    )
   );
 
   // Pass 1 — per variant: identical Job 1-5 pipeline as standalone analysis.
-  const individualResults: IndividualEvalResult[] = await Promise.all(
+  const individualResults: IndividualEvalResult[] = await logWorkerStage(
+    "variants",
+    () => Promise.all(
     variants.map(async (variant) => {
       const variantRow = variantAsAnalysisRow(analysis, variant);
       const evaluation = await evaluateCreative(
@@ -170,6 +177,7 @@ export async function runComparisonPipeline(
         analysisReport: evaluation.analysisReport,
       };
     })
+    )
   );
 
   const variantDetails: ComparisonVariantDetail[] = individualResults.map((r) => ({
@@ -187,7 +195,8 @@ export async function runComparisonPipeline(
   }));
 
   // Pass 2 — comparative synthesis (ranking + insights; scores anchored to pass 1).
-  const synthesis = await callClaudeJSON<Omit<ComparisonReport, "variantDetails">>({
+  const synthesis = await logWorkerStage("synthesis", () =>
+    callClaudeJSON<Omit<ComparisonReport, "variantDetails">>({
     system: COMPARISON_SYNTHESIS_SYSTEM,
     prompt: [
       "=== CREATIVE GOAL (read first — comparison calibrated to this goal) ===",
@@ -228,7 +237,8 @@ export async function runComparisonPipeline(
     ].join("\n"),
     maxTokens: 5120,
     temperature: 0.6,
-  });
+  })
+  );
 
   const rankings = buildRankingsFromScores(individualResults, synthesis.rankings ?? []);
 

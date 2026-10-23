@@ -365,6 +365,8 @@ export async function resetAnalysisForRetry(
       status: "processing",
       error_message: null,
       processing_started_at: now,
+      worker_locked_at: null,
+      worker_retriggered_at: null,
       updated_at: now,
     })
     .eq("id", analysisId)

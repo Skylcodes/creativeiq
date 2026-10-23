@@ -12,7 +12,7 @@ import {
   INTELLIGENCE_STEPS,
   VIDEO_PROCESSING_STEPS,
 } from "@/lib/analyses/constants";
-import { createClient } from "@/lib/supabase/client";
+import { fetchAnalysisStatus } from "@/lib/analyses/poll-status";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -668,7 +668,6 @@ export function AnalysisProgress({
 
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout>;
-    const supabase = createClient();
 
     const finish = () => {
       setAgents((prev) => prev.map((a) => ({ ...a, status: "complete" })));
@@ -689,11 +688,7 @@ export function AnalysisProgress({
     };
 
     async function poll() {
-      const { data } = await supabase
-        .from("analyses")
-        .select("status, error_message")
-        .eq("id", analysisId)
-        .maybeSingle();
+      const data = await fetchAnalysisStatus(analysisId);
 
       if (cancelled) return;
 
@@ -724,11 +719,7 @@ export function AnalysisProgress({
         // Poll will surface the failed status if watchdog succeeded
       }
 
-      const { data } = await supabase
-        .from("analyses")
-        .select("status, error_message")
-        .eq("id", analysisId)
-        .maybeSingle();
+      const data = await fetchAnalysisStatus(analysisId);
 
       if (cancelled) return;
 
