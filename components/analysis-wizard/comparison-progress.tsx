@@ -14,7 +14,7 @@ import {
   ANALYSIS_TIMEOUT_MESSAGE,
   isTimeoutError,
 } from "@/lib/analyses/watchdog-constants";
-import { createClient } from "@/lib/supabase/client";
+import { fetchAnalysisStatus } from "@/lib/analyses/status-client";
 import type { CreativeType } from "@/lib/types/analysis";
 import type { ComparisonTestDimension } from "@/lib/types/comparison";
 
@@ -220,7 +220,6 @@ export function ComparisonProgress({
 
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout>;
-    const supabase = createClient();
 
     const finish = () => {
       setProgress(100);
@@ -241,11 +240,7 @@ export function ComparisonProgress({
     };
 
     async function poll() {
-      const { data } = await supabase
-        .from("analyses")
-        .select("status, error_message")
-        .eq("id", analysisId)
-        .maybeSingle();
+      const data = await fetchAnalysisStatus(analysisId);
 
       if (cancelled) return;
 
@@ -274,11 +269,7 @@ export function ComparisonProgress({
       } catch {
         // Poll surfaces failure
       }
-      const { data } = await supabase
-        .from("analyses")
-        .select("status, error_message")
-        .eq("id", analysisId)
-        .maybeSingle();
+      const data = await fetchAnalysisStatus(analysisId);
       if (cancelled) return;
       if (data?.status === "failed") {
         handleFailure(data.error_message ?? ANALYSIS_TIMEOUT_MESSAGE);

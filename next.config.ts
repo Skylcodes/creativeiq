@@ -2,11 +2,21 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [{ source: "/login", destination: "/sign-in", permanent: false }];
+  },
   serverExternalPackages: [
     "fluent-ffmpeg",
     "@ffmpeg-installer/ffmpeg",
+    "@ffprobe-installer/ffprobe",
     "@google/genai",
   ],
+  outputFileTracingIncludes: {
+    "/*": [
+      "./node_modules/@ffmpeg-installer/**/*",
+      "./node_modules/@ffprobe-installer/**/*",
+    ],
+  },
   // Keep Turbopack scoped to this app (avoids scanning sibling folders in the repo).
   turbopack: {
     root: path.resolve(__dirname),

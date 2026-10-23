@@ -34,6 +34,7 @@ export type Analysis = {
   error_message: string | null;
   completed_at: string | null;
   processing_started_at: string | null;
+  worker_locked_at?: string | null;
   created_at: string;
   updated_at: string;
   analysis_mode?: AnalysisMode;

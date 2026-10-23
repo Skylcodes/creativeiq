@@ -2,11 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ANALYSIS_TIMEOUT_MESSAGE,
-  ANALYSIS_TIMEOUT_MS,
 } from "@/lib/analyses/watchdog-constants";
 import {
   purgeAnalysisCreativesAfterTerminalStatus,
 } from "@/lib/analyses/creative-storage";
+import { shouldExpireAnalysis } from "@/lib/analyses/worker-reliability";
 import type { Analysis } from "@/lib/types/analysis";
 
 export { ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE } from "@/lib/analyses/watchdog-constants";
@@ -21,13 +21,14 @@ export async function expireStuckAnalyses(
   supabase: SupabaseClient,
   options?: { analysisId?: string; userId?: string }
 ): Promise<number> {
-  const cutoff = new Date(Date.now() - ANALYSIS_TIMEOUT_MS).toISOString();
+  const nowMs = Date.now();
 
   let query = supabase
     .from("analyses")
-    .select("id, creative_storage_path, thumbnail_url, variants, creative_type")
-    .eq("status", "processing")
-    .lt("updated_at", cutoff);
+    .select(
+      "id, creative_storage_path, thumbnail_url, variants, creative_type, processing_started_at, updated_at, status"
+    )
+    .eq("status", "processing");
 
   if (options?.analysisId) {
     query = query.eq("id", options.analysisId);
@@ -36,13 +37,24 @@ export async function expireStuckAnalyses(
     query = query.eq("user_id", options.userId);
   }
 
-  const { data: stuck, error: selectError } = await query;
+  const { data: candidates, error: selectError } = await query;
 
   if (selectError) {
     throw new Error(selectError.message);
   }
 
-  if (!stuck?.length) return 0;
+  const stuck = (candidates ?? []).filter((row) =>
+    shouldExpireAnalysis(
+      {
+        status: row.status,
+        processing_started_at: row.processing_started_at,
+        updated_at: row.updated_at,
+      },
+      nowMs
+    )
+  );
+
+  if (!stuck.length) return 0;
 
   const ids = stuck.map((row) => row.id);
 
@@ -53,6 +65,7 @@ export async function expireStuckAnalyses(
       error_message: ANALYSIS_TIMEOUT_MESSAGE,
       updated_at: new Date().toISOString(),
     })
+    .eq("status", "processing")
     .in("id", ids);
 
   if (updateError) {

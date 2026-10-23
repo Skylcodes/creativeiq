@@ -25,6 +25,7 @@ import type {
   StoredAnalysisVariant,
 } from "@/lib/types/comparison";
 import type { Workspace } from "@/lib/types/workspace";
+import { logWorkerStage } from "@/lib/analyses/worker-reliability";
 
 const DIMENSION_LABELS: Record<ComparisonTestDimension, string> = {
   hook: "Hook / Opening",
@@ -134,17 +135,25 @@ export async function runComparisonPipeline(
   const dimensionLabels = dimensions.map((d) => DIMENSION_LABELS[d]);
   const creativeGoal = normalizeCreativeGoal(analysis.creative_goal);
 
-  const brandProfile = await getOrGenerateBrandProfile(supabase, workspace);
+  const brandProfile = await logWorkerStage("brand", analysis.id, () =>
+    getOrGenerateBrandProfile(supabase, workspace)
+  );
 
-  const marketIntelligence = await buildMarketIntelligence(
-    supabase,
-    workspace.id,
-    brandProfile.category || brandProfile.brandName,
-    [platformTextValue]
+  const marketIntelligence = await logWorkerStage("market", analysis.id, () =>
+    buildMarketIntelligence(
+      supabase,
+      workspace.id,
+      brandProfile.category || brandProfile.brandName,
+      [platformTextValue]
+    )
   );
 
   // Pass 1 — per variant: identical Job 1-5 pipeline as standalone analysis.
-  const individualResults: IndividualEvalResult[] = await Promise.all(
+  const individualResults: IndividualEvalResult[] = await logWorkerStage(
+    "variants",
+    analysis.id,
+    () =>
+      Promise.all(
     variants.map(async (variant) => {
       const variantRow = variantAsAnalysisRow(analysis, variant);
       const evaluation = await evaluateCreative(
@@ -170,6 +179,7 @@ export async function runComparisonPipeline(
         analysisReport: evaluation.analysisReport,
       };
     })
+      )
   );
 
   const variantDetails: ComparisonVariantDetail[] = individualResults.map((r) => ({
@@ -187,7 +197,8 @@ export async function runComparisonPipeline(
   }));
 
   // Pass 2 — comparative synthesis (ranking + insights; scores anchored to pass 1).
-  const synthesis = await callClaudeJSON<Omit<ComparisonReport, "variantDetails">>({
+  const synthesis = await logWorkerStage("synthesis", analysis.id, () =>
+    callClaudeJSON<Omit<ComparisonReport, "variantDetails">>({
     system: COMPARISON_SYNTHESIS_SYSTEM,
     prompt: [
       "=== CREATIVE GOAL (read first — comparison calibrated to this goal) ===",
@@ -228,7 +239,8 @@ export async function runComparisonPipeline(
     ].join("\n"),
     maxTokens: 5120,
     temperature: 0.6,
-  });
+    })
+  );
 
   const rankings = buildRankingsFromScores(individualResults, synthesis.rankings ?? []);
 
@@ -278,7 +290,7 @@ export async function runComparisonPipeline(
 
   const winnerVariant = updatedVariants.find((v) => v.id === winner?.variantId);
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("analyses")
     .update({
       report,
@@ -292,10 +304,16 @@ export async function runComparisonPipeline(
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", analysis.id);
+    .eq("id", analysis.id)
+    .eq("status", "processing")
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error(`Failed to save comparison report: ${error.message}`);
+  }
+  if (!data) {
+    return;
   }
 
   // Result is durable — delete uploaded variant creatives (keep thumbs).

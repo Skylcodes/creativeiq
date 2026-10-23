@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/analyses"];
-const AUTH_ROUTES = ["/sign-in", "/sign-up", "/forgot-password"];
+const AUTH_ROUTES = ["/sign-in", "/sign-up", "/forgot-password", "/login"];
 
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
