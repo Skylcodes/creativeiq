@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   anchorRetentionScore,
   calibrateScoresFromVisualEvidence,
@@ -24,6 +24,14 @@ import type { AgentFinding } from "@/lib/types/report";
 // ---------------------------------------------------------------------------
 
 describe("calibrateScoresFromVisualEvidence", () => {
+  beforeEach(() => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("RETENTION_CALIBRATION", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("caps inflated creative scores when Gemini shows clear weakness", () => {
     const result = calibrateScoresFromVisualEvidence(
       { scrollStopScore: 42, watchThroughScore: 40, retentionScore: 78 },
@@ -117,6 +125,14 @@ describe("calibrateScoresFromVisualEvidence", () => {
 });
 
 describe("anchorRetentionScore", () => {
+  beforeEach(() => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("RETENTION_CALIBRATION", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("caps inflated model retention when Gemini watch signals are weak", () => {
     expect(
       anchorRetentionScore(78, { coldScrollStopScore: 3, watchThroughScore: 4 })

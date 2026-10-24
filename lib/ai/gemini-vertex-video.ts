@@ -139,7 +139,7 @@ export function isGeminiVertexConfigured(): boolean {
   return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim());
 }
 
-function getVertexGenAI(): GoogleGenAI {
+export function getVertexGenAI(): GoogleGenAI {
   if (cachedClient) return cachedClient;
 
   const project = process.env.GOOGLE_CLOUD_PROJECT?.trim();
@@ -284,7 +284,7 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const response = await ai.models.generateContent({
+  const callOnce = () => ai.models.generateContent({
     model,
     contents: [
       {
@@ -308,15 +308,30 @@ export async function analyzeVideoWithGeminiVertex(
     },
   });
 
-  const rawText = response.text?.trim();
-  if (!rawText) {
-    throw new Error("Gemini Vertex returned an empty video analysis response.");
+  // Gemini occasionally returns valid JSON that omits the two score fields even
+  // though they are `required` (seen on short ~10s ads in the Oct 23 benchmark).
+  // Downstream code would silently default them to 5, so retry once instead.
+  let analysis: VideoAnalysisResult | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
+    try {
+      const response = await callOnce();
+      const rawText = response.text?.trim();
+      if (!rawText) throw new Error("Gemini Vertex returned an empty video analysis response.");
+      const finishReason = response.candidates?.[0]?.finishReason;
+      const parsed = normalizeAnalysis(parseAnalysisJson(rawText, finishReason));
+      if (parsed.coldScrollStopScore == null || parsed.watchThroughScore == null) {
+        throw new Error("Gemini video analysis omitted coldScrollStopScore/watchThroughScore.");
+      }
+      analysis = parsed;
+    } catch (err) {
+      lastError = err;
+    }
   }
-
-  const finishReason = response.candidates?.[0]?.finishReason;
+  if (!analysis) throw lastError instanceof Error ? lastError : new Error("Gemini video analysis failed.");
 
   return {
-    analysis: normalizeAnalysis(parseAnalysisJson(rawText, finishReason)),
+    analysis,
     compressedBytes: buffer.byteLength,
     model,
   };

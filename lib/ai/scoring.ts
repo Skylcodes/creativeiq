@@ -86,7 +86,56 @@ export type VisualRetentionSignals = {
   watchThroughScore?: number;
   dropOffMoments?: string[];
   visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
+  swipeCheck?: { swipeBefore2s: boolean; estStillWatching2sPct: number };
 };
+
+/**
+ * RETENTION_CALIBRATION=v2 — retention target fitted (leave-one-out CV) on 43
+ * TikTok Creative Center ads with public per-second retention, mapped to the
+ * founder scale: 85+ good, 75-84 mediocre, 70-74 below average, <70 bad.
+ * z = cold + 0.5*watch (Gemini 0-10 signals). Piecewise-linear through the
+ * fitted cut points (great z>=11.5, good z>=11.0, mediocre below), with a
+ * swipe-check override for failing hooks.
+ */
+const RETENTION_V2_POINTS: Array<[number, number]> = [
+  [6, 55],
+  [9, 64],
+  [10.75, 72],
+  [11.0, 76],
+  [11.5, 86],
+  [13, 92],
+  [15, 97],
+];
+
+export function isRetentionCalibrationV2(): boolean {
+  return (
+    process.env.RETENTION_CALIBRATION?.trim() === "v2" || process.env.VERCEL_ENV === "preview"
+  );
+}
+
+export function retentionTargetV2(signals: VisualRetentionSignals): number | undefined {
+  const cold = signals.coldScrollStopScore;
+  const watch = signals.watchThroughScore;
+  if (cold == null || watch == null) return undefined;
+  const z = clamp(cold, 0, 10) + 0.5 * clamp(watch, 0, 10);
+  const pts = RETENTION_V2_POINTS;
+  let target: number;
+  if (z <= pts[0][0]) target = pts[0][1] - (pts[0][0] - z) * 3;
+  else if (z >= pts[pts.length - 1][0]) target = pts[pts.length - 1][1];
+  else {
+    const i = pts.findIndex(([x]) => x >= z);
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    target = y0 + ((z - x0) / (x1 - x0)) * (y1 - y0);
+  }
+  const sw = signals.swipeCheck;
+  if (sw?.swipeBefore2s && sw.estStillWatching2sPct <= 25) {
+    target = Math.min(target, 64);
+  }
+  const dropCount = signals.dropOffMoments?.filter(Boolean).length ?? 0;
+  if (dropCount >= 3) target = Math.min(target, 55);
+  return clamp(Math.round(target), 0, 100);
+}
 
 function geminiHalfScaleCap(geminiRaw: number): number {
   return clamp(Math.round(geminiRaw * 5), 0, 50);
@@ -127,7 +176,7 @@ function shouldRaiseToVisualEvidence(
  * conservative ceilings so bad ads cannot score higher than good ads simply
  * because full-video analysis failed.
  */
-export function calibrateScoresFromVisualEvidence(
+export function calibrateScoresFromVisualEvidenceV1(
   scores: {
     scrollStopScore: number;
     watchThroughScore: number;
@@ -201,6 +250,28 @@ export function calibrateScoresFromVisualEvidence(
     watchThroughScore: clamp(watchThroughScore, 0, 50),
     retentionScore: clamp(retentionScore, 0, 100),
   };
+}
+
+export function calibrateScoresFromVisualEvidence(
+  scores: {
+    scrollStopScore: number;
+    watchThroughScore: number;
+    retentionScore: number;
+  },
+  signals?: VisualRetentionSignals
+): {
+  scrollStopScore: number;
+  watchThroughScore: number;
+  retentionScore: number;
+} {
+  const v1 = calibrateScoresFromVisualEvidenceV1(scores, signals);
+  if (isRetentionCalibrationV2()) {
+    // v2 replaces the cap/raise heuristics for retention with the fitted
+    // target, moving the model's retention toward it in both directions.
+    const target = retentionTargetV2(signals ?? {});
+    if (target != null) return { ...v1, retentionScore: target };
+  }
+  return v1;
 }
 
 /** @deprecated Use calibrateScoresFromVisualEvidence — retained for tests. */
@@ -704,6 +775,8 @@ export type ScoringSynthesisInput = {
   fallbacks?: ValidateScoringFallbacks;
   /** When present (video creatives), caps inflated retentionScore using Job 1 Gemini signals. */
   visualRetentionSignals?: VisualRetentionSignals;
+  /** Used only for [worker] calibration logs. */
+  analysisId?: string;
 };
 
 /**
@@ -727,13 +800,23 @@ export async function runScoringSynthesis(
 
   const validated = validateScoringRaw(raw, input.fallbacks);
 
-  const calibrated = calibrateScoresFromVisualEvidence(
-    {
-      scrollStopScore: validated.scrollStopScore,
-      watchThroughScore: validated.watchThroughScore,
-      retentionScore: validated.retentionScore,
-    },
+  const modelScores = {
+    scrollStopScore: validated.scrollStopScore,
+    watchThroughScore: validated.watchThroughScore,
+    retentionScore: validated.retentionScore,
+  };
+  const v1Calibrated = calibrateScoresFromVisualEvidenceV1(
+    modelScores,
     input.visualRetentionSignals
+  );
+  const v2Target = retentionTargetV2(input.visualRetentionSignals ?? {});
+  const calibrated = calibrateScoresFromVisualEvidence(
+    modelScores,
+    input.visualRetentionSignals
+  );
+
+  console.log(
+    `[worker] retention ${input.analysisId ?? "unknown"} old=${v1Calibrated.retentionScore} new=${v2Target ?? "n/a"} applied=${calibrated.retentionScore}`
   );
 
   const creativeStrengthScore = computeCreativeStrengthScore(

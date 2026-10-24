@@ -112,6 +112,13 @@ export async function runFullAnalysis(
     scrapePromise,
   ]);
 
+  const swipe = visualIntelligence.swipeCheck;
+  console.log(
+    `[worker] gemini ${analysis.id} cold=${visualIntelligence.coldScrollStopScore ?? "n/a"} watch=${visualIntelligence.watchThroughScore ?? "n/a"} swipe=${
+      swipe ? (swipe.swipeBefore2s ? "away" : "stay") : "n/a"
+    } est=${swipe?.estStillWatching2sPct ?? "n/a"}`
+  );
+
   const landingPageStatus: "ok" | "partial" | "failed" = !lp
     ? "failed"
     : lp.ok
@@ -160,12 +167,14 @@ export async function runFullAnalysis(
       viewerRaw: viewer.raw,
       performanceExpertRaw: performanceExpert.raw,
     },
+    analysisId: analysis.id,
     visualRetentionSignals:
       visualIntelligence.kind === "video"
         ? {
             coldScrollStopScore: visualIntelligence.coldScrollStopScore,
             watchThroughScore: visualIntelligence.watchThroughScore,
             dropOffMoments: visualIntelligence.dropOffMoments,
+            swipeCheck: visualIntelligence.swipeCheck,
             visualAnalysisMode: visualIntelligence.videoContext?.visualAnalysisMode,
           }
         : undefined,
