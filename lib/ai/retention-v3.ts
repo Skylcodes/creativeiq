@@ -7,8 +7,7 @@ import type { OpeningFeatures } from "@/lib/ai/video-analysis-types";
  * retention (TikTok Creative Center). Predicts share of viewers still watching
  * at 2s from Gemini's own estimate plus three observable opening facts, then
  * maps that share onto the founder scale (85+ good, 75-84 mediocre,
- * 70-74 below average, <70 bad) using the benchmark tier cut-offs
- * (60% / 45% / 20% at 2s).
+ * 70-74 below average, <70 bad) with CV-tuned thresholds.
  */
 export const RETENTION_V3_WEIGHTS = {
   bias: 0.1972,
@@ -18,7 +17,11 @@ export const RETENTION_V3_WEIGHTS = {
   productOrLogoAt0s: -0.0604,
 } as const;
 
-const ANCHOR_RETENTION = [0, 0.2, 0.45, 0.6, 0.85];
+// Thresholds on the predicted 2s retention, tuned with stratified 5-fold CV
+// (x20) so great ads (>=60% at 2s) clear 75 at least as often as live while
+// weak ads (<20%) rarely reach 75. Predictions are shrunk toward the mean,
+// so these sit lower than the raw tier cut-offs.
+const ANCHOR_RETENTION = [-0.2037, 0.3157, 0.3623, 0.4726, 0.7892];
 const ANCHOR_SCORE = [50, 70, 75, 85, 95];
 
 export function isRetentionV3Enabled(): boolean {

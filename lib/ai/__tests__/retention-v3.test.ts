@@ -19,7 +19,7 @@ describe("retention v3", () => {
     expect(predictTwoSecondRetention(strong)!).toBeGreaterThan(predictTwoSecondRetention(weak)!);
   });
   it("only overrides retention when the flag is on", () => {
-    const scores = { scrollStopScore: 30, watchThroughScore: 30, retentionScore: 60 };
+    const scores = { scrollStopScore: 30, watchThroughScore: 30, retentionScore: 33 };
     const signals = { coldScrollStopScore: 7, watchThroughScore: 7, openingFeatures: weak };
     expect(calibrateScoresFromVisualEvidence(scores, signals).retentionScore).not.toBe(computeRetentionV3(weak));
     process.env.RETENTION_CALIBRATION = "v3";
