@@ -77,7 +77,84 @@ export type ClaudeCallOptions = {
    * blow the 270s worker budget on a hung 70–120s generation.
    */
   retry?: boolean;
+  /** Optional label for `[worker] claude-usage` lines. */
+  usageLabel?: string;
+  /** Optional sink so a parent (Job 4) can sum the 4 split calls. */
+  usageSink?: (usage: ClaudeUsageTotals) => void;
 };
+
+export type ClaudeUsageTotals = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  calls: number;
+};
+
+export function emptyClaudeUsage(): ClaudeUsageTotals {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    calls: 0,
+  };
+}
+
+export function addClaudeUsage(
+  total: ClaudeUsageTotals,
+  part: ClaudeUsageTotals
+): ClaudeUsageTotals {
+  return {
+    inputTokens: total.inputTokens + part.inputTokens,
+    outputTokens: total.outputTokens + part.outputTokens,
+    cacheCreationTokens: total.cacheCreationTokens + part.cacheCreationTokens,
+    cacheReadTokens: total.cacheReadTokens + part.cacheReadTokens,
+    calls: total.calls + part.calls,
+  };
+}
+
+export function usageFromAnthropic(usage: {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+}): ClaudeUsageTotals {
+  return {
+    inputTokens: usage.input_tokens ?? 0,
+    outputTokens: usage.output_tokens ?? 0,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+    calls: 1,
+  };
+}
+
+/** Total input tokens Anthropic bills against (uncached + cache write + cache read). */
+export function totalInputTokens(u: ClaudeUsageTotals): number {
+  return u.inputTokens + u.cacheCreationTokens + u.cacheReadTokens;
+}
+
+export function formatClaudeUsage(label: string, u: ClaudeUsageTotals): string {
+  return `[worker] claude-usage ${label} calls=${u.calls} in=${u.inputTokens} cacheWrite=${u.cacheCreationTokens} cacheRead=${u.cacheReadTokens} out=${u.outputTokens} totalIn=${totalInputTokens(u)}`;
+}
+
+function recordClaudeUsage(
+  label: string | undefined,
+  usage: {
+    input_tokens?: number | null;
+    output_tokens?: number | null;
+    cache_creation_input_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
+  } | undefined,
+  sink?: (usage: ClaudeUsageTotals) => void
+): void {
+  if (!usage) return;
+  const part = usageFromAnthropic(usage);
+  if (label) {
+    console.log(formatClaudeUsage(label, part));
+  }
+  sink?.(part);
+}
 
 function resolveImages(
   image?: ImageInput,
@@ -201,6 +278,7 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
       },
       { timeout: requestTimeoutMs }
     );
+    recordClaudeUsage(options.usageLabel, message.usage, options.usageSink);
     const text = extractText(message);
     const full = prefill ? `${prefill}${text}` : text;
     if (!full.trim()) {

@@ -3,6 +3,7 @@ import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
 import {
   HOOK_ANGLE_MAX_TOKENS,
   HOOK_ANGLE_TIMEOUT_MS,
+  INSIGHTS_MAX_TOKENS,
   SCRIPT_ICP_MAX_TOKENS,
   SCRIPT_ICP_TIMEOUT_MS,
   SCORING_CREATIVE_KEYS,
@@ -10,13 +11,18 @@ import {
   SCORING_HOOK_ANGLE_KEYS,
   SCORING_INSIGHT_KEYS,
   SCORING_SCRIPT_ICP_KEYS,
+  countFilledActions,
   countFilledAngles,
+  countFilledBlockers,
   countFilledHooks,
   errorDetail,
   evaluateCreativeOutput,
+  evaluateInsightsOutput,
+  insightsCountExpectations,
   mergeScoringPartials,
   originalCreativeFieldInstructions,
   originalHookAngleInstructions,
+  originalInsightsFieldInstructions,
   originalSchemaSubset,
   originalScriptIcpInstructions,
   pickDefinedKeys,
@@ -24,10 +30,58 @@ import {
   runParallelScoringCalls,
 } from "@/lib/ai/scoring-parallel";
 
-vi.mock("@/lib/ai/client", () => ({
-  CLAUDE_MODEL: "claude-sonnet-4-6",
-  callClaudeJSON: vi.fn(),
-}));
+vi.mock("@/lib/ai/client", () => {
+  const empty = () => ({
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    calls: 0,
+  });
+  return {
+    CLAUDE_MODEL: "claude-sonnet-4-6",
+    callClaudeJSON: vi.fn(),
+    emptyClaudeUsage: empty,
+    addClaudeUsage: (
+      a: {
+        inputTokens: number;
+        outputTokens: number;
+        cacheCreationTokens: number;
+        cacheReadTokens: number;
+        calls: number;
+      },
+      b: {
+        inputTokens: number;
+        outputTokens: number;
+        cacheCreationTokens: number;
+        cacheReadTokens: number;
+        calls: number;
+      }
+    ) => ({
+      inputTokens: a.inputTokens + b.inputTokens,
+      outputTokens: a.outputTokens + b.outputTokens,
+      cacheCreationTokens: a.cacheCreationTokens + b.cacheCreationTokens,
+      cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
+      calls: a.calls + b.calls,
+    }),
+    formatClaudeUsage: (
+      label: string,
+      u: {
+        inputTokens: number;
+        outputTokens: number;
+        cacheCreationTokens: number;
+        cacheReadTokens: number;
+        calls: number;
+      }
+    ) =>
+      `[worker] claude-usage ${label} calls=${u.calls} in=${u.inputTokens} cacheWrite=${u.cacheCreationTokens} cacheRead=${u.cacheReadTokens} out=${u.outputTokens} totalIn=${u.inputTokens + u.cacheCreationTokens + u.cacheReadTokens}`,
+    totalInputTokens: (u: {
+      inputTokens: number;
+      cacheCreationTokens: number;
+      cacheReadTokens: number;
+    }) => u.inputTokens + u.cacheCreationTokens + u.cacheReadTokens,
+  };
+});
 
 vi.mock("@/lib/analyses/worker-reliability", () => ({
   logWorkerStage: (_stage: string, _id: string, work: () => Promise<unknown>) =>
@@ -86,6 +140,22 @@ function validCreative(overrides: Record<string, unknown> = {}) {
   return {
     ...validHookAngle(),
     ...validScriptIcp(),
+    ...overrides,
+  };
+}
+
+function validInsights(overrides: Record<string, unknown> = {}) {
+  return {
+    topFindings: [
+      { title: "Blocker 1", detail: "The opening does not name the offer." },
+      { title: "Blocker 2", detail: "CTA is vague after the product shot." },
+    ],
+    priorityActions: [
+      { action: "Replace the opening line with a problem-specific hook." },
+      { action: "Show the product in the first two seconds." },
+      { action: "Swap the CTA to a specific next step." },
+    ],
+    agentFindings: [],
     ...overrides,
   };
 }
@@ -150,6 +220,51 @@ describe("original field instructions stay aligned with SCORING_SYSTEM", () => {
     );
     expect(originalSchemaSubset(SCORING_HOOK_ANGLE_KEYS)).not.toContain("scriptRewrite");
     expect(originalSchemaSubset(SCORING_SCRIPT_ICP_KEYS)).not.toContain("hookVariants");
+  });
+
+  it("gives insights the original action/blocker count wording", () => {
+    const section = originalInsightsFieldInstructions();
+    expect(section).toContain("TOP FINDINGS — max 3");
+    expect(section).toContain("PRIORITY ACTIONS — max 3");
+    expect(section).toContain("TOP PRIORITY SLOT —");
+    expect(section).toContain("GOOD AD PROTECTION RULE");
+    expect(section).toContain("PRE-OUTPUT MANDATORY CHECK");
+    expect(section).toContain(
+      "max 3 (max 2 when scrollStopScore + watchThroughScore ≥ 80 per GOOD AD PROTECTION RULE)"
+    );
+    expect(section).toContain(
+      "PRIORITY ACTIONS — max 3 (max 2 when scrollStopScore + watchThroughScore ≥ 80)"
+    );
+  });
+});
+
+describe("evaluateInsightsOutput", () => {
+  it("requires 3 actions and 2 blockers when old Job 4 would fill them", () => {
+    expect(insightsCountExpectations()).toEqual({ minActions: 3, minBlockers: 2 });
+    expect(
+      insightsCountExpectations({ scrollStopScore: 32, watchThroughScore: 30 })
+    ).toEqual({ minActions: 3, minBlockers: 2 });
+
+    const short = evaluateInsightsOutput({
+      topFindings: [{ title: "Only one" }],
+      priorityActions: [{ action: "A" }, { action: "B" }],
+    });
+    expect(short.ok).toBe(false);
+    expect(short.actionCount).toBe(2);
+    expect(short.blockerCount).toBe(1);
+    expect(countFilledActions(validInsights())).toBe(3);
+    expect(countFilledBlockers(validInsights())).toBe(2);
+    expect(evaluateInsightsOutput(validInsights()).ok).toBe(true);
+  });
+
+  it("does not force counts on 80+ ads (GOOD AD PROTECTION)", () => {
+    const check = evaluateInsightsOutput(
+      { topFindings: [], priorityActions: [{ action: "Polish the hook." }] },
+      { scrollStopScore: 42, watchThroughScore: 40 }
+    );
+    expect(check.ok).toBe(true);
+    expect(check.minActions).toBe(0);
+    expect(check.minBlockers).toBe(0);
   });
 });
 
@@ -341,7 +456,7 @@ describe("runParallelScoringCalls", () => {
         };
       }
       if (isInsightsPrompt(prompt)) {
-        return { topFindings: [], priorityActions: [], agentFindings: [] };
+        return validInsights();
       }
       if (isHookAnglePrompt(prompt)) {
         return validHookAngle({ hookVariants: validHooks(5) });
@@ -360,7 +475,8 @@ describe("runParallelScoringCalls", () => {
     expect(result.scrollStopScore).toBe(31);
     expect(result.watchThroughScore).toBe(29);
     expect(result.scriptRewrite).toBe(VALID_SCRIPT);
-    expect(result.topFindings).toEqual([]);
+    expect(result.topFindings).toHaveLength(2);
+    expect(result.priorityActions).toHaveLength(3);
     expect(result.hookVariants).toHaveLength(5);
 
     const hookCall = mockedCall.mock.calls.find((call) =>
@@ -369,6 +485,16 @@ describe("runParallelScoringCalls", () => {
     const scriptCall = mockedCall.mock.calls.find((call) =>
       isScriptIcpPrompt(call[0].prompt)
     );
+    const insightsCall = mockedCall.mock.calls.find((call) =>
+      isInsightsPrompt(call[0].prompt)
+    );
+    expect(insightsCall?.[0].maxTokens).toBe(INSIGHTS_MAX_TOKENS);
+    expect(insightsCall?.[0].usageLabel).toBe("scoring.insights");
+    expect(insightsCall?.[0].prompt).toContain("TOP FINDINGS — max 3");
+    expect(insightsCall?.[0].prompt).toContain("PRIORITY ACTIONS — max 3");
+    expect(insightsCall?.[0].cachedContext).toContain("Score this ad now");
+    expect(INSIGHTS_MAX_TOKENS).toBe(4096);
+
     expect(hookCall?.[0].maxTokens).toBe(HOOK_ANGLE_MAX_TOKENS);
     expect(hookCall?.[0].timeoutMs).toBe(HOOK_ANGLE_TIMEOUT_MS);
     expect(hookCall?.[0].retry).toBe(false);
@@ -396,7 +522,7 @@ describe("runParallelScoringCalls", () => {
         return { scrollStopScore: 22, watchThroughScore: 20, headline: "kept" };
       }
       if (isInsightsPrompt(options.prompt)) {
-        return { topFindings: [], priorityActions: [], agentFindings: [] };
+        return validInsights();
       }
       if (isHookAnglePrompt(options.prompt)) {
         hookAttempts += 1;
@@ -423,6 +549,86 @@ describe("runParallelScoringCalls", () => {
     expect(warnedThrow).toBe(true);
   });
 
+  it("retries insights once when actions/blockers are short, then keeps the valid retry", async () => {
+    let insightAttempts = 0;
+    mockedCall.mockImplementation(async (options) => {
+      if (isGradesPrompt(options.prompt)) {
+        return { scrollStopScore: 22, watchThroughScore: 20, headline: "kept" };
+      }
+      if (isInsightsPrompt(options.prompt)) {
+        insightAttempts += 1;
+        if (insightAttempts === 1) {
+          return {
+            topFindings: [{ title: "Only one blocker" }],
+            priorityActions: [{ action: "A" }, { action: "B" }],
+          };
+        }
+        return validInsights({
+          priorityActions: [
+            { action: "Action 1" },
+            { action: "Action 2" },
+            { action: "Action 3" },
+          ],
+        });
+      }
+      if (isHookAnglePrompt(options.prompt)) {
+        return validHookAngle();
+      }
+      return validScriptIcp();
+    });
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await runParallelScoringCalls({
+      cachedContext: "ctx",
+      prompt: "Score this ad.",
+      analysisId: "an_insights_retry",
+    });
+    const warned = warn.mock.calls.some((c) =>
+      String(c[0]).includes("scoring.insights failed, retrying once")
+    );
+    warn.mockRestore();
+
+    expect(insightAttempts).toBe(2);
+    expect(result.priorityActions).toHaveLength(3);
+    expect(result.topFindings).toHaveLength(2);
+    expect(warned).toBe(true);
+  });
+
+  it("keeps the short insights payload and warns when retry still undershoots", async () => {
+    mockedCall.mockImplementation(async (options) => {
+      if (isGradesPrompt(options.prompt)) {
+        return { scrollStopScore: 22, watchThroughScore: 20, headline: "kept" };
+      }
+      if (isInsightsPrompt(options.prompt)) {
+        return {
+          topFindings: [{ title: "Only one blocker" }],
+          priorityActions: [{ action: "A" }, { action: "B" }],
+        };
+      }
+      if (isHookAnglePrompt(options.prompt)) {
+        return validHookAngle();
+      }
+      return validScriptIcp();
+    });
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await runParallelScoringCalls({
+      cachedContext: "ctx",
+      prompt: "Score this ad.",
+      analysisId: "an_insights_keep",
+    });
+    const fallback = warn.mock.calls.some(
+      (c) =>
+        String(c[0]).includes("[worker] scoring fallback:") &&
+        String(c[0]).includes("priorityActions 2 < 3")
+    );
+    warn.mockRestore();
+
+    expect(result.priorityActions).toHaveLength(2);
+    expect(result.topFindings).toHaveLength(1);
+    expect(fallback).toBe(true);
+  });
+
   it("retries script once when the first payload is invalid, then keeps the valid retry", async () => {
     let scriptAttempts = 0;
     mockedCall.mockImplementation(async (options) => {
@@ -430,7 +636,7 @@ describe("runParallelScoringCalls", () => {
         return { scrollStopScore: 22, watchThroughScore: 20, headline: "kept" };
       }
       if (isInsightsPrompt(options.prompt)) {
-        return { topFindings: [], priorityActions: [], agentFindings: [] };
+        return validInsights();
       }
       if (isHookAnglePrompt(options.prompt)) {
         return validHookAngle();
@@ -464,7 +670,7 @@ describe("runParallelScoringCalls", () => {
         return { scrollStopScore: 22, watchThroughScore: 20, headline: "kept" };
       }
       if (isInsightsPrompt(options.prompt)) {
-        return { topFindings: [], priorityActions: [], agentFindings: [] };
+        return validInsights();
       }
       if (isHookAnglePrompt(options.prompt)) {
         return validHookAngle();
@@ -498,7 +704,7 @@ describe("runParallelScoringCalls", () => {
         return { scrollStopScore: 22, watchThroughScore: 20, headline: "kept" };
       }
       if (isInsightsPrompt(options.prompt)) {
-        return { topFindings: [], priorityActions: [], agentFindings: [] };
+        return validInsights();
       }
       if (isHookAnglePrompt(options.prompt)) {
         throw new Error("hooks timeout");

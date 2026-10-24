@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   evaluateCreativeOutput,
+  evaluateInsightsOutput,
   logScoringFallback,
   runParallelScoringCalls,
 } from "@/lib/ai/scoring-parallel";
@@ -720,6 +721,18 @@ export function warnIfScoringFallbacksUsed(
   const creative = evaluateCreativeOutput(raw);
   if (!creative.ok) {
     logScoringFallback(id, `post-merge creative incomplete (${creative.reasons.join("; ")})`);
+  }
+  const insights = evaluateInsightsOutput(raw, {
+    scrollStopScore:
+      typeof raw.scrollStopScore === "number" ? raw.scrollStopScore : undefined,
+    watchThroughScore:
+      typeof raw.watchThroughScore === "number" ? raw.watchThroughScore : undefined,
+  });
+  if (!insights.ok) {
+    logScoringFallback(
+      id,
+      `post-merge insights short (${insights.reasons.join("; ")})`
+    );
   }
 }
 

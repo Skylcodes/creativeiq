@@ -1,7 +1,10 @@
 import type { VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
-/** Parallel Gemini rating runs. Wall time stays ~max(run), not sum. */
-export const GEMINI_RATING_ENSEMBLE_N = 3;
+/**
+ * Founder rejected 3× Vertex cost. Job 1 is a single rating call, same as
+ * main. Helpers below stay for tests / scoring-parallel settle.
+ */
+export const GEMINI_RATING_ENSEMBLE_N = 1;
 
 /** Stable short fingerprint for comparing Whisper / prompt inputs across runs. */
 export function shortHash(text: string): string {

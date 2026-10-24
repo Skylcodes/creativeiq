@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GEMINI_RATING_ENSEMBLE_N,
   aggregateGeminiRatingRuns,
   collectSuccessfulResults,
   formatGeminiSampleRatings,
@@ -29,6 +30,10 @@ function run(
 }
 
 describe("shortHash / formatGeminiSampleRatings", () => {
+  it("keeps Job 1 at a single Gemini rating call", () => {
+    expect(GEMINI_RATING_ENSEMBLE_N).toBe(1);
+  });
+
   it("fingerprints identical Whisper text the same way across runs", () => {
     expect(shortHash("hello whisper")).toBe(shortHash("hello whisper"));
     expect(shortHash("hello whisper")).not.toBe(shortHash("hello whisper."));

@@ -2,9 +2,7 @@ import "server-only";
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
 import {
   GEMINI_RATING_ENSEMBLE_N,
-  aggregateGeminiRatingRuns,
   formatGeminiSampleRatings,
-  settleSuccessful,
   shortHash,
 } from "@/lib/ai/gemini-rating-ensemble";
 import { parseJsonObject } from "@/lib/ai/parse-json";
@@ -318,12 +316,10 @@ async function generateGeminiVideoAnalysisOnce(input: {
 
 /**
  * Full-video understanding via Gemini on Vertex AI.
- * Runs the rating/judgment call N times in parallel and takes the median of
- * cold-scroll-stop / watch ratings so a single noisy 5-vs-7 swing cannot
- * move retention by ~14 points. Qualitative text comes from the run closest
- * to that median. Partial failures fall back to whatever runs succeeded.
+ * Single rating call (N=1, same as main) — founder rejected 3× Vertex cost.
+ * Still logs cold/watch so run-to-run swings stay visible.
  * Caller should compress the blob first when possible. Prompt, model, and
- * temperature are unchanged from the single-call path.
+ * temperature are unchanged from main.
  */
 export async function analyzeVideoWithGeminiVertex(
   input: GeminiVideoAnalysisInput
@@ -362,68 +358,47 @@ export async function analyzeVideoWithGeminiVertex(
   const ai = getVertexGenAI();
   const promptText = promptParts.join("\n");
   const whisper = input.whisperTranscript?.trim() ?? "";
-  const ensembleStartedAt = Date.now();
+  const runStartedAt = Date.now();
   console.log(
     `[worker] gemini-upstream whisperChars=${whisper.length} whisperHash=${shortHash(whisper)} videoBytes=${buffer.byteLength}`
   );
-  console.log(
-    `[worker] gemini-rating-ensemble start n=${GEMINI_RATING_ENSEMBLE_N}`
-  );
+  console.log(`[worker] gemini-rating start n=${GEMINI_RATING_ENSEMBLE_N}`);
 
-  const succeeded = await settleSuccessful(
-    Array.from({ length: GEMINI_RATING_ENSEMBLE_N }, (_, index) => {
-      const run = index + 1;
-      const runStartedAt = Date.now();
-      return withTimeoutThrow(
-        generateGeminiVideoAnalysisOnce({
-          ai,
-          model,
-          mimeType,
-          base64Video,
-          promptText,
-        }),
-        GEMINI_RATING_CALL_TIMEOUT_MS,
-        `gemini-rating-${run}`
-      )
-        .then((analysis) => {
-          console.log(
-            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms ok cold=${analysis.coldScrollStopScore ?? "n/a"} watch=${analysis.watchThroughScore ?? "n/a"} visualHash=${shortHash(analysis.visualDescription ?? "")} first3Hash=${shortHash(analysis.firstThreeSeconds ?? "")} dropOffs=${analysis.dropOffMoments?.length ?? 0}`
-          );
-          return analysis;
-        })
-        .catch((err) => {
-          const detail = err instanceof Error ? err.message : String(err);
-          console.log(
-            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms error ${detail}`
-          );
-          throw err;
-        });
-    })
-  );
-
-  const analysis =
-    succeeded.length === 1
-      ? succeeded[0]
-      : normalizeAnalysis(aggregateGeminiRatingRuns(succeeded));
-
-  const sampleLine = formatGeminiSampleRatings(succeeded);
-  const intraAgree =
-    succeeded.length > 1 &&
-    succeeded.every(
-      (s) =>
-        s.coldScrollStopScore === succeeded[0].coldScrollStopScore &&
-        s.watchThroughScore === succeeded[0].watchThroughScore
+  let analysis: VideoAnalysisResult;
+  try {
+    analysis = await withTimeoutThrow(
+      generateGeminiVideoAnalysisOnce({
+        ai,
+        model,
+        mimeType,
+        base64Video,
+        promptText,
+      }),
+      GEMINI_RATING_CALL_TIMEOUT_MS,
+      "gemini-rating-1"
     );
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.log(
+      `[worker] gemini-rating-1 ${Date.now() - runStartedAt}ms error ${detail}`
+    );
+    throw err;
+  }
+
   const cold = analysis.coldScrollStopScore;
   const watch = analysis.watchThroughScore;
   const retentionCap =
     typeof cold === "number" && typeof watch === "number"
       ? Math.round(cold * 4 + watch * 6)
       : undefined;
+  const sampleLine = formatGeminiSampleRatings([analysis]);
 
+  console.log(
+    `[worker] gemini-rating-1 ${Date.now() - runStartedAt}ms ok cold=${cold ?? "n/a"} watch=${watch ?? "n/a"} visualHash=${shortHash(analysis.visualDescription ?? "")} first3Hash=${shortHash(analysis.firstThreeSeconds ?? "")} dropOffs=${analysis.dropOffMoments?.length ?? 0}`
+  );
   console.log(`[worker] gemini-rating-samples ${sampleLine}`);
   console.log(
-    `[worker] gemini-rating-ensemble ${Date.now() - ensembleStartedAt}ms used=${succeeded.length}/${GEMINI_RATING_ENSEMBLE_N} samples=${sampleLine} intraAgree=${intraAgree} median cold=${cold ?? "n/a"} watch=${watch ?? "n/a"} scrollCap=${typeof cold === "number" ? Math.round(cold * 5) : "n/a"} watchCap=${typeof watch === "number" ? Math.round(watch * 5) : "n/a"} retentionCap=${retentionCap ?? "n/a"}`
+    `[worker] gemini-rating ${Date.now() - runStartedAt}ms samples=${sampleLine} cold=${cold ?? "n/a"} watch=${watch ?? "n/a"} scrollCap=${typeof cold === "number" ? Math.round(cold * 5) : "n/a"} watchCap=${typeof watch === "number" ? Math.round(watch * 5) : "n/a"} retentionCap=${retentionCap ?? "n/a"}`
   );
 
   return {

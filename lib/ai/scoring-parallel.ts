@@ -1,6 +1,14 @@
 import "server-only";
 
-import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
+import {
+  addClaudeUsage,
+  callClaudeJSON,
+  CLAUDE_MODEL,
+  emptyClaudeUsage,
+  formatClaudeUsage,
+  totalInputTokens,
+  type ClaudeUsageTotals,
+} from "@/lib/ai/client";
 import { collectSuccessfulResults } from "@/lib/ai/gemini-rating-ensemble";
 import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
 import { logWorkerStage } from "@/lib/analyses/worker-reliability";
@@ -62,12 +70,17 @@ export const SCORING_CREATIVE_KEYS = [
 ] as const;
 
 const GRADES_MAX_TOKENS = 3072;
-const INSIGHTS_MAX_TOKENS = 3072;
+/** Insights (3 actions + 2+ blockers + agent findings) was clipping at 3072. */
+export const INSIGHTS_MAX_TOKENS = 4096;
 export const HOOK_ANGLE_MAX_TOKENS = 3072;
 export const SCRIPT_ICP_MAX_TOKENS = 4096;
 
 export const CREATIVE_MIN_HOOKS = 3;
 export const CREATIVE_MIN_ANGLES = 2;
+export const INSIGHTS_MIN_ACTIONS = 3;
+export const INSIGHTS_MIN_BLOCKERS = 2;
+/** GOOD AD PROTECTION: old single Job 4 capped findings/actions at 2 when ≥80. */
+export const INSIGHTS_STRONG_AD_SCORE_SUM = 80;
 
 /** Tight enough that one retry still fits the worker's remaining budget. */
 const GRADES_TIMEOUT_MS = 80_000;
@@ -86,6 +99,15 @@ export type CreativeValidation = {
   reasons: string[];
   hookCount: number;
   angleCount: number;
+};
+
+export type InsightsValidation = {
+  ok: boolean;
+  reasons: string[];
+  actionCount: number;
+  blockerCount: number;
+  minActions: number;
+  minBlockers: number;
 };
 
 /**
@@ -130,6 +152,7 @@ export function originalInsightsFieldInstructions(): string {
   return [
     extractScoringSection("TOP FINDINGS —", "ANGLE RECOMMENDATIONS —"),
     extractScoringSection("COMPETITIVE INSIGHTS —", "PRE-OUTPUT MANDATORY CHECK"),
+    extractScoringSection("PRE-OUTPUT MANDATORY CHECK", "Return ONLY JSON"),
   ].join("\n\n");
 }
 
@@ -201,6 +224,70 @@ export function countFilledHooks(raw: unknown): number {
     const hook = (item as { hook?: unknown }).hook;
     return typeof hook === "string" && hook.trim().length > 0;
   }).length;
+}
+
+export function countFilledBlockers(raw: unknown): number {
+  if (!raw || typeof raw !== "object") return 0;
+  const findings = (raw as { topFindings?: unknown }).topFindings;
+  if (!Array.isArray(findings)) return 0;
+  return findings.filter((item) => {
+    if (!item || typeof item !== "object") return false;
+    const title = (item as { title?: unknown }).title;
+    return typeof title === "string" && title.trim().length > 0;
+  }).length;
+}
+
+export function countFilledActions(raw: unknown): number {
+  if (!raw || typeof raw !== "object") return 0;
+  const actions = (raw as { priorityActions?: unknown }).priorityActions;
+  if (!Array.isArray(actions)) return 0;
+  return actions.filter((item) => {
+    if (!item || typeof item !== "object") return false;
+    const action = (item as { action?: unknown }).action;
+    return typeof action === "string" && action.trim().length > 0;
+  }).length;
+}
+
+/**
+ * Old single Job 4 used max 3 actions / max 3 findings, except GOOD AD
+ * PROTECTION (scroll+watch ≥ 80) which caps at 2 and allows an empty list.
+ * Round-4 split insights dropped to 2 actions / 1 blocker on ads that the
+ * old call filled to 3 / 2 — those are the defaults when scores are unknown
+ * or the ad is not in the 80+ band.
+ */
+export function insightsCountExpectations(scores?: {
+  scrollStopScore?: number;
+  watchThroughScore?: number;
+}): { minActions: number; minBlockers: number } {
+  const scroll = scores?.scrollStopScore;
+  const watch = scores?.watchThroughScore;
+  if (
+    typeof scroll === "number" &&
+    typeof watch === "number" &&
+    scroll + watch >= INSIGHTS_STRONG_AD_SCORE_SUM
+  ) {
+    return { minActions: 0, minBlockers: 0 };
+  }
+  return { minActions: INSIGHTS_MIN_ACTIONS, minBlockers: INSIGHTS_MIN_BLOCKERS };
+}
+
+export function evaluateInsightsOutput(
+  raw: unknown,
+  scores?: { scrollStopScore?: number; watchThroughScore?: number }
+): InsightsValidation {
+  const { minActions, minBlockers } = insightsCountExpectations(scores);
+  const reasons: string[] = [];
+  const actionCount = countFilledActions(raw);
+  const blockerCount = countFilledBlockers(raw);
+
+  if (actionCount < minActions) {
+    reasons.push(`priorityActions ${actionCount} < ${minActions}`);
+  }
+  if (blockerCount < minBlockers) {
+    reasons.push(`topFindings ${blockerCount} < ${minBlockers}`);
+  }
+
+  return { ok: reasons.length === 0, reasons, actionCount, blockerCount, minActions, minBlockers };
 }
 
 export function countFilledAngles(raw: unknown): number {
@@ -276,16 +363,22 @@ export async function retryOnce<T>(
   analysisId: string,
   label: string,
   run: () => Promise<T>,
-  validate: (value: T) => { ok: boolean; reasons: string[] }
+  validate: (value: T) => { ok: boolean; reasons: string[] },
+  options?: { keepLastOnInvalid?: boolean }
 ): Promise<T> {
   const attempt = async (): Promise<
-    { ok: true; value: T } | { ok: false; why: string; error?: unknown }
+    | { ok: true; value: T }
+    | { ok: false; why: string; error?: unknown; value?: T }
   > => {
     try {
       const value = await run();
       const check = validate(value);
       if (check.ok) return { ok: true, value };
-      return { ok: false, why: check.reasons.join("; ") || "validation failed" };
+      return {
+        ok: false,
+        why: check.reasons.join("; ") || "validation failed",
+        value,
+      };
     } catch (error) {
       return { ok: false, why: `threw: ${errorDetail(error)}`, error };
     }
@@ -302,6 +395,10 @@ export async function retryOnce<T>(
   if (second.ok) return second.value;
 
   logScoringFallback(analysisId, `${label} failed after retry (${second.why})`);
+  if (options?.keepLastOnInvalid) {
+    const kept = second.value ?? first.value;
+    if (kept !== undefined) return kept;
+  }
   if (second.error !== undefined) {
     throw second.error instanceof Error
       ? second.error
@@ -319,6 +416,12 @@ function fieldsPrompt(instructions: string, keys: readonly string[]): string {
   ].join("\n");
 }
 
+function sharedScoringPrefix(input: ScoringParallelInput): string {
+  return input.cachedContext
+    ? `${input.cachedContext}\n\n${input.prompt}`
+    : input.prompt;
+}
+
 async function scoringSubcall(
   stage: string,
   analysisId: string,
@@ -326,26 +429,56 @@ async function scoringSubcall(
   keys: readonly string[],
   instructions: string,
   maxTokens: number,
-  timeoutMs: number
+  timeoutMs: number,
+  usageSink?: (usage: ClaudeUsageTotals) => void
 ): Promise<unknown> {
   return logWorkerStage(stage, analysisId, () =>
     callClaudeJSON<unknown>({
       system: SCORING_SYSTEM,
-      cachedContext: input.cachedContext,
-      prompt: `${input.prompt}\n\n${fieldsPrompt(instructions, keys)}`,
+      // Shared evidence + Job 4 prompt is identical across the 4 splits —
+      // cache that prefix so only the field-subset suffix is uncached.
+      cachedContext: sharedScoringPrefix(input),
+      prompt: fieldsPrompt(instructions, keys),
       maxTokens,
       temperature: 0.2,
       model: CLAUDE_MODEL,
       grading: true,
       timeoutMs,
       retry: false,
+      usageLabel: stage,
+      usageSink,
     })
+  );
+}
+
+async function scoringInsightsCall(
+  analysisId: string,
+  input: ScoringParallelInput,
+  usageSink?: (usage: ClaudeUsageTotals) => void
+): Promise<unknown> {
+  return retryOnce(
+    analysisId,
+    "insights",
+    () =>
+      scoringSubcall(
+        "scoring.insights",
+        analysisId,
+        input,
+        SCORING_INSIGHT_KEYS,
+        originalInsightsFieldInstructions(),
+        INSIGHTS_MAX_TOKENS,
+        INSIGHTS_TIMEOUT_MS,
+        usageSink
+      ),
+    evaluateInsightsOutput,
+    { keepLastOnInvalid: true }
   );
 }
 
 async function scoringHookAngleCall(
   analysisId: string,
-  input: ScoringParallelInput
+  input: ScoringParallelInput,
+  usageSink?: (usage: ClaudeUsageTotals) => void
 ): Promise<unknown> {
   return retryOnce(
     analysisId,
@@ -358,7 +491,8 @@ async function scoringHookAngleCall(
         SCORING_HOOK_ANGLE_KEYS,
         originalHookAngleInstructions(),
         HOOK_ANGLE_MAX_TOKENS,
-        HOOK_ANGLE_TIMEOUT_MS
+        HOOK_ANGLE_TIMEOUT_MS,
+        usageSink
       ),
     evaluateHookAngleOutput
   );
@@ -366,7 +500,8 @@ async function scoringHookAngleCall(
 
 async function scoringScriptIcpCall(
   analysisId: string,
-  input: ScoringParallelInput
+  input: ScoringParallelInput,
+  usageSink?: (usage: ClaudeUsageTotals) => void
 ): Promise<unknown> {
   return retryOnce(
     analysisId,
@@ -379,7 +514,8 @@ async function scoringScriptIcpCall(
         SCORING_SCRIPT_ICP_KEYS,
         originalScriptIcpInstructions(),
         SCRIPT_ICP_MAX_TOKENS,
-        SCRIPT_ICP_TIMEOUT_MS
+        SCRIPT_ICP_TIMEOUT_MS,
+        usageSink
       ),
     evaluateScriptIcpOutput
   );
@@ -391,11 +527,39 @@ async function scoringScriptIcpCall(
  * fail independently; validateScoringRaw synthesizes those fields from
  * evaluator transcripts — any such fallback is logged with the error.
  */
+export function logScoringUsageComparison(
+  analysisId: string,
+  split: ClaudeUsageTotals
+): void {
+  const splitIn = totalInputTokens(split);
+  // Old Job 4: one 8192-cap call over the same system + evidence prefix.
+  // Shared prefix ≈ cache write (or uncached in on a miss). Unique suffixes
+  // are extra vs that single call. Output of the 4 splits ≈ the old blob.
+  const oldEstIn = Math.max(split.cacheCreationTokens, split.inputTokens);
+  console.log(
+    `${formatClaudeUsage(`scoring.split ${analysisId}`, split)} | vs-old-job4-est calls=1 in≈${oldEstIn} out≈${split.outputTokens} (8192 cap) cache=${split.cacheReadTokens > 0 ? "hit" : "miss"}`
+  );
+  if (split.cacheReadTokens === 0 && split.calls > 1) {
+    console.warn(
+      `[worker] scoring cache miss on shared prefix — 4 splits paid full input (${splitIn} totalIn) vs old single Job 4 (~${oldEstIn}) ${analysisId}`
+    );
+  }
+}
+
 export async function runParallelScoringCalls(
   input: ScoringParallelInput
 ): Promise<Record<string, unknown>> {
   const analysisId = input.analysisId ?? "scoring";
   const t0 = Date.now();
+  const usage = emptyClaudeUsage();
+  const usageSink = (part: ClaudeUsageTotals) => {
+    const next = addClaudeUsage(usage, part);
+    usage.inputTokens = next.inputTokens;
+    usage.outputTokens = next.outputTokens;
+    usage.cacheCreationTokens = next.cacheCreationTokens;
+    usage.cacheReadTokens = next.cacheReadTokens;
+    usage.calls = next.calls;
+  };
 
   const settled = await Promise.allSettled([
     scoringSubcall(
@@ -405,19 +569,12 @@ export async function runParallelScoringCalls(
       SCORING_GRADE_KEYS,
       originalGradesFieldInstructions(),
       GRADES_MAX_TOKENS,
-      GRADES_TIMEOUT_MS
+      GRADES_TIMEOUT_MS,
+      usageSink
     ),
-    scoringSubcall(
-      "scoring.insights",
-      analysisId,
-      input,
-      SCORING_INSIGHT_KEYS,
-      originalInsightsFieldInstructions(),
-      INSIGHTS_MAX_TOKENS,
-      INSIGHTS_TIMEOUT_MS
-    ),
-    scoringHookAngleCall(analysisId, input),
-    scoringScriptIcpCall(analysisId, input),
+    scoringInsightsCall(analysisId, input, usageSink),
+    scoringHookAngleCall(analysisId, input, usageSink),
+    scoringScriptIcpCall(analysisId, input, usageSink),
   ]);
 
   const { succeeded, firstError } = collectSuccessfulResults(settled);
@@ -429,6 +586,7 @@ export async function runParallelScoringCalls(
   console.log(
     `[worker] scoring.parallel ${Date.now() - t0}ms used=${succeeded.length}/4 grades=${grades.status} insights=${insights.status} hooks=${hooks.status} script=${script.status} ${analysisId}`
   );
+  logScoringUsageComparison(analysisId, usage);
 
   if (grades.status === "rejected") {
     throw grades.reason instanceof Error
