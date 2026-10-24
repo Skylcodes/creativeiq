@@ -104,7 +104,9 @@ export function buildAnalysisReport(input: BuildAnalysisReportInput): AnalysisRe
     priorityActions: scoring.priorityActions.slice(0, 3),
     ...(scoring.icpSimulation ? { icpSimulation: scoring.icpSimulation } : {}),
     ...(marketIntelligence.brief ? { intelligenceBrief: marketIntelligence.brief } : {}),
-    ...(competitiveInsights.length ? { competitiveInsights } : {}),
+    competitiveInsights: competitiveInsights.length
+      ? competitiveInsights
+      : ["Market intelligence was unavailable; no competitive claims invented."],
     flags: {
       landingPagePartial: input.landingPageStatus === "partial",
       landingPageFailed: input.landingPageStatus === "failed",

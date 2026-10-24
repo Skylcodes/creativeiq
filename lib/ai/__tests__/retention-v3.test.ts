@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   computeRetentionV3,
+  formatWorkerGeminiLog,
   isRetentionV3Enabled,
   predictTwoSecondRetention,
 } from "@/lib/ai/retention-v3";
@@ -58,5 +59,19 @@ describe("retention v3", () => {
     const scores = { scrollStopScore: 30, watchThroughScore: 30, retentionScore: 33 };
     const signals = { coldScrollStopScore: 7, watchThroughScore: 7, openingFeatures: weak };
     expect(calibrateScoresFromVisualEvidence(scores, signals).retentionScore).toBe(computeRetentionV3(weak));
+  });
+
+  it("formats the gemini worker log with v3 features and predicted 2s retention", () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const pred = predictTwoSecondRetention(weak)!;
+    expect(
+      formatWorkerGeminiLog("an-1", {
+        coldScrollStopScore: 7,
+        watchThroughScore: 8,
+        openingFeatures: weak,
+      })
+    ).toBe(
+      `[worker] gemini an-1 cold=7 watch=8 feat=gap=0 brand=1 logo=1 est2s=15 pred2s=${pred.toFixed(3)} v3=on`
+    );
   });
 });

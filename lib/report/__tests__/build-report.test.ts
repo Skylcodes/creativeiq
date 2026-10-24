@@ -121,7 +121,8 @@ describe("buildAnalysisReport (Job 5 — deterministic formatting)", () => {
 
     expect(report.flags.notes.some((n) => /market intelligence/i.test(n))).toBe(true);
     expect(report.intelligenceBrief).toBeUndefined();
-    expect(report.competitiveInsights).toBeUndefined();
+    expect(report.competitiveInsights?.length).toBeGreaterThan(0);
+    expect(report.competitiveInsights?.[0]).toMatch(/market intelligence/i);
   });
 
   it("surfaces visual-intelligence degradation notes from Job 1 timeouts/failures", () => {

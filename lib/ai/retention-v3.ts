@@ -31,6 +31,22 @@ export function isRetentionV3Enabled(): boolean {
   );
 }
 
+export function formatWorkerGeminiLog(
+  analysisId: string,
+  signals: {
+    coldScrollStopScore?: number;
+    watchThroughScore?: number;
+    openingFeatures?: OpeningFeatures;
+  }
+): string {
+  const f = signals.openingFeatures;
+  const pred = f ? predictTwoSecondRetention(f) : undefined;
+  const feat = f
+    ? `gap=${f.curiosityGap ? 1 : 0} brand=${f.polishedBrandLook ? 1 : 0} logo=${f.productOrLogoAt0s ? 1 : 0}`
+    : "n/a";
+  return `[worker] gemini ${analysisId} cold=${signals.coldScrollStopScore ?? "n/a"} watch=${signals.watchThroughScore ?? "n/a"} feat=${feat} est2s=${f?.est2sRetentionPct ?? "n/a"} pred2s=${pred != null ? pred.toFixed(3) : "n/a"} v3=${isRetentionV3Enabled() ? "on" : "off"}`;
+}
+
 function interp(x: number, xs: number[], ys: number[]): number {
   if (x <= xs[0]) return ys[0];
   for (let i = 1; i < xs.length; i++) {
