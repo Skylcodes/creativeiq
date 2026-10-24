@@ -48,6 +48,7 @@ describe("preview flag gates", () => {
   it("turns GEMINI_SWIPE_CHECK on for Vercel preview when Vertex is configured", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     vi.stubEnv("GEMINI_SWIPE_CHECK", "");
+    vi.stubEnv("GOOGLE_CLOUD_PROJECT", "creativeiq-test");
     vi.stubEnv("GOOGLE_SERVICE_ACCOUNT_JSON", '{"type":"service_account"}');
     expect(isSwipeCheckEnabled()).toBe(true);
   });
@@ -55,6 +56,7 @@ describe("preview flag gates", () => {
   it("keeps GEMINI_SWIPE_CHECK off in production unless the env flag is set", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("GEMINI_SWIPE_CHECK", "");
+    vi.stubEnv("GOOGLE_CLOUD_PROJECT", "creativeiq-test");
     vi.stubEnv("GOOGLE_SERVICE_ACCOUNT_JSON", '{"type":"service_account"}');
     expect(isSwipeCheckEnabled()).toBe(false);
 
@@ -65,6 +67,7 @@ describe("preview flag gates", () => {
   it("does not enable swipe check on preview when Vertex is not configured", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     vi.stubEnv("GEMINI_SWIPE_CHECK", "1");
+    vi.stubEnv("GOOGLE_CLOUD_PROJECT", "");
     vi.stubEnv("GOOGLE_SERVICE_ACCOUNT_JSON", "");
     expect(isSwipeCheckEnabled()).toBe(false);
   });
