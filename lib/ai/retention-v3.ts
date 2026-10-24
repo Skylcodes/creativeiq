@@ -1,7 +1,7 @@
 import type { OpeningFeatures } from "@/lib/ai/video-analysis-types";
 
 /**
- * Retention calibration v3 (flag: RETENTION_CALIBRATION=v3).
+ * Retention calibration v3 (flag: RETENTION_CALIBRATION=v3, or Vercel preview).
  *
  * Linear model fitted on 117 English DTC TikTok ads with real 2-second
  * retention (TikTok Creative Center). Predicts share of viewers still watching
@@ -25,7 +25,10 @@ const ANCHOR_RETENTION = [-0.2037, 0.3157, 0.3623, 0.4726, 0.7892];
 const ANCHOR_SCORE = [50, 70, 75, 85, 95];
 
 export function isRetentionV3Enabled(): boolean {
-  return process.env.RETENTION_CALIBRATION?.trim().toLowerCase() === "v3";
+  return (
+    process.env.RETENTION_CALIBRATION?.trim().toLowerCase() === "v3" ||
+    process.env.VERCEL_ENV === "preview"
+  );
 }
 
 function interp(x: number, xs: number[], ys: number[]): number {
