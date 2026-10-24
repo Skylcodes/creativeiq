@@ -1,7 +1,11 @@
 import "server-only";
 
-import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
-import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
+import {
+  evaluateCreativeOutput,
+  evaluateInsightsOutput,
+  logScoringFallback,
+  runParallelScoringCalls,
+} from "@/lib/ai/scoring-parallel";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
   type ScoringRaw,
@@ -704,28 +708,52 @@ export type ScoringSynthesisInput = {
   fallbacks?: ValidateScoringFallbacks;
   /** When present (video creatives), caps inflated retentionScore using Job 1 Gemini signals. */
   visualRetentionSignals?: VisualRetentionSignals;
+  /** For [worker] sub-step timing logs. */
+  analysisId?: string;
 };
 
+/** Logs whenever validateScoringRaw will have to invent hooks/angles/script. */
+export function warnIfScoringFallbacksUsed(
+  raw: Record<string, unknown>,
+  analysisId?: string
+): void {
+  const id = analysisId ?? "scoring";
+  const creative = evaluateCreativeOutput(raw);
+  if (!creative.ok) {
+    logScoringFallback(id, `post-merge creative incomplete (${creative.reasons.join("; ")})`);
+  }
+  const insights = evaluateInsightsOutput(raw, {
+    scrollStopScore:
+      typeof raw.scrollStopScore === "number" ? raw.scrollStopScore : undefined,
+    watchThroughScore:
+      typeof raw.watchThroughScore === "number" ? raw.watchThroughScore : undefined,
+  });
+  if (!insights.ok) {
+    logScoringFallback(
+      id,
+      `post-merge insights short (${insights.reasons.join("; ")})`
+    );
+  }
+}
+
 /**
- * JOB 4 — single scoring/synthesis call. Produces every numeric grading
- * output from the evidence gathered in Jobs 1-3. Composites (creative
- * strength, landing page total, overall funnel score, verdict) are always
- * computed deterministically here in application code, never by the model.
+ * JOB 4 — scoring/synthesis. Four independent Claude calls run in parallel
+ * (grades / insights / hooks+angles / script+icp) using the same
+ * SCORING_SYSTEM, model, and temperature. Composites (creative strength,
+ * landing page total, overall funnel score, verdict) are always computed
+ * deterministically here in application code, never by the model.
  */
 export async function runScoringSynthesis(
   input: ScoringSynthesisInput
 ): Promise<ScoringResult> {
-  const raw = await callClaudeJSON<unknown>({
-    system: SCORING_SYSTEM,
+  const raw = await runParallelScoringCalls({
     cachedContext: input.cachedContext,
     prompt: input.prompt,
-    maxTokens: 8192,
-    temperature: 0.2,
-    model: CLAUDE_MODEL,
-    grading: true,
+    analysisId: input.analysisId,
   });
 
   const validated = validateScoringRaw(raw, input.fallbacks);
+  warnIfScoringFallbacksUsed(raw, input.analysisId);
 
   const calibrated = calibrateScoresFromVisualEvidence(
     {
