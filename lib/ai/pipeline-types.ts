@@ -30,6 +30,8 @@ export type VisualIntelligence = {
   /** Gemini raw 0-10 watch-through signal — video only, supporting evidence for Job 4. */
   watchThroughScore?: number;
   dropOffMoments?: string[];
+  /** Optional first-3s swipe check (video only). */
+  swipeCheck?: { swipeBefore2s: boolean; estStillWatching2sPct: number };
   /** Non-fatal degradation notes (e.g. "video unavailable", "Gemini not configured"). */
   sourceNotes: string[];
   videoContext?: VideoCreativeContext;

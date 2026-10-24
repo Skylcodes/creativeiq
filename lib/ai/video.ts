@@ -5,6 +5,7 @@ import path from "path";
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON, type ImageInput } from "@/lib/ai/client";
+import { isSwipeCheckEnabled, runSwipeCheck, type SwipeCheckResult } from "@/lib/ai/gemini-swipe-check";
 import {
   analyzeVideoWithGeminiVertex,
   buildRetentionScoringContract,
@@ -56,6 +57,8 @@ export type VideoCreativeContext = {
   visualAnalysisMode?: VisualAnalysisMode;
   /** Full Gemini analysis payload (when mode is gemini_vertex) */
   geminiAnalysis?: VideoAnalysisResult;
+  /** Optional first-3s swipe check (GEMINI_SWIPE_CHECK=1). */
+  swipeCheck?: SwipeCheckResult;
   /**
    * Preformatted ground-truth block for Claude grading agents.
    * Present only when Gemini successfully watched the video.
@@ -830,6 +833,7 @@ export async function processVideoCreative(
   let messagingSourceOverride: VideoCreativeContext["messagingSource"] | undefined;
   let geminiVisualContext: string | undefined;
   let geminiAnalysis: VideoAnalysisResult | undefined;
+  let swipeCheck: SwipeCheckResult | undefined;
 
   const storagePath = analysis.creative_storage_path;
   let videoBlob: Blob | null = null;
@@ -878,11 +882,21 @@ export async function processVideoCreative(
       const prepared = await prepareVideoBlobForGemini(videoBlob, fileName);
       if (prepared) {
         try {
+          // Swipe check runs in parallel so it adds no wall-clock time.
+          const swipePromise = isSwipeCheckEnabled()
+            ? trimFirstSecondsForSwipeCheck(prepared.blob, 3)
+                .then((clip) => (clip ? runSwipeCheck(clip) : undefined))
+                .catch((err) => {
+                  notes.push(`Swipe check skipped: ${err instanceof Error ? err.message : "unknown error"}`);
+                  return undefined;
+                })
+            : Promise.resolve(undefined);
           const gemini = await analyzeVideoWithGeminiVertex({
             videoBlob: prepared.blob,
             mimeType: "video/mp4",
             whisperTranscript: transcript || undefined,
           });
+          swipeCheck = await swipePromise;
           layerAnalysis = gemini.analysis;
           geminiAnalysis = gemini.analysis;
           messagingSourceOverride = "gemini_vertex";
@@ -1012,6 +1026,7 @@ export async function processVideoCreative(
     videoDurationSec,
     visualAnalysisMode,
     geminiAnalysis,
+    swipeCheck,
     geminiVisualContext,
     processingNotes: [...notes, ...messaging.processingNotes],
   };
@@ -1215,4 +1230,27 @@ export function buildVideoBrief(
   }
 
   return { text: lines.join("\n"), thumbnailForAgents: null };
+}
+
+/** Trim the first N seconds of an already-compressed blob for the swipe check. */
+async function trimFirstSecondsForSwipeCheck(blob: Blob, seconds: number): Promise<Blob | null> {
+  const inPath = path.join(os.tmpdir(), `iq_swipe_in_${Date.now()}.mp4`);
+  const outPath = path.join(os.tmpdir(), `iq_swipe_out_${Date.now()}.mp4`);
+  try {
+    fs.writeFileSync(inPath, Buffer.from(await blob.arrayBuffer()));
+    const FfmpegCommand = await getFfmpegCommand();
+    await new Promise<void>((resolve, reject) => {
+      FfmpegCommand(inPath)
+        .outputOptions(["-t", String(seconds), "-c:v", "libx264", "-crf", "28", "-preset", "veryfast", "-c:a", "aac", "-b:a", "48k"])
+        .output(outPath)
+        .on("end", () => resolve())
+        .on("error", (err: Error) => reject(err))
+        .run();
+    });
+    return new Blob([fs.readFileSync(outPath)], { type: "video/mp4" });
+  } catch {
+    return null;
+  } finally {
+    cleanupTempPaths([inPath, outPath]);
+  }
 }

@@ -75,6 +75,17 @@ export function buildAnalysisReport(input: BuildAnalysisReportInput): AnalysisRe
         visualAnalysisMode: visualIntelligence.videoContext.visualAnalysisMode,
         coldScrollStopScore: visualIntelligence.coldScrollStopScore,
         watchThroughScore: visualIntelligence.watchThroughScore,
+        firstThreeSeconds: visualIntelligence.videoContext.geminiAnalysis?.firstThreeSeconds,
+        coldScrollStopEvidence: visualIntelligence.videoContext.geminiAnalysis?.coldScrollStopEvidence,
+        watchThroughEvidence: visualIntelligence.videoContext.geminiAnalysis?.watchThroughEvidence,
+        dropOffMoments: visualIntelligence.videoContext.geminiAnalysis?.dropOffMoments,
+        swipeCheck: visualIntelligence.videoContext.swipeCheck
+          ? {
+              swipeBefore2s: visualIntelligence.videoContext.swipeCheck.swipeBefore2s,
+              estStillWatching2sPct: visualIntelligence.videoContext.swipeCheck.estStillWatching2sPct,
+              mainReason: visualIntelligence.videoContext.swipeCheck.mainReason,
+            }
+          : undefined,
         processingNotes: visualIntelligence.videoContext.processingNotes,
       }
     : undefined;

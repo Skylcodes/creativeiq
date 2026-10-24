@@ -306,6 +306,13 @@ export type VideoContext = {
   coldScrollStopScore?: number;
   /** Gemini watch-through / pacing quality score (0–10) */
   watchThroughScore?: number;
+  /** Gemini's evidence behind the scores — persisted for auditing (added Oct 2026). */
+  firstThreeSeconds?: string;
+  coldScrollStopEvidence?: string;
+  watchThroughEvidence?: string;
+  dropOffMoments?: string[];
+  /** Optional first-3s swipe check (GEMINI_SWIPE_CHECK=1). */
+  swipeCheck?: { swipeBefore2s: boolean; estStillWatching2sPct: number; mainReason: string };
   /** Non-fatal warnings from the video processing pipeline */
   processingNotes: string[];
 };
