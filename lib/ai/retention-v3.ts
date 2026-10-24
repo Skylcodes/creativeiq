@@ -1,0 +1,58 @@
+import type { OpeningFeatures } from "@/lib/ai/video-analysis-types";
+
+/**
+ * Retention calibration v3 (flag: RETENTION_CALIBRATION=v3).
+ *
+ * Linear model fitted on 117 English DTC TikTok ads with real 2-second
+ * retention (TikTok Creative Center). Predicts share of viewers still watching
+ * at 2s from Gemini's own estimate plus three observable opening facts, then
+ * maps that share onto the founder scale (85+ good, 75-84 mediocre,
+ * 70-74 below average, <70 bad) using the benchmark tier cut-offs
+ * (60% / 45% / 20% at 2s).
+ */
+export const RETENTION_V3_WEIGHTS = {
+  bias: 0.1972,
+  est2s: 0.3323,
+  curiosityGap: 0.0593,
+  polishedBrandLook: -0.1403,
+  productOrLogoAt0s: -0.0604,
+} as const;
+
+const ANCHOR_RETENTION = [0, 0.2, 0.45, 0.6, 0.85];
+const ANCHOR_SCORE = [50, 70, 75, 85, 95];
+
+export function isRetentionV3Enabled(): boolean {
+  return process.env.RETENTION_CALIBRATION?.trim().toLowerCase() === "v3";
+}
+
+function interp(x: number, xs: number[], ys: number[]): number {
+  if (x <= xs[0]) return ys[0];
+  for (let i = 1; i < xs.length; i++) {
+    if (x <= xs[i]) {
+      const t = (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+      return ys[i - 1] + t * (ys[i] - ys[i - 1]);
+    }
+  }
+  return ys[ys.length - 1];
+}
+
+export function predictTwoSecondRetention(f: OpeningFeatures): number | undefined {
+  const est = f.est2sRetentionPct;
+  if (typeof est !== "number" || !Number.isFinite(est)) return undefined;
+  const w = RETENTION_V3_WEIGHTS;
+  return (
+    w.bias +
+    w.est2s * (Math.min(100, Math.max(0, est)) / 100) +
+    w.curiosityGap * (f.curiosityGap ? 1 : 0) +
+    w.polishedBrandLook * (f.polishedBrandLook ? 1 : 0) +
+    w.productOrLogoAt0s * (f.productOrLogoAt0s ? 1 : 0)
+  );
+}
+
+/** Returns a 0-100 retention score, or undefined when features are missing. */
+export function computeRetentionV3(f?: OpeningFeatures | null): number | undefined {
+  if (!f) return undefined;
+  const p = predictTwoSecondRetention(f);
+  if (p == null) return undefined;
+  return Math.round(interp(p, ANCHOR_RETENTION, ANCHOR_SCORE));
+}

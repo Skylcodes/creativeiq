@@ -1,6 +1,8 @@
 import "server-only";
 
 import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
+import { computeRetentionV3, isRetentionV3Enabled } from "@/lib/ai/retention-v3";
+import type { OpeningFeatures } from "@/lib/ai/video-analysis-types";
 import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
@@ -85,6 +87,8 @@ export type VisualRetentionSignals = {
   coldScrollStopScore?: number;
   watchThroughScore?: number;
   dropOffMoments?: string[];
+  /** RETENTION_CALIBRATION=v3: observable opening facts used for a fitted retention score. */
+  openingFeatures?: OpeningFeatures;
   visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
 };
 
@@ -194,6 +198,14 @@ export function calibrateScoresFromVisualEvidence(
     scrollStopScore = Math.min(scrollStopScore, 30);
     watchThroughScore = Math.min(watchThroughScore, 30);
     retentionScore = Math.min(retentionScore, 50);
+  }
+
+  // v3: retention comes from a model fitted to real TikTok 2s retention
+  // (Gemini's 2s estimate + observable opening facts), replacing the
+  // cold*4+watch*6 cap logic. Falls back to the above when features are missing.
+  if (isRetentionV3Enabled()) {
+    const v3 = computeRetentionV3(signals?.openingFeatures);
+    if (v3 != null) retentionScore = v3;
   }
 
   return {

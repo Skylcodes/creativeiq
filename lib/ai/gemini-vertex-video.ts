@@ -1,6 +1,7 @@
 import "server-only";
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
 import { parseJsonObject } from "@/lib/ai/parse-json";
+import { isRetentionV3Enabled } from "@/lib/ai/retention-v3";
 import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
@@ -9,6 +10,45 @@ import {
 const DEFAULT_VERTEX_MODEL = "gemini-2.5-flash";
 /** Vertex inline payload safety margin after ffmpeg compress/trim. */
 const MAX_INLINE_VIDEO_BYTES = 18 * 1024 * 1024;
+
+const OPENING_FEATURES_RULE = `11. openingFeatures — OBSERVABLE FACTS ONLY (no opinions). Look at the literal first 2 seconds as a cold TikTok/Reels viewer:
+   - motionAt0s: true only if something is visibly moving/changing in frame within the first 0.5s (person gesturing, camera moving, action, cut). A still product shot, slow pan over a static scene, or a logo = false.
+   - faceInFirstSecond: a human face is clearly visible and facing camera within 0–1s.
+   - speechWithin1s: a human starts speaking (not music/lyrics) within the first 1s.
+   - textHookInFirst2s: on-screen text in 0–2s that is a hook (question, bold claim, "POV", callout, story setup). Product labels, logos, brand names, prices, or generic captions do NOT count.
+   - hookType: the single best description of 0–2s.
+   - cutsInFirst3s: number of hard cuts/scene changes in 0–3s.
+   - productOrLogoAt0s: the product packshot or brand logo is the main subject of the very first frame.
+   - polishedBrandLook: studio/commercial production look (not native phone-shot creator content).
+   - curiosityGap: the opening sets up a question/tension/result the viewer must keep watching to resolve.
+   - est2sRetentionPct: your honest estimate of the % of cold viewers still watching at 2s. Typical TikTok ads: weak 5–20, average 25–45, strong 50–70.
+`;
+
+const OPENING_FEATURES_SCHEMA: Schema = {
+      type: Type.OBJECT,
+      properties: {
+        motionAt0s: { type: Type.BOOLEAN },
+        faceInFirstSecond: { type: Type.BOOLEAN },
+        speechWithin1s: { type: Type.BOOLEAN },
+        textHookInFirst2s: { type: Type.BOOLEAN },
+        hookType: { type: Type.STRING, enum: ["question_or_callout","bold_claim","demonstration_or_result","problem_or_pain","creator_story_or_reaction","product_or_logo_shot","slow_ambient_or_lifestyle","other"] },
+        cutsInFirst3s: { type: Type.INTEGER },
+        productOrLogoAt0s: { type: Type.BOOLEAN },
+        polishedBrandLook: { type: Type.BOOLEAN },
+        curiosityGap: { type: Type.BOOLEAN },
+        est2sRetentionPct: { type: Type.INTEGER },
+      },
+      required: ["motionAt0s","faceInFirstSecond","speechWithin1s","textHookInFirst2s","hookType","cutsInFirst3s","productOrLogoAt0s","polishedBrandLook","curiosityGap","est2sRetentionPct"],
+    };
+
+function responseSchemaFor(withFeatures: boolean): Schema {
+  if (!withFeatures) return VIDEO_ANALYSIS_RESPONSE_SCHEMA;
+  return {
+    ...VIDEO_ANALYSIS_RESPONSE_SCHEMA,
+    properties: { ...VIDEO_ANALYSIS_RESPONSE_SCHEMA.properties, openingFeatures: OPENING_FEATURES_SCHEMA },
+    required: [...(VIDEO_ANALYSIS_RESPONSE_SCHEMA.required ?? []), "openingFeatures"],
+  };
+}
 
 let cachedClient: GoogleGenAI | null = null;
 
@@ -229,6 +269,7 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
     visualStyle: analysis.visualStyle?.trim(),
     emotionalCharacteristics: analysis.emotionalCharacteristics?.filter(Boolean),
     endingDescription: analysis.endingDescription?.trim(),
+    ...(analysis.openingFeatures ? { openingFeatures: analysis.openingFeatures } : {}),
   };
 }
 
@@ -269,10 +310,16 @@ export async function analyzeVideoWithGeminiVertex(
   const mimeType = input.mimeType?.trim() || "video/mp4";
   const base64Video = buffer.toString("base64");
   const model = vertexVideoModelLabel();
+  const withFeatures = isRetentionV3Enabled();
 
   const promptParts: string[] = [
     "Analyze this video advertisement end-to-end. Output structured JSON only.",
-    GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS,
+    withFeatures
+      ? GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS.replace(
+          "\nSEPARATION RULES:",
+          `${OPENING_FEATURES_RULE}\nSEPARATION RULES:`
+        )
+      : GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS,
   ];
 
   if (input.whisperTranscript?.trim()) {
@@ -304,7 +351,7 @@ export async function analyzeVideoWithGeminiVertex(
       temperature: 0.1,
       maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
       responseMimeType: "application/json",
-      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
+      responseSchema: responseSchemaFor(withFeatures),
     },
   });
 

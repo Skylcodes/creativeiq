@@ -24,6 +24,21 @@ export type VideoAnalysisResult = {
   emotionalCharacteristics?: string[];
   /** Final sequence: last frame, CTA, offer, spoken closing */
   endingDescription?: string;
+  /** Observable opening facts (only requested when RETENTION_CALIBRATION=v3). */
+  openingFeatures?: OpeningFeatures;
+};
+
+export type OpeningFeatures = {
+  motionAt0s?: boolean;
+  faceInFirstSecond?: boolean;
+  speechWithin1s?: boolean;
+  textHookInFirst2s?: boolean;
+  hookType?: string;
+  cutsInFirst3s?: number;
+  productOrLogoAt0s?: boolean;
+  polishedBrandLook?: boolean;
+  curiosityGap?: boolean;
+  est2sRetentionPct?: number;
 };
 
 export type VisualAnalysisMode =
