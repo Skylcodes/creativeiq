@@ -1,6 +1,10 @@
 import "server-only";
 
-import { runParallelScoringCalls } from "@/lib/ai/scoring-parallel";
+import {
+  evaluateCreativeOutput,
+  logScoringFallback,
+  runParallelScoringCalls,
+} from "@/lib/ai/scoring-parallel";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
   type ScoringRaw,
@@ -707,6 +711,18 @@ export type ScoringSynthesisInput = {
   analysisId?: string;
 };
 
+/** Logs whenever validateScoringRaw will have to invent hooks/angles/script. */
+export function warnIfScoringFallbacksUsed(
+  raw: Record<string, unknown>,
+  analysisId?: string
+): void {
+  const id = analysisId ?? "scoring";
+  const creative = evaluateCreativeOutput(raw);
+  if (!creative.ok) {
+    logScoringFallback(id, `post-merge creative incomplete (${creative.reasons.join("; ")})`);
+  }
+}
+
 /**
  * JOB 4 — scoring/synthesis. Three independent Claude calls run in parallel
  * (grades / insights / creative) using the same SCORING_SYSTEM, model, and
@@ -724,6 +740,7 @@ export async function runScoringSynthesis(
   });
 
   const validated = validateScoringRaw(raw, input.fallbacks);
+  warnIfScoringFallbacksUsed(raw, input.analysisId);
 
   const calibrated = calibrateScoresFromVisualEvidence(
     {
