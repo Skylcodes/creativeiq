@@ -8,7 +8,7 @@ import { buildEvidenceContext } from "@/lib/ai/pipeline-prompts";
 import { buildVisualIntelligence } from "@/lib/ai/visual-intelligence";
 import { buildMarketIntelligence } from "@/lib/ai/market-intelligence";
 import { runEvaluators } from "@/lib/ai/evaluators";
-import { runScoringSynthesis } from "@/lib/ai/scoring";
+import { formatWorkerGeminiLog, runScoringSynthesis } from "@/lib/ai/scoring";
 import { withTimeout } from "@/lib/ai/pipeline/timeout";
 import { logWorkerStage } from "@/lib/analyses/worker-reliability";
 import { buildAnalysisReport } from "@/lib/report/build-report";
@@ -112,6 +112,13 @@ export async function runFullAnalysis(
     scrapePromise,
   ]);
 
+  console.log(
+    formatWorkerGeminiLog(analysis.id, {
+      coldScrollStopScore: visualIntelligence.coldScrollStopScore,
+      watchThroughScore: visualIntelligence.watchThroughScore,
+    })
+  );
+
   const landingPageStatus: "ok" | "partial" | "failed" = !lp
     ? "failed"
     : lp.ok
@@ -160,6 +167,7 @@ export async function runFullAnalysis(
       viewerRaw: viewer.raw,
       performanceExpertRaw: performanceExpert.raw,
     },
+    analysisId: analysis.id,
     visualRetentionSignals:
       visualIntelligence.kind === "video"
         ? {

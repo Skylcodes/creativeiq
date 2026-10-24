@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignRetentionRationale,
   anchorRetentionScore,
+  applyCompetitiveInsightsRetry,
   calibrateScoresFromVisualEvidence,
   computeCreativeStrengthScore,
   computeLandingPageTotal,
   computeOverallFunnelScore,
   computeVerdict,
+  formatWorkerGeminiLog,
+  formatWorkerRetentionLog,
+  needsCompetitiveInsightsRetry,
   normalizeAgentFindings,
   normalizeLandingPageCategories,
   resolveHeadline,
@@ -549,5 +554,55 @@ describe("score calibration across the full deterministic composite", () => {
     ];
     const [excellent, poor] = scenarios;
     expect(excellent - poor).toBeGreaterThan(25);
+  });
+});
+
+describe("alignRetentionRationale", () => {
+  it("rewrites a 'maps to ~76' write-up to the final stored cap score", () => {
+    expect(
+      alignRetentionRationale(
+        "Gemini 7/8 maps to ~76; the opening holds a cold viewer.",
+        72
+      )
+    ).toBe("Gemini 7/8 maps to 72; the opening holds a cold viewer.");
+  });
+
+  it("appends the stored score when the write-up has no score number", () => {
+    expect(alignRetentionRationale("Opening holds attention.", 76)).toBe(
+      "Opening holds attention. Applied retention score 76."
+    );
+  });
+
+  it("synthesizes a write-up when the model omitted retentionRationale", () => {
+    expect(alignRetentionRationale(undefined, 64)).toBe("Applied retention score 64.");
+  });
+});
+
+describe("competitiveInsights retry gate", () => {
+  it("retries when the field is missing or empty", () => {
+    expect(needsCompetitiveInsightsRetry(undefined)).toBe(true);
+    expect(needsCompetitiveInsightsRetry([])).toBe(true);
+    expect(needsCompetitiveInsightsRetry(["   "])).toBe(true);
+    expect(needsCompetitiveInsightsRetry(["Competitors lead with price."])).toBe(false);
+  });
+
+  it("uses the retry payload, then a required fallback so the section is never empty", () => {
+    expect(applyCompetitiveInsightsRetry(undefined, ["Niche is saturated on UGC."])).toEqual([
+      "Niche is saturated on UGC.",
+    ]);
+    const fallback = applyCompetitiveInsightsRetry([], undefined);
+    expect(fallback.length).toBeGreaterThan(0);
+    expect(fallback[0]).toMatch(/market intelligence/i);
+  });
+});
+
+describe("worker logs", () => {
+  it("emits gemini cold/watch and retention old/new/applied", () => {
+    expect(formatWorkerGeminiLog("an-1", { coldScrollStopScore: 7, watchThroughScore: 8 })).toBe(
+      "[worker] gemini an-1 cold=7 watch=8"
+    );
+    expect(formatWorkerRetentionLog("an-1", 85, 76)).toBe(
+      "[worker] retention an-1 old=85 new=76 applied=76"
+    );
   });
 });

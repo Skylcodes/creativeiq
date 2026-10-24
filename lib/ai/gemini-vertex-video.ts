@@ -62,10 +62,33 @@ SEPARATION RULES:
 
 ${VIDEO_ANALYSIS_JSON_SCHEMA}`;
 
-/** Vertex structured-output schema — prevents malformed JSON in long string fields. */
+/** Vertex structured-output schema — scores first so truncation cannot drop them. */
 const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
   type: Type.OBJECT,
+  propertyOrdering: [
+    "coldScrollStopScore",
+    "coldScrollStopEvidence",
+    "watchThroughScore",
+    "watchThroughEvidence",
+    "visualDescription",
+    "visualTimeline",
+    "primaryMessaging",
+    "backgroundAudioNote",
+    "onScreenText",
+    "onScreenTextPersistence",
+    "separationNotes",
+    "firstThreeSeconds",
+    "dropOffMoments",
+    "productVisibility",
+    "visualStyle",
+    "emotionalCharacteristics",
+    "endingDescription",
+  ],
   properties: {
+    coldScrollStopScore: { type: Type.INTEGER },
+    coldScrollStopEvidence: { type: Type.STRING },
+    watchThroughScore: { type: Type.INTEGER },
+    watchThroughEvidence: { type: Type.STRING },
     visualDescription: {
       type: Type.STRING,
       description:
@@ -90,10 +113,6 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     },
     onScreenTextPersistence: { type: Type.STRING },
     separationNotes: { type: Type.STRING },
-    coldScrollStopScore: { type: Type.INTEGER },
-    coldScrollStopEvidence: { type: Type.STRING },
-    watchThroughScore: { type: Type.INTEGER },
-    watchThroughEvidence: { type: Type.STRING },
     firstThreeSeconds: { type: Type.STRING },
     dropOffMoments: {
       type: Type.ARRAY,
@@ -108,17 +127,21 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     endingDescription: { type: Type.STRING },
   },
   required: [
-    "visualDescription",
-    "primaryMessaging",
-    "backgroundAudioNote",
-    "onScreenText",
     "coldScrollStopScore",
     "coldScrollStopEvidence",
     "watchThroughScore",
     "watchThroughEvidence",
+    "visualDescription",
+    "primaryMessaging",
+    "backgroundAudioNote",
+    "onScreenText",
     "firstThreeSeconds",
   ],
 };
+
+export function geminiAnalysisNeedsRetry(analysis: VideoAnalysisResult): boolean {
+  return analysis.coldScrollStopScore == null || analysis.watchThroughScore == null;
+}
 
 function readEnvInt(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name]?.trim();
@@ -284,39 +307,58 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: base64Video,
+  const callOnce = () =>
+    ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType,
+                data: base64Video,
+              },
             },
-          },
-          { text: promptParts.join("\n") },
-        ],
+            { text: promptParts.join("\n") },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0.1,
+        maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
+        responseMimeType: "application/json",
+        responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
       },
-    ],
-    config: {
-      temperature: 0.1,
-      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
-      responseMimeType: "application/json",
-      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
-    },
-  });
+    });
 
-  const rawText = response.text?.trim();
-  if (!rawText) {
-    throw new Error("Gemini Vertex returned an empty video analysis response.");
+  // Gemini occasionally returns valid JSON that omits the two score fields even
+  // though they are `required`. Downstream would silently default them, so retry once.
+  let analysis: VideoAnalysisResult | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
+    try {
+      const response = await callOnce();
+      const rawText = response.text?.trim();
+      if (!rawText) {
+        throw new Error("Gemini Vertex returned an empty video analysis response.");
+      }
+      const finishReason = response.candidates?.[0]?.finishReason;
+      const parsed = normalizeAnalysis(parseAnalysisJson(rawText, finishReason));
+      if (geminiAnalysisNeedsRetry(parsed)) {
+        throw new Error("Gemini video analysis omitted coldScrollStopScore/watchThroughScore.");
+      }
+      analysis = parsed;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (!analysis) {
+    throw lastError instanceof Error ? lastError : new Error("Gemini video analysis failed.");
   }
 
-  const finishReason = response.candidates?.[0]?.finishReason;
-
   return {
-    analysis: normalizeAnalysis(parseAnalysisJson(rawText, finishReason)),
+    analysis,
     compressedBytes: buffer.byteLength,
     model,
   };
@@ -382,12 +424,6 @@ export function formatGeminiVisualContextForGrading(
     );
   }
 
-  lines.push("", "VISUAL DESCRIPTION:", analysis.visualDescription || "(none)");
-
-  if (analysis.firstThreeSeconds) {
-    lines.push("", "FIRST THREE SECONDS:", analysis.firstThreeSeconds);
-  }
-
   if (analysis.coldScrollStopScore != null || analysis.coldScrollStopEvidence) {
     lines.push(
       "",
@@ -402,6 +438,12 @@ export function formatGeminiVisualContextForGrading(
       `WATCH-THROUGH QUALITY (0-10): ${analysis.watchThroughScore ?? "n/a"}`,
       analysis.watchThroughEvidence ?? ""
     );
+  }
+
+  lines.push("", "VISUAL DESCRIPTION:", analysis.visualDescription || "(none)");
+
+  if (analysis.firstThreeSeconds) {
+    lines.push("", "FIRST THREE SECONDS:", analysis.firstThreeSeconds);
   }
 
   if (analysis.dropOffMoments?.length) {

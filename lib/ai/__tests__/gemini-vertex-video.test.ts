@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAnalysis } from "@/lib/ai/gemini-vertex-video";
-import type { VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
+import {
+  formatGeminiVisualContextForGrading,
+  geminiAnalysisNeedsRetry,
+  normalizeAnalysis,
+} from "@/lib/ai/gemini-vertex-video";
+import { VIDEO_ANALYSIS_JSON_SCHEMA, type VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
 function baseAnalysis(overrides: Partial<VideoAnalysisResult>): VideoAnalysisResult {
   return {
@@ -64,5 +68,48 @@ describe("normalizeAnalysis", () => {
     );
     expect(result.watchThroughScore).toBeLessThanOrEqual(7);
     expect(result.watchThroughScore).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe("geminiAnalysisNeedsRetry", () => {
+  it("retries when Gemini omitted cold or watch scores", () => {
+    expect(
+      geminiAnalysisNeedsRetry(baseAnalysis({ coldScrollStopScore: undefined, watchThroughScore: 8 }))
+    ).toBe(true);
+    expect(
+      geminiAnalysisNeedsRetry(baseAnalysis({ coldScrollStopScore: 7, watchThroughScore: undefined }))
+    ).toBe(true);
+  });
+
+  it("does not retry a complete cold/watch payload", () => {
+    expect(geminiAnalysisNeedsRetry(baseAnalysis({ coldScrollStopScore: 7, watchThroughScore: 8 }))).toBe(
+      false
+    );
+  });
+});
+
+describe("Gemini score placement", () => {
+  it("puts cold/watch before the visual description in the JSON schema", () => {
+    const coldAt = VIDEO_ANALYSIS_JSON_SCHEMA.indexOf('"coldScrollStopScore"');
+    const descAt = VIDEO_ANALYSIS_JSON_SCHEMA.indexOf('"visualDescription"');
+    expect(coldAt).toBeGreaterThan(-1);
+    expect(descAt).toBeGreaterThan(-1);
+    expect(coldAt).toBeLessThan(descAt);
+    expect(VIDEO_ANALYSIS_JSON_SCHEMA).not.toMatch(/openingFeatures/);
+  });
+
+  it("puts cold/watch before the visual description in the grading brief", () => {
+    const text = formatGeminiVisualContextForGrading(
+      baseAnalysis({
+        visualDescription: "A talking-head product demo.",
+        coldScrollStopScore: 7,
+        watchThroughScore: 8,
+        coldScrollStopEvidence: "face + claim in 0-1s",
+        watchThroughEvidence: "cuts hold after the stop",
+      })
+    );
+    expect(text.indexOf("COLD SCROLL-STOP")).toBeLessThan(text.indexOf("VISUAL DESCRIPTION"));
+    expect(text.indexOf("WATCH-THROUGH QUALITY")).toBeLessThan(text.indexOf("VISUAL DESCRIPTION"));
+    expect(text).not.toMatch(/openingFeatures|OPENING FEATURES/i);
   });
 });
