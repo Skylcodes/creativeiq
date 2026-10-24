@@ -94,7 +94,10 @@ export async function logWorkerStage<T>(
     console.log(`[worker] stage ${stage} ${Date.now() - t0}ms ${analysisId}`);
     return result;
   } catch (err) {
-    console.log(`[worker] stage ${stage} ${Date.now() - t0}ms error ${analysisId}`);
+    const detail = err instanceof Error ? err.message : String(err);
+    console.log(
+      `[worker] stage ${stage} ${Date.now() - t0}ms error ${analysisId} ${detail}`
+    );
     throw err;
   }
 }

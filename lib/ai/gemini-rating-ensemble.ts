@@ -3,6 +3,27 @@ import type { VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 /** Parallel Gemini rating runs. Wall time stays ~max(run), not sum. */
 export const GEMINI_RATING_ENSEMBLE_N = 3;
 
+/** Stable short fingerprint for comparing Whisper / prompt inputs across runs. */
+export function shortHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+export function formatGeminiSampleRatings(
+  samples: Array<{ coldScrollStopScore?: number; watchThroughScore?: number }>
+): string {
+  return samples
+    .map(
+      (s, i) =>
+        `${i + 1}:${s.coldScrollStopScore ?? "n/a"}/${s.watchThroughScore ?? "n/a"}`
+    )
+    .join(" ");
+}
+
 /**
  * Median of numeric ratings. Odd count → middle value. Even count → rounded
  * mean of the two central values so we stay on the integer 0–10 scale.

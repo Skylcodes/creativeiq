@@ -5,6 +5,7 @@ import path from "path";
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON, type ImageInput } from "@/lib/ai/client";
+import { shortHash } from "@/lib/ai/gemini-rating-ensemble";
 import {
   analyzeVideoWithGeminiVertex,
   buildRetentionScoringContract,
@@ -873,10 +874,16 @@ export async function processVideoCreative(
       whisperSegments = segments;
       transcriptAvailable = true;
     }
+    console.log(
+      `[worker] whisper-upstream chars=${transcript.length} hash=${shortHash(transcript)} segments=${whisperSegments.length}${transcriptError ? ` error=${transcriptError}` : ""}`
+    );
 
     if (isGeminiVertexConfigured()) {
       const prepared = await prepareVideoBlobForGemini(videoBlob, fileName);
       if (prepared) {
+        console.log(
+          `[worker] ffmpeg-gemini-prep bytes=${prepared.blob.size} durationSec=${prepared.fullDurationSec ?? "n/a"}`
+        );
         try {
           const gemini = await analyzeVideoWithGeminiVertex({
             videoBlob: prepared.blob,

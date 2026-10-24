@@ -5,6 +5,7 @@ import {
   WORKER_RETRIGGER_AFTER_MS,
   WORKER_TIMEOUT_MESSAGE,
   decideAndHealProcessingAnalysis,
+  logWorkerStage,
   shouldExpireAnalysis,
   shouldRetriggerWorker,
   withDeadline,
@@ -189,6 +190,26 @@ describe("withDeadline", () => {
     await assertion;
     rejectLate(new Error("late persist failed"));
     await Promise.resolve();
+  });
+});
+
+describe("logWorkerStage", () => {
+  it("includes the error message on failure so 70s deaths are not silent", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(
+      logWorkerStage("scoring.script", "an_err", async () => {
+        throw new Error("Connection error.");
+      })
+    ).rejects.toThrow("Connection error.");
+    expect(
+      log.mock.calls.some(
+        (c) =>
+          String(c[0]).includes("scoring.script") &&
+          String(c[0]).includes("error") &&
+          String(c[0]).includes("Connection error.")
+      )
+    ).toBe(true);
+    log.mockRestore();
   });
 });
 

@@ -724,11 +724,11 @@ export function warnIfScoringFallbacksUsed(
 }
 
 /**
- * JOB 4 — scoring/synthesis. Three independent Claude calls run in parallel
- * (grades / insights / creative) using the same SCORING_SYSTEM, model, and
- * temperature. Composites (creative strength, landing page total, overall
- * funnel score, verdict) are always computed deterministically here in
- * application code, never by the model.
+ * JOB 4 — scoring/synthesis. Four independent Claude calls run in parallel
+ * (grades / insights / hooks+angles / script+icp) using the same
+ * SCORING_SYSTEM, model, and temperature. Composites (creative strength,
+ * landing page total, overall funnel score, verdict) are always computed
+ * deterministically here in application code, never by the model.
  */
 export async function runScoringSynthesis(
   input: ScoringSynthesisInput

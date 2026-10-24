@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateGeminiRatingRuns,
   collectSuccessfulResults,
+  formatGeminiSampleRatings,
   medianNumber,
   pickClosestRatingRun,
   settleSuccessful,
+  shortHash,
 } from "@/lib/ai/gemini-rating-ensemble";
 import type { VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
@@ -25,6 +27,24 @@ function run(
     ...overrides,
   };
 }
+
+describe("shortHash / formatGeminiSampleRatings", () => {
+  it("fingerprints identical Whisper text the same way across runs", () => {
+    expect(shortHash("hello whisper")).toBe(shortHash("hello whisper"));
+    expect(shortHash("hello whisper")).not.toBe(shortHash("hello whisper."));
+    expect(shortHash("hello whisper")).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it("formats each of the 3 sample cold/watch ratings for worker logs", () => {
+    expect(
+      formatGeminiSampleRatings([
+        { coldScrollStopScore: 5, watchThroughScore: 7 },
+        { coldScrollStopScore: 5, watchThroughScore: 7 },
+        { coldScrollStopScore: 7, watchThroughScore: 8 },
+      ])
+    ).toBe("1:5/7 2:5/7 3:7/8");
+  });
+});
 
 describe("medianNumber", () => {
   it("returns the middle value for an odd count", () => {

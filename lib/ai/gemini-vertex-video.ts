@@ -3,7 +3,9 @@ import { GoogleGenAI, Type, type Schema } from "@google/genai";
 import {
   GEMINI_RATING_ENSEMBLE_N,
   aggregateGeminiRatingRuns,
+  formatGeminiSampleRatings,
   settleSuccessful,
+  shortHash,
 } from "@/lib/ai/gemini-rating-ensemble";
 import { parseJsonObject } from "@/lib/ai/parse-json";
 import {
@@ -359,7 +361,11 @@ export async function analyzeVideoWithGeminiVertex(
 
   const ai = getVertexGenAI();
   const promptText = promptParts.join("\n");
+  const whisper = input.whisperTranscript?.trim() ?? "";
   const ensembleStartedAt = Date.now();
+  console.log(
+    `[worker] gemini-upstream whisperChars=${whisper.length} whisperHash=${shortHash(whisper)} videoBytes=${buffer.byteLength}`
+  );
   console.log(
     `[worker] gemini-rating-ensemble start n=${GEMINI_RATING_ENSEMBLE_N}`
   );
@@ -381,13 +387,14 @@ export async function analyzeVideoWithGeminiVertex(
       )
         .then((analysis) => {
           console.log(
-            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms ok`
+            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms ok cold=${analysis.coldScrollStopScore ?? "n/a"} watch=${analysis.watchThroughScore ?? "n/a"} visualHash=${shortHash(analysis.visualDescription ?? "")} first3Hash=${shortHash(analysis.firstThreeSeconds ?? "")} dropOffs=${analysis.dropOffMoments?.length ?? 0}`
           );
           return analysis;
         })
         .catch((err) => {
+          const detail = err instanceof Error ? err.message : String(err);
           console.log(
-            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms error`
+            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms error ${detail}`
           );
           throw err;
         });
@@ -399,8 +406,24 @@ export async function analyzeVideoWithGeminiVertex(
       ? succeeded[0]
       : normalizeAnalysis(aggregateGeminiRatingRuns(succeeded));
 
+  const sampleLine = formatGeminiSampleRatings(succeeded);
+  const intraAgree =
+    succeeded.length > 1 &&
+    succeeded.every(
+      (s) =>
+        s.coldScrollStopScore === succeeded[0].coldScrollStopScore &&
+        s.watchThroughScore === succeeded[0].watchThroughScore
+    );
+  const cold = analysis.coldScrollStopScore;
+  const watch = analysis.watchThroughScore;
+  const retentionCap =
+    typeof cold === "number" && typeof watch === "number"
+      ? Math.round(cold * 4 + watch * 6)
+      : undefined;
+
+  console.log(`[worker] gemini-rating-samples ${sampleLine}`);
   console.log(
-    `[worker] gemini-rating-ensemble ${Date.now() - ensembleStartedAt}ms used=${succeeded.length}/${GEMINI_RATING_ENSEMBLE_N} cold=${analysis.coldScrollStopScore ?? "n/a"} watch=${analysis.watchThroughScore ?? "n/a"}`
+    `[worker] gemini-rating-ensemble ${Date.now() - ensembleStartedAt}ms used=${succeeded.length}/${GEMINI_RATING_ENSEMBLE_N} samples=${sampleLine} intraAgree=${intraAgree} median cold=${cold ?? "n/a"} watch=${watch ?? "n/a"} scrollCap=${typeof cold === "number" ? Math.round(cold * 5) : "n/a"} watchCap=${typeof watch === "number" ? Math.round(watch * 5) : "n/a"} retentionCap=${retentionCap ?? "n/a"}`
   );
 
   return {

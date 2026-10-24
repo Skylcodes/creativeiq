@@ -71,6 +71,12 @@ export type ClaudeCallOptions = {
   model?: string;
   /** Sonnet for funnel/comparison numeric grading — not Haiku. */
   grading?: boolean;
+  /**
+   * Default true. Scoring sub-calls set this false so their own retryOnce
+   * owns the single retry (and the error log). Stacking both retries can
+   * blow the 270s worker budget on a hung 70–120s generation.
+   */
+  retry?: boolean;
 };
 
 function resolveImages(
@@ -160,6 +166,7 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
     prefill,
     timeoutMs = timeoutForMaxTokens(maxTokens),
     model = CLAUDE_MODEL,
+    retry = true,
   } = options;
 
   const client = getAnthropic();
@@ -205,6 +212,8 @@ export async function callClaude(options: ClaudeCallOptions): Promise<string> {
   try {
     return await run(timeoutMs);
   } catch (firstError) {
+    if (!retry) throw firstError;
+
     const isTimeout =
       firstError instanceof Error &&
       /timeout|timed out|ETIMEDOUT|AbortError/i.test(firstError.message);
