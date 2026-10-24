@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SCORING_CREATIVE_KEYS,
   SCORING_GRADE_KEYS,
+  SCORING_INSIGHT_KEYS,
   mergeScoringPartials,
   pickDefinedKeys,
   runParallelScoringCalls,
