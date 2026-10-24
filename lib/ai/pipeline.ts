@@ -143,9 +143,10 @@ export async function runFullAnalysis(
       })
   );
 
-  // JOB 4 — single scoring/synthesis call. Composites computed deterministically inside.
+  // JOB 4 — parallel grades / insights / creative calls. Composites computed deterministically inside.
   const scoring = await logWorkerStage("scoring", analysis.id, () =>
     runScoringSynthesis({
+    analysisId: analysis.id,
     cachedContext: evidenceContext,
     prompt: [
       "=== REAL VIEWER TRANSCRIPT ===",

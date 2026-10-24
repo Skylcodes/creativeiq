@@ -1,10 +1,18 @@
 import "server-only";
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
+import {
+  GEMINI_RATING_ENSEMBLE_N,
+  aggregateGeminiRatingRuns,
+  settleSuccessful,
+} from "@/lib/ai/gemini-rating-ensemble";
 import { parseJsonObject } from "@/lib/ai/parse-json";
 import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
 } from "@/lib/ai/video-analysis-types";
+
+/** One hung Vertex call must not stall the other parallel rating runs. */
+const GEMINI_RATING_CALL_TIMEOUT_MS = 90_000;
 
 const DEFAULT_VERTEX_MODEL = "gemini-2.5-flash";
 /** Vertex inline payload safety margin after ffmpeg compress/trim. */
@@ -245,9 +253,75 @@ export type GeminiVideoAnalysisOutput = {
   model: string;
 };
 
+async function withTimeoutThrow<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function generateGeminiVideoAnalysisOnce(input: {
+  ai: GoogleGenAI;
+  model: string;
+  mimeType: string;
+  base64Video: string;
+  promptText: string;
+}): Promise<VideoAnalysisResult> {
+  const response = await input.ai.models.generateContent({
+    model: input.model,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            inlineData: {
+              mimeType: input.mimeType,
+              data: input.base64Video,
+            },
+          },
+          { text: input.promptText },
+        ],
+      },
+    ],
+    config: {
+      temperature: 0.1,
+      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
+      responseMimeType: "application/json",
+      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
+    },
+  });
+
+  const rawText = response.text?.trim();
+  if (!rawText) {
+    throw new Error("Gemini Vertex returned an empty video analysis response.");
+  }
+
+  const finishReason = response.candidates?.[0]?.finishReason;
+  return normalizeAnalysis(parseAnalysisJson(rawText, finishReason));
+}
+
 /**
- * Full-video understanding via Gemini on Vertex AI (one Flash call).
- * Caller should compress/trim the blob first when possible.
+ * Full-video understanding via Gemini on Vertex AI.
+ * Runs the rating/judgment call N times in parallel and takes the median of
+ * cold-scroll-stop / watch ratings so a single noisy 5-vs-7 swing cannot
+ * move retention by ~14 points. Qualitative text comes from the run closest
+ * to that median. Partial failures fall back to whatever runs succeeded.
+ * Caller should compress the blob first when possible. Prompt, model, and
+ * temperature are unchanged from the single-call path.
  */
 export async function analyzeVideoWithGeminiVertex(
   input: GeminiVideoAnalysisInput
@@ -284,39 +358,53 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: base64Video,
-            },
-          },
-          { text: promptParts.join("\n") },
-        ],
-      },
-    ],
-    config: {
-      temperature: 0.1,
-      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
-      responseMimeType: "application/json",
-      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
-    },
-  });
+  const promptText = promptParts.join("\n");
+  const ensembleStartedAt = Date.now();
+  console.log(
+    `[worker] gemini-rating-ensemble start n=${GEMINI_RATING_ENSEMBLE_N}`
+  );
 
-  const rawText = response.text?.trim();
-  if (!rawText) {
-    throw new Error("Gemini Vertex returned an empty video analysis response.");
-  }
+  const succeeded = await settleSuccessful(
+    Array.from({ length: GEMINI_RATING_ENSEMBLE_N }, (_, index) => {
+      const run = index + 1;
+      const runStartedAt = Date.now();
+      return withTimeoutThrow(
+        generateGeminiVideoAnalysisOnce({
+          ai,
+          model,
+          mimeType,
+          base64Video,
+          promptText,
+        }),
+        GEMINI_RATING_CALL_TIMEOUT_MS,
+        `gemini-rating-${run}`
+      )
+        .then((analysis) => {
+          console.log(
+            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms ok`
+          );
+          return analysis;
+        })
+        .catch((err) => {
+          console.log(
+            `[worker] gemini-rating-${run} ${Date.now() - runStartedAt}ms error`
+          );
+          throw err;
+        });
+    })
+  );
 
-  const finishReason = response.candidates?.[0]?.finishReason;
+  const analysis =
+    succeeded.length === 1
+      ? succeeded[0]
+      : normalizeAnalysis(aggregateGeminiRatingRuns(succeeded));
+
+  console.log(
+    `[worker] gemini-rating-ensemble ${Date.now() - ensembleStartedAt}ms used=${succeeded.length}/${GEMINI_RATING_ENSEMBLE_N} cold=${analysis.coldScrollStopScore ?? "n/a"} watch=${analysis.watchThroughScore ?? "n/a"}`
+  );
 
   return {
-    analysis: normalizeAnalysis(parseAnalysisJson(rawText, finishReason)),
+    analysis,
     compressedBytes: buffer.byteLength,
     model,
   };

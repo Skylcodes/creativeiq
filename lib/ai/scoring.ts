@@ -1,7 +1,6 @@
 import "server-only";
 
-import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
-import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
+import { runParallelScoringCalls } from "@/lib/ai/scoring-parallel";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
   type ScoringRaw,
@@ -704,25 +703,24 @@ export type ScoringSynthesisInput = {
   fallbacks?: ValidateScoringFallbacks;
   /** When present (video creatives), caps inflated retentionScore using Job 1 Gemini signals. */
   visualRetentionSignals?: VisualRetentionSignals;
+  /** For [worker] sub-step timing logs. */
+  analysisId?: string;
 };
 
 /**
- * JOB 4 — single scoring/synthesis call. Produces every numeric grading
- * output from the evidence gathered in Jobs 1-3. Composites (creative
- * strength, landing page total, overall funnel score, verdict) are always
- * computed deterministically here in application code, never by the model.
+ * JOB 4 — scoring/synthesis. Three independent Claude calls run in parallel
+ * (grades / insights / creative) using the same SCORING_SYSTEM, model, and
+ * temperature. Composites (creative strength, landing page total, overall
+ * funnel score, verdict) are always computed deterministically here in
+ * application code, never by the model.
  */
 export async function runScoringSynthesis(
   input: ScoringSynthesisInput
 ): Promise<ScoringResult> {
-  const raw = await callClaudeJSON<unknown>({
-    system: SCORING_SYSTEM,
+  const raw = await runParallelScoringCalls({
     cachedContext: input.cachedContext,
     prompt: input.prompt,
-    maxTokens: 8192,
-    temperature: 0.2,
-    model: CLAUDE_MODEL,
-    grading: true,
+    analysisId: input.analysisId,
   });
 
   const validated = validateScoringRaw(raw, input.fallbacks);
