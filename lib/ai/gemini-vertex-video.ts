@@ -2,6 +2,11 @@ import "server-only";
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
 import { parseJsonObject } from "@/lib/ai/parse-json";
 import {
+  computeRetentionV3,
+  isRetentionV3Enabled,
+  predictTwoSecondRetention,
+} from "@/lib/ai/retention-v3";
+import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
 } from "@/lib/ai/video-analysis-types";
@@ -9,6 +14,108 @@ import {
 const DEFAULT_VERTEX_MODEL = "gemini-2.5-flash";
 /** Vertex inline payload safety margin after ffmpeg compress/trim. */
 const MAX_INLINE_VIDEO_BYTES = 18 * 1024 * 1024;
+
+const OPENING_FEATURES_RULE = `11. openingFeatures — OBSERVABLE FACTS ONLY (no opinions). Look at the literal first 2 seconds as a cold TikTok/Reels viewer:
+   - motionAt0s: true only if something is visibly moving/changing in frame within the first 0.5s (person gesturing, camera moving, action, cut). A still product shot, slow pan over a static scene, or a logo = false.
+   - faceInFirstSecond: a human face is clearly visible and facing camera within 0–1s.
+   - speechWithin1s: a human starts speaking (not music/lyrics) within the first 1s.
+   - textHookInFirst2s: on-screen text in 0–2s that is a hook (question, bold claim, "POV", callout, story setup). Product labels, logos, brand names, prices, or generic captions do NOT count.
+   - hookType: the single best description of 0–2s.
+   - cutsInFirst3s: number of hard cuts/scene changes in 0–3s.
+   - productOrLogoAt0s: the product packshot or brand logo is the main subject of the very first frame.
+   - polishedBrandLook: studio/commercial production look (not native phone-shot creator content).
+   - curiosityGap: the opening sets up a question/tension/result the viewer must keep watching to resolve.
+   - est2sRetentionPct: your honest estimate of the % of cold viewers still watching at 2s. Typical TikTok ads: weak 5–20, average 25–45, strong 50–70.
+`;
+
+const OPENING_FEATURES_SCHEMA: Schema = {
+      type: Type.OBJECT,
+      properties: {
+        motionAt0s: { type: Type.BOOLEAN },
+        faceInFirstSecond: { type: Type.BOOLEAN },
+        speechWithin1s: { type: Type.BOOLEAN },
+        textHookInFirst2s: { type: Type.BOOLEAN },
+        hookType: { type: Type.STRING, enum: ["question_or_callout","bold_claim","demonstration_or_result","problem_or_pain","creator_story_or_reaction","product_or_logo_shot","slow_ambient_or_lifestyle","other"] },
+        cutsInFirst3s: { type: Type.INTEGER },
+        productOrLogoAt0s: { type: Type.BOOLEAN },
+        polishedBrandLook: { type: Type.BOOLEAN },
+        curiosityGap: { type: Type.BOOLEAN },
+        est2sRetentionPct: { type: Type.INTEGER },
+      },
+      required: ["motionAt0s","faceInFirstSecond","speechWithin1s","textHookInFirst2s","hookType","cutsInFirst3s","productOrLogoAt0s","polishedBrandLook","curiosityGap","est2sRetentionPct"],
+    };
+
+function responseSchemaFor(withFeatures: boolean): Schema {
+  if (!withFeatures) return VIDEO_ANALYSIS_RESPONSE_SCHEMA;
+  return {
+    ...VIDEO_ANALYSIS_RESPONSE_SCHEMA,
+    properties: {
+      openingFeatures: OPENING_FEATURES_SCHEMA,
+      ...VIDEO_ANALYSIS_RESPONSE_SCHEMA.properties,
+    },
+    required: ["openingFeatures", ...(VIDEO_ANALYSIS_RESPONSE_SCHEMA.required ?? [])],
+    propertyOrdering: [
+      "openingFeatures",
+      "visualDescription",
+      "visualTimeline",
+      "primaryMessaging",
+      "backgroundAudioNote",
+      "onScreenText",
+      "onScreenTextPersistence",
+      "separationNotes",
+      "coldScrollStopScore",
+      "coldScrollStopEvidence",
+      "watchThroughScore",
+      "watchThroughEvidence",
+      "firstThreeSeconds",
+      "dropOffMoments",
+      "productVisibility",
+      "visualStyle",
+      "emotionalCharacteristics",
+      "endingDescription",
+    ],
+  };
+}
+
+const OPENING_FEATURES_JSON = `  "openingFeatures": {
+    "motionAt0s": false,
+    "faceInFirstSecond": false,
+    "speechWithin1s": false,
+    "textHookInFirst2s": false,
+    "hookType": "other",
+    "cutsInFirst3s": 0,
+    "productOrLogoAt0s": false,
+    "polishedBrandLook": false,
+    "curiosityGap": false,
+    "est2sRetentionPct": 0
+  }`;
+
+function jsonSchemaFor(withFeatures: boolean): string {
+  if (!withFeatures) return VIDEO_ANALYSIS_JSON_SCHEMA;
+  return VIDEO_ANALYSIS_JSON_SCHEMA.replace(
+    `"endingDescription": "final sequence: last frame, CTA, offer, spoken closing"\n}`,
+    `"endingDescription": "final sequence: last frame, CTA, offer, spoken closing",\n${OPENING_FEATURES_JSON}\n}`
+  );
+}
+
+export function geminiAnalysisNeedsRetry(
+  analysis: VideoAnalysisResult,
+  v3Enabled: boolean
+): boolean {
+  if (analysis.coldScrollStopScore == null || analysis.watchThroughScore == null) {
+    return true;
+  }
+  if (v3Enabled && typeof analysis.openingFeatures?.est2sRetentionPct !== "number") {
+    return true;
+  }
+  return false;
+}
+
+export function formatOpeningFeaturesLine(
+  features: NonNullable<VideoAnalysisResult["openingFeatures"]>
+): string {
+  return `motionAt0s=${features.motionAt0s} faceInFirstSecond=${features.faceInFirstSecond} speechWithin1s=${features.speechWithin1s} textHookInFirst2s=${features.textHookInFirst2s} hookType=${features.hookType ?? "n/a"} cutsInFirst3s=${features.cutsInFirst3s ?? "n/a"} productOrLogoAt0s=${features.productOrLogoAt0s} polishedBrandLook=${features.polishedBrandLook} curiosityGap=${features.curiosityGap} est2sRetentionPct=${features.est2sRetentionPct ?? "n/a"}`;
+}
 
 let cachedClient: GoogleGenAI | null = null;
 
@@ -229,6 +336,7 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
     visualStyle: analysis.visualStyle?.trim(),
     emotionalCharacteristics: analysis.emotionalCharacteristics?.filter(Boolean),
     endingDescription: analysis.endingDescription?.trim(),
+    ...(analysis.openingFeatures ? { openingFeatures: analysis.openingFeatures } : {}),
   };
 }
 
@@ -269,10 +377,20 @@ export async function analyzeVideoWithGeminiVertex(
   const mimeType = input.mimeType?.trim() || "video/mp4";
   const base64Video = buffer.toString("base64");
   const model = vertexVideoModelLabel();
+  const withFeatures = isRetentionV3Enabled();
+
+  const instructions = (
+    withFeatures
+      ? GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS.replace(
+          "\nSEPARATION RULES:",
+          `${OPENING_FEATURES_RULE}\nSEPARATION RULES:`
+        )
+      : GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS
+  ).replace(VIDEO_ANALYSIS_JSON_SCHEMA, jsonSchemaFor(withFeatures));
 
   const promptParts: string[] = [
     "Analyze this video advertisement end-to-end. Output structured JSON only.",
-    GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS,
+    instructions,
   ];
 
   if (input.whisperTranscript?.trim()) {
@@ -284,39 +402,63 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: base64Video,
+  const callOnce = () =>
+    ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType,
+                data: base64Video,
+              },
             },
-          },
-          { text: promptParts.join("\n") },
-        ],
+            { text: promptParts.join("\n") },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0.1,
+        maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
+        responseMimeType: "application/json",
+        responseSchema: responseSchemaFor(withFeatures),
       },
-    ],
-    config: {
-      temperature: 0.1,
-      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
-      responseMimeType: "application/json",
-      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
-    },
-  });
+    });
 
-  const rawText = response.text?.trim();
-  if (!rawText) {
-    throw new Error("Gemini Vertex returned an empty video analysis response.");
+  // Gemini occasionally returns valid JSON that omits required scores / v3
+  // openingFeatures even though they are `required`. Downstream would then
+  // silently skip v3 and store Sonnet's raw retention, so retry once.
+  let analysis: VideoAnalysisResult | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
+    try {
+      const response = await callOnce();
+      const rawText = response.text?.trim();
+      if (!rawText) {
+        throw new Error("Gemini Vertex returned an empty video analysis response.");
+      }
+      const finishReason = response.candidates?.[0]?.finishReason;
+      const parsed = normalizeAnalysis(parseAnalysisJson(rawText, finishReason));
+      if (geminiAnalysisNeedsRetry(parsed, withFeatures)) {
+        throw new Error(
+          withFeatures
+            ? "Gemini video analysis omitted cold/watch scores or openingFeatures.est2sRetentionPct."
+            : "Gemini video analysis omitted coldScrollStopScore/watchThroughScore."
+        );
+      }
+      analysis = parsed;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (!analysis) {
+    throw lastError instanceof Error ? lastError : new Error("Gemini video analysis failed.");
   }
 
-  const finishReason = response.candidates?.[0]?.finishReason;
-
   return {
-    analysis: normalizeAnalysis(parseAnalysisJson(rawText, finishReason)),
+    analysis,
     compressedBytes: buffer.byteLength,
     model,
   };
@@ -330,6 +472,24 @@ export async function analyzeVideoWithGeminiVertex(
  * timeline, or other fields that are emitted elsewhere.
  */
 export function buildRetentionScoringContract(analysis: VideoAnalysisResult): string {
+  if (isRetentionV3Enabled()) {
+    const v3 = computeRetentionV3(analysis.openingFeatures);
+    const pred = analysis.openingFeatures
+      ? predictTwoSecondRetention(analysis.openingFeatures)
+      : undefined;
+    if (v3 != null && analysis.openingFeatures) {
+      return [
+        "RETENTION SCORING CONTRACT (retentionScore — fitted v3 from THIS video's openingFeatures):",
+        `- openingFeatures ${formatOpeningFeaturesLine(analysis.openingFeatures)} pred2s=${pred != null ? pred.toFixed(3) : "n/a"}`,
+        `- retentionScore MUST be ${v3}. Write retentionRationale using this exact number (e.g. "maps to ${v3}"). Do not use cold*4+watch*6 or invent a different score.`,
+      ].join("\n");
+    }
+    return [
+      "RETENTION SCORING CONTRACT (retentionScore):",
+      "- v3 openingFeatures were not returned; score watch behavior from VISUAL INTELLIGENCE without inventing a mapped number.",
+    ].join("\n");
+  }
+
   const cold = analysis.coldScrollStopScore ?? 5;
   const watch = analysis.watchThroughScore ?? 5;
   const retentionTarget = Math.round(cold * 4 + watch * 6);
@@ -386,6 +546,14 @@ export function formatGeminiVisualContextForGrading(
 
   if (analysis.firstThreeSeconds) {
     lines.push("", "FIRST THREE SECONDS:", analysis.firstThreeSeconds);
+  }
+
+  if (analysis.openingFeatures) {
+    lines.push(
+      "",
+      "OPENING FEATURES (observable first 2s — v3 retention inputs):",
+      formatOpeningFeaturesLine(analysis.openingFeatures)
+    );
   }
 
   if (analysis.coldScrollStopScore != null || analysis.coldScrollStopEvidence) {

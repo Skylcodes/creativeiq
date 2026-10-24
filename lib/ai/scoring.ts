@@ -1,6 +1,8 @@
 import "server-only";
 
 import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
+import { computeRetentionV3, isRetentionV3Enabled } from "@/lib/ai/retention-v3";
+import type { OpeningFeatures } from "@/lib/ai/video-analysis-types";
 import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
@@ -85,6 +87,8 @@ export type VisualRetentionSignals = {
   coldScrollStopScore?: number;
   watchThroughScore?: number;
   dropOffMoments?: string[];
+  /** RETENTION_CALIBRATION=v3: observable opening facts used for a fitted retention score. */
+  openingFeatures?: OpeningFeatures;
   visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
 };
 
@@ -127,7 +131,7 @@ function shouldRaiseToVisualEvidence(
  * conservative ceilings so bad ads cannot score higher than good ads simply
  * because full-video analysis failed.
  */
-export function calibrateScoresFromVisualEvidence(
+export function calibrateScoresFromVisualEvidenceV1(
   scores: {
     scrollStopScore: number;
     watchThroughScore: number;
@@ -201,6 +205,72 @@ export function calibrateScoresFromVisualEvidence(
     watchThroughScore: clamp(watchThroughScore, 0, 50),
     retentionScore: clamp(retentionScore, 0, 100),
   };
+}
+
+/**
+ * Calibrates scroll-stop, watch-through, and retention using Job 1 visual evidence.
+ * When RETENTION_CALIBRATION=v3 (or Vercel preview), retention is the fitted
+ * v3 score whenever opening features are present; otherwise v1 heuristics.
+ */
+export function calibrateScoresFromVisualEvidence(
+  scores: {
+    scrollStopScore: number;
+    watchThroughScore: number;
+    retentionScore: number;
+  },
+  signals?: VisualRetentionSignals
+): {
+  scrollStopScore: number;
+  watchThroughScore: number;
+  retentionScore: number;
+} {
+  const v1 = calibrateScoresFromVisualEvidenceV1(scores, signals);
+  if (isRetentionV3Enabled()) {
+    const v3 = computeRetentionV3(signals?.openingFeatures);
+    if (v3 != null) return { ...v1, retentionScore: v3 };
+  }
+  return v1;
+}
+
+export function alignRetentionRationale(
+  rationale: string | undefined,
+  appliedScore: number
+): string {
+  const score = clamp(appliedScore, 0, 100);
+  const text = rationale?.trim() ?? "";
+  if (!text) return `Applied retention score ${score}.`;
+  if (/maps to (?:retentionScore )?-?~?\d+/i.test(text)) {
+    return text.replace(/maps to (?:retentionScore )?-?~?\d+/gi, `maps to ${score}`);
+  }
+  if (text.includes(String(score))) return text;
+  return `${text} Applied retention score ${score}.`;
+}
+
+export function needsCompetitiveInsightsRetry(insights?: string[]): boolean {
+  return !insights?.some((s) => typeof s === "string" && s.trim().length > 0);
+}
+
+export const FALLBACK_COMPETITIVE_INSIGHT =
+  "Market intelligence was unavailable; no competitive claims invented.";
+
+export function applyCompetitiveInsightsRetry(
+  current: string[] | undefined,
+  retry: string[] | undefined
+): string[] {
+  const unique = [...(current ?? []), ...(retry ?? [])]
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .map((s) => s.trim())
+    .filter((s, i, arr) => arr.indexOf(s) === i);
+  return unique.length ? unique : [FALLBACK_COMPETITIVE_INSIGHT];
+}
+
+export function formatWorkerRetentionLog(
+  analysisId: string,
+  oldScore: number,
+  v3Score: number | undefined,
+  applied: number
+): string {
+  return `[worker] retention ${analysisId} old=${oldScore} new=${v3Score ?? "n/a"} applied=${applied}`;
 }
 
 /** @deprecated Use calibrateScoresFromVisualEvidence — retained for tests. */
@@ -704,6 +774,7 @@ export type ScoringSynthesisInput = {
   fallbacks?: ValidateScoringFallbacks;
   /** When present (video creatives), caps inflated retentionScore using Job 1 Gemini signals. */
   visualRetentionSignals?: VisualRetentionSignals;
+  analysisId?: string;
 };
 
 /**
@@ -719,7 +790,7 @@ export async function runScoringSynthesis(
     system: SCORING_SYSTEM,
     cachedContext: input.cachedContext,
     prompt: input.prompt,
-    maxTokens: 8192,
+    maxTokens: 6144,
     temperature: 0.2,
     model: CLAUDE_MODEL,
     grading: true,
@@ -727,13 +798,56 @@ export async function runScoringSynthesis(
 
   const validated = validateScoringRaw(raw, input.fallbacks);
 
-  const calibrated = calibrateScoresFromVisualEvidence(
-    {
-      scrollStopScore: validated.scrollStopScore,
-      watchThroughScore: validated.watchThroughScore,
-      retentionScore: validated.retentionScore,
-    },
+  let competitiveInsights = validated.competitiveInsights;
+  if (needsCompetitiveInsightsRetry(competitiveInsights)) {
+    try {
+      const retry = await callClaudeJSON<{ competitiveInsights?: unknown }>({
+        system:
+          "Return ONLY JSON. competitiveInsights must be 2-4 short market-grounded notes. If market intelligence is missing, return one note saying so. Never return an empty array.",
+        cachedContext: input.cachedContext,
+        prompt: `${input.prompt}\n\nYour previous JSON omitted or emptied competitiveInsights. Return ONLY {"competitiveInsights":[...]} now.`,
+        maxTokens: 800,
+        temperature: 0.2,
+        model: CLAUDE_MODEL,
+        grading: true,
+      });
+      competitiveInsights = applyCompetitiveInsightsRetry(
+        competitiveInsights,
+        Array.isArray(retry.competitiveInsights)
+          ? retry.competitiveInsights.filter((s): s is string => typeof s === "string")
+          : undefined
+      );
+    } catch {
+      competitiveInsights = applyCompetitiveInsightsRetry(competitiveInsights, undefined);
+    }
+  } else {
+    competitiveInsights = applyCompetitiveInsightsRetry(competitiveInsights, undefined);
+  }
+
+  const modelScores = {
+    scrollStopScore: validated.scrollStopScore,
+    watchThroughScore: validated.watchThroughScore,
+    retentionScore: validated.retentionScore,
+  };
+  const v1Calibrated = calibrateScoresFromVisualEvidenceV1(
+    modelScores,
     input.visualRetentionSignals
+  );
+  const v3Score = isRetentionV3Enabled()
+    ? computeRetentionV3(input.visualRetentionSignals?.openingFeatures)
+    : undefined;
+  const calibrated = calibrateScoresFromVisualEvidence(
+    modelScores,
+    input.visualRetentionSignals
+  );
+
+  console.log(
+    formatWorkerRetentionLog(
+      input.analysisId ?? "unknown",
+      v1Calibrated.retentionScore,
+      v3Score,
+      calibrated.retentionScore
+    )
   );
 
   const creativeStrengthScore = computeCreativeStrengthScore(
@@ -746,9 +860,14 @@ export async function runScoringSynthesis(
 
   return {
     ...validated,
+    competitiveInsights,
     scrollStopScore: calibrated.scrollStopScore,
     watchThroughScore: calibrated.watchThroughScore,
     retentionScore: calibrated.retentionScore,
+    retentionRationale: alignRetentionRationale(
+      validated.retentionRationale,
+      calibrated.retentionScore
+    ),
     creativeStrengthScore,
     landingPageTotal,
     overallFunnelScore,

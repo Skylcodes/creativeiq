@@ -9,6 +9,7 @@ import {
   analyzeVideoWithGeminiVertex,
   buildRetentionScoringContract,
   formatGeminiVisualContextForGrading,
+  formatOpeningFeaturesLine,
   isGeminiVertexConfigured,
 } from "@/lib/ai/gemini-vertex-video";
 import {
@@ -1128,6 +1129,12 @@ export function buildVideoBrief(
   if (ctx.geminiAnalysis?.firstThreeSeconds) {
     lines.push("");
     lines.push("FIRST THREE SECONDS:", ctx.geminiAnalysis.firstThreeSeconds);
+  }
+
+  if (ctx.geminiAnalysis?.openingFeatures) {
+    lines.push("");
+    lines.push("OPENING FEATURES (observable first 2s — v3 retention inputs):");
+    lines.push(formatOpeningFeaturesLine(ctx.geminiAnalysis.openingFeatures));
   }
 
   if (

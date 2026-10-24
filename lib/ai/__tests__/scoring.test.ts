@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignRetentionRationale,
   anchorRetentionScore,
+  applyCompetitiveInsightsRetry,
   calibrateScoresFromVisualEvidence,
+  calibrateScoresFromVisualEvidenceV1,
   computeCreativeStrengthScore,
   computeLandingPageTotal,
   computeOverallFunnelScore,
   computeVerdict,
+  formatWorkerRetentionLog,
+  needsCompetitiveInsightsRetry,
   normalizeAgentFindings,
   normalizeLandingPageCategories,
   resolveHeadline,
@@ -15,6 +20,7 @@ import {
   resolveWatchThroughScore,
   validateScoringRaw,
 } from "@/lib/ai/scoring";
+import { computeRetentionV3 } from "@/lib/ai/retention-v3";
 import { LANDING_PAGE_CATEGORY_DEFS } from "@/lib/ai/pipeline-types";
 import type { ConversionCategory } from "@/lib/types/report";
 import type { AgentFinding } from "@/lib/types/report";
@@ -549,5 +555,73 @@ describe("score calibration across the full deterministic composite", () => {
     ];
     const [excellent, poor] = scenarios;
     expect(excellent - poor).toBeGreaterThan(25);
+  });
+});
+
+describe("alignRetentionRationale", () => {
+  it("rewrites a v1 'maps to ~76' write-up to the final applied score", () => {
+    expect(
+      alignRetentionRationale(
+        "Gemini 7/8 maps to ~76; the opening holds a cold viewer.",
+        85
+      )
+    ).toBe("Gemini 7/8 maps to 85; the opening holds a cold viewer.");
+  });
+
+  it("appends the applied score when the write-up has no score number", () => {
+    expect(alignRetentionRationale("Opening holds attention.", 72)).toBe(
+      "Opening holds attention. Applied retention score 72."
+    );
+  });
+
+  it("synthesizes a write-up when the model omitted retentionRationale", () => {
+    expect(alignRetentionRationale(undefined, 64)).toBe("Applied retention score 64.");
+  });
+});
+
+describe("competitiveInsights retry gate", () => {
+  it("retries when the field is missing or empty", () => {
+    expect(needsCompetitiveInsightsRetry(undefined)).toBe(true);
+    expect(needsCompetitiveInsightsRetry([])).toBe(true);
+    expect(needsCompetitiveInsightsRetry(["   "])).toBe(true);
+    expect(needsCompetitiveInsightsRetry(["Competitors lead with price."])).toBe(false);
+  });
+
+  it("uses the retry payload, then a required fallback so the section is never empty", () => {
+    expect(applyCompetitiveInsightsRetry(undefined, ["Niche is saturated on UGC."])).toEqual([
+      "Niche is saturated on UGC.",
+    ]);
+    const fallback = applyCompetitiveInsightsRetry([], undefined);
+    expect(fallback.length).toBeGreaterThan(0);
+    expect(fallback[0]).toMatch(/market intelligence/i);
+  });
+});
+
+describe("worker retention log", () => {
+  it("emits old/new/applied so preview can confirm the stored v3 score", () => {
+    expect(formatWorkerRetentionLog("an-1", 72, 85, 85)).toBe(
+      "[worker] retention an-1 old=72 new=85 applied=85"
+    );
+    expect(formatWorkerRetentionLog("an-1", 72, undefined, 72)).toBe(
+      "[worker] retention an-1 old=72 new=n/a applied=72"
+    );
+  });
+
+  it("lets v1 and v3 diverge for the same Gemini 7/8 so the log can show the swap", () => {
+    const scores = { scrollStopScore: 30, watchThroughScore: 30, retentionScore: 85 };
+    const signals = {
+      coldScrollStopScore: 7,
+      watchThroughScore: 8,
+      openingFeatures: {
+        est2sRetentionPct: 70,
+        curiosityGap: true,
+        polishedBrandLook: false,
+        productOrLogoAt0s: false,
+      },
+    };
+    const v1 = calibrateScoresFromVisualEvidenceV1(scores, signals).retentionScore;
+    const v3 = computeRetentionV3(signals.openingFeatures);
+    expect(v3).toBeDefined();
+    expect(v1).not.toBe(v3);
   });
 });

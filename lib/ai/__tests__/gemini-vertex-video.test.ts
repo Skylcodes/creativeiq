@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { normalizeAnalysis } from "@/lib/ai/gemini-vertex-video";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildRetentionScoringContract,
+  formatGeminiVisualContextForGrading,
+  geminiAnalysisNeedsRetry,
+  normalizeAnalysis,
+} from "@/lib/ai/gemini-vertex-video";
 import type { VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
 function baseAnalysis(overrides: Partial<VideoAnalysisResult>): VideoAnalysisResult {
@@ -64,5 +69,87 @@ describe("normalizeAnalysis", () => {
     );
     expect(result.watchThroughScore).toBeLessThanOrEqual(7);
     expect(result.watchThroughScore).toBeGreaterThanOrEqual(5);
+  });
+
+  it("preserves openingFeatures so v3 scoring can run", () => {
+    const openingFeatures = {
+      est2sRetentionPct: 40,
+      curiosityGap: true,
+      polishedBrandLook: false,
+      productOrLogoAt0s: false,
+    };
+    const result = normalizeAnalysis(baseAnalysis({ openingFeatures }));
+    expect(result.openingFeatures).toEqual(openingFeatures);
+  });
+});
+
+describe("geminiAnalysisNeedsRetry", () => {
+  it("retries when v3 is on but Gemini omitted est2sRetentionPct", () => {
+    expect(
+      geminiAnalysisNeedsRetry(
+        baseAnalysis({
+          coldScrollStopScore: 7,
+          watchThroughScore: 8,
+          openingFeatures: { curiosityGap: true },
+        }),
+        true
+      )
+    ).toBe(true);
+  });
+
+  it("does not retry a complete v3 payload", () => {
+    expect(
+      geminiAnalysisNeedsRetry(
+        baseAnalysis({
+          coldScrollStopScore: 7,
+          watchThroughScore: 8,
+          openingFeatures: { est2sRetentionPct: 40 },
+        }),
+        true
+      )
+    ).toBe(false);
+  });
+});
+
+describe("buildRetentionScoringContract", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("tells Sonnet the fitted v3 score instead of the v1 ~76 map", () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const contract = buildRetentionScoringContract(
+      baseAnalysis({
+        coldScrollStopScore: 7,
+        watchThroughScore: 8,
+        openingFeatures: {
+          est2sRetentionPct: 70,
+          curiosityGap: true,
+          polishedBrandLook: false,
+          productOrLogoAt0s: false,
+        },
+      })
+    );
+    expect(contract).not.toMatch(/center near ~/);
+    expect(contract).toMatch(/MUST be \d+/);
+    expect(contract).toMatch(/openingFeatures/);
+  });
+});
+
+describe("formatGeminiVisualContextForGrading", () => {
+  it("includes openingFeatures so Job 4 sees the v3 inputs", () => {
+    const text = formatGeminiVisualContextForGrading(
+      baseAnalysis({
+        openingFeatures: {
+          est2sRetentionPct: 40,
+          curiosityGap: true,
+          polishedBrandLook: false,
+          productOrLogoAt0s: true,
+        },
+      })
+    );
+    expect(text).toMatch(/OPENING FEATURES/);
+    expect(text).toMatch(/est2sRetentionPct=40/);
+    expect(text).toMatch(/curiosityGap=true/);
   });
 });
