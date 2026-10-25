@@ -209,6 +209,74 @@ function hydrateAgentFindings(
   return result;
 }
 
+export const MAX_PRIORITY_ACTIONS = 5;
+
+const STOP = new Set("a an the and or to of in on for with your this that it is are be by at from as into ad ads add make more less use their its".split(" "));
+function tokens(text: string | undefined): Set<string> {
+  return new Set(
+    (text ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .split(/\s+/)
+      .map((w) => w.replace(/(ing|ed|es|s)$/, ""))
+      .filter((w) => w.length > 2 && !STOP.has(w))
+  );
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+
+const SYNONYMS: Record<string, string> = {
+  caption: "text", overlay: "text", subtitle: "text", onscreen: "text", copy: "text", headline: "text",
+  opener: "hook", opening: "hook", intro: "hook", first: "hook",
+  cta: "cta", call: "cta", button: "cta",
+  testimonial: "proof", review: "proof", social: "proof", rating: "proof",
+  shorten: "cut", trim: "cut", remove: "cut", drop: "cut", delete: "cut", tighten: "cut",
+  price: "offer", discount: "offer", deal: "offer",
+  explain: "clarify", clarify: "clarify", clear: "clarify",
+  cutt: "cut", second: "duration", sec: "duration", length: "duration", runtime: "duration", long: "duration",
+  video: "", clip: "", scene: "", shot: "", viewer: "", user: "", under: "",
+};
+function canon(text: string | undefined): Set<string> {
+  const out = new Set<string>();
+  const normalized = (text ?? "").replace(/~?\b\d{1,3}\s*s(ec(ond)?s?)?\b/gi, " duration ");
+  for (const w of tokens(normalized)) {
+    if (/^\d+$/.test(w)) continue;
+    const c = SYNONYMS[w] ?? w;
+    if (c) out.add(c);
+  }
+  return out;
+}
+function overlap(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / Math.min(a.size, b.size);
+}
+function timestamps(text: string): Set<string> {
+  return new Set((text.match(/\b\d{1,2}:\d{2}\b/g) ?? []).map((t) => t.replace(/^0(\d:)/, "$1")));
+}
+
+/**
+ * Semantic-ish duplicate check (no model call): synonym-canonicalised tokens,
+ * Jaccard and containment, plus "same timestamp + same verb/object" collisions.
+ */
+export function actionsAreDuplicates(a: PriorityAction, b: PriorityAction): boolean {
+  const aAct = canon(a.action);
+  const bAct = canon(b.action);
+  if (jaccard(aAct, bAct) >= 0.4 || overlap(aAct, bAct) >= 0.7) return true;
+  const aFull = canon(`${a.action} ${a.currentProblem ?? ""} ${a.strategicFix ?? ""}`);
+  const bFull = canon(`${b.action} ${b.currentProblem ?? ""} ${b.strategicFix ?? ""}`);
+  if (jaccard(aFull, bFull) >= 0.35) return true;
+  const aTs = timestamps(`${a.action} ${a.currentProblem ?? ""}`);
+  const bTs = timestamps(`${b.action} ${b.currentProblem ?? ""}`);
+  const sharedTs = [...aTs].some((t) => bTs.has(t));
+  return sharedTs && overlap(aAct, bAct) >= 0.4;
+}
+
 function hydratePriorityActions(
   actions: PriorityAction[],
   topBlockers: ConversionBlocker[],
@@ -224,19 +292,23 @@ function hydratePriorityActions(
       strategicFix: a.strategicFix ?? a.action,
     }));
 
+  const deduped: PriorityAction[] = [];
+  for (const a of result) if (!deduped.some((d) => actionsAreDuplicates(d, a))) deduped.push(a);
+  result.length = 0;
+  result.push(...deduped);
   const seen = new Set(result.map((a) => a.action.toLowerCase().slice(0, 60)));
 
   for (const blocker of topBlockers) {
-    if (result.length >= 8) break;
+    if (result.length >= MAX_PRIORITY_ACTIONS) break;
     const action = blockerToAction(blocker);
     const key = action.action.toLowerCase().slice(0, 60);
-    if (seen.has(key)) continue;
+    if (seen.has(key) || result.some((r) => actionsAreDuplicates(r, action))) continue;
     seen.add(key);
     result.push(action);
   }
 
   if (options?.skipLpHydration || (options?.conversionTotal ?? 0) >= 72) {
-    return result.slice(0, 8);
+    return result.slice(0, MAX_PRIORITY_ACTIONS);
   }
 
   const sortedCategories = [...categories].sort(
@@ -244,16 +316,16 @@ function hydratePriorityActions(
   );
 
   for (const cat of sortedCategories) {
-    if (result.length >= 8) break;
+    if (result.length >= MAX_PRIORITY_ACTIONS) break;
     const action = categoryToAction(cat);
     if (!action) continue;
     const key = action.action.toLowerCase().slice(0, 60);
-    if (seen.has(key)) continue;
+    if (seen.has(key) || result.some((r) => actionsAreDuplicates(r, action))) continue;
     seen.add(key);
     result.push(action);
   }
 
-  return result.slice(0, 8);
+  return result.slice(0, MAX_PRIORITY_ACTIONS);
 }
 
 export type HydratedFunnelFields = HydratableFields & {

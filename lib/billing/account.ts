@@ -201,7 +201,9 @@ export async function countAccountUsage(
       .from("analyses")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
-      .gte("created_at", monthStartIso());
+      .gte("created_at", monthStartIso())
+      // Failed/timed-out runs delivered nothing — they must not consume plan usage.
+      .neq("status", "failed");
 
     query =
       feature === "variant_comparisons"

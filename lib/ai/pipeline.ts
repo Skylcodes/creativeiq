@@ -174,6 +174,7 @@ export async function runFullAnalysis(
             coldScrollStopScore: visualIntelligence.coldScrollStopScore,
             watchThroughScore: visualIntelligence.watchThroughScore,
             dropOffMoments: visualIntelligence.dropOffMoments,
+            defects: visualIntelligence.defects,
             visualAnalysisMode: visualIntelligence.videoContext?.visualAnalysisMode,
           }
         : undefined,

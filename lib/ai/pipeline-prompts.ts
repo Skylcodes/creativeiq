@@ -138,7 +138,7 @@ Question: "If this exact video appeared organically in a TikTok/Reels/Shorts fee
 You have NOT watched the video. Use VISUAL INTELLIGENCE (Gemini full-video watch) as ground truth for opening frame, motion, cuts, pacing, timeline, drop-offs, and on-screen timing. Use Real Viewer transcript as supporting evidence only.
 
 Before scoring, mentally simulate seconds 0-3 as a feed viewer (not a marketer): would they pause? why scroll away? would they reach the value prop?
-Grade watch behavior — NOT marketing structure. Strong copy + weak/static/slow visuals = LOW retention even if strategy scores well. Engaging pacing + weak offer = HIGH retention (valid).
+Grade watch behavior — NOT marketing structure. Brand/product fit and ad-to-landing-page mismatch NEVER lower retention; they belong in conversion and the landing-page categories only. Strong copy + weak/static/slow visuals = LOW retention even if strategy scores well. Engaging pacing + weak offer = HIGH retention (valid).
 
 Do NOT inflate retention for: hook exists on paper, CTA present, persuasive script, clear offer, or "good strategy." Those are not watch-time unless VISUAL INTELLIGENCE shows viewers would actually stay.
 Penalize when VISUAL INTELLIGENCE shows: static opening, slow pacing, no pattern interrupt, long holds without new info, listed drop-off moments, or coldScrollStopScore/watchThroughScore below 6/10.

@@ -7,6 +7,14 @@ import {
   buildRetentionScoringContract,
   GEMINI_VIDEO_SEED,
   GEMINI_VIDEO_TEMPERATURE,
+  GEMINI_VIDEO_ATTEMPT_TIMEOUT_MS,
+  GEMINI_VIDEO_TOTAL_BUDGET_MS,
+  GEMINI_VIDEO_MAX_OUTPUT_TOKENS,
+  GEMINI_VIDEO_THINKING_BUDGET,
+  shouldRetryGemini,
+  applyDefectCaps,
+  hookTallyBand,
+  applyHookTallyCap,
 } from "@/lib/ai/gemini-vertex-video";
 import { VIDEO_ANALYSIS_JSON_SCHEMA, type VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
@@ -147,4 +155,65 @@ describe("Gemini determinism + leak guards", () => {
     expect(text).not.toMatch(/SCORING CONTRACT/);
     expect(text).toMatch(/NEVER quote/);
   });
+});
+
+describe("Gemini time/token budget (sp-ad-1 timeout regression)", () => {
+  it("bounds each attempt and the total so scoring still fits under the 270s abort", () => {
+    expect(GEMINI_VIDEO_ATTEMPT_TIMEOUT_MS).toBeLessThanOrEqual(75_000);
+    expect(GEMINI_VIDEO_TOTAL_BUDGET_MS).toBeLessThanOrEqual(90_000);
+  });
+  it("skips the retry when the first attempt was slow", () => {
+    expect(shouldRetryGemini(20_000)).toBe(true);
+    expect(shouldRetryGemini(60_000)).toBe(false);
+  });
+  it("leaves output headroom after bounded thinking", () => {
+    expect(GEMINI_VIDEO_MAX_OUTPUT_TOKENS - GEMINI_VIDEO_THINKING_BUDGET).toBeGreaterThanOrEqual(12_000);
+  });
+});
+
+describe("defect audit caps (sp-ad-1 / bm_7365 must score low)", () => {
+  it("sp-ad-1: slow 48s screen recording with a must-read report cannot keep 7/8", () => {
+    const r = normalizeAnalysis(
+      baseAnalysis({
+        coldScrollStopScore: 7,
+        watchThroughScore: 8,
+        soundOffComprehensionScore: 3,
+        defects: [
+          { type: "reading_burden", severity: "critical", timestamp: "~0:36", evidence: "slow scroll through dense report" },
+          { type: "length", severity: "major", evidence: "48s for one idea" },
+          { type: "pacing", severity: "major", evidence: "long holds on static UI" },
+          { type: "comprehension", severity: "major", evidence: "unclear what is sold sound-off" },
+        ],
+      })
+    );
+    expect(r.coldScrollStopScore).toBeLessThanOrEqual(4);
+    expect(r.watchThroughScore).toBeLessThanOrEqual(4);
+  });
+
+  it("bm_7365: generic beauty-shot hook is capped", () => {
+    const r = applyDefectCaps({ cold: 7, watch: 8 }, [
+      { type: "hook", severity: "major", evidence: "generic caption, no face, no tension" },
+    ]);
+    expect(r.cold).toBeLessThanOrEqual(5);
+  });
+
+  it("minor defects do not move a clean ad", () => {
+    expect(
+      applyDefectCaps({ cold: 8, watch: 8 }, [{ type: "pacing", severity: "minor", evidence: "x" }], 8)
+    ).toEqual({ cold: 8, watch: 8 });
+  });
+});
+
+describe("hook tally (bm_7365)", () => {
+  const bm7365 = {
+    firstFrameSalience: "no", visualChangeBy1_5s: "yes", humanConnection: "partial",
+    soundOffClarity: "yes", specificTension: "no", nativeFeel: "partial", negatives: 0,
+  } as const;
+  it("generic beauty-shot opener tallies to a 5", () => expect(hookTallyBand(bm7365)).toBe(5));
+  it("an 8 from the model is bounded by its own tally", () => expect(applyHookTallyCap(8, bm7365)).toBe(6));
+  it("strong hook keeps its score", () => {
+    const strong = { firstFrameSalience: "yes", visualChangeBy1_5s: "yes", humanConnection: "yes", soundOffClarity: "yes", specificTension: "yes", nativeFeel: "partial", negatives: 0 } as const;
+    expect(applyHookTallyCap(8, strong)).toBe(8);
+  });
+  it("missing tally changes nothing", () => expect(applyHookTallyCap(7, undefined)).toBe(7));
 });
