@@ -63,6 +63,7 @@ VISUAL ACCURACY RULES (critical — grading depends on this):
    Hook-payoff coherence: if the hook's promise is not delivered by the product/body (bait-and-switch), cap at 5.
    CONCEPT VS. EXECUTION: score the lived moment-to-moment viewing experience, not the cleverness of the format. Dense text the viewer must stop to read, flat/robotic delivery, a software-demo aesthetic, and 3s+ stretches with nothing new are negative signals.
 8. dropOffMoments: timestamps where a cold viewer would realistically swipe — empty array if retention holds. If you list 2+ drop-offs, watchThroughScore must be ≤6. If ANY drop-off is caused by dense text/reading burden, watchThroughScore must be ≤5.
+   A drop-off is a moment where a real viewer would SWIPE, not a moment that is merely less dynamic. A creator talking to camera with continuous speech and changing captions is NOT a drop-off just because the shot is held 3–6s — only list it if nothing new is said or shown. Do not list the CTA/ending as a drop-off. Most solid ads have 0–1 drop-offs; list 3+ only for genuinely hard-to-watch videos, and then watchThroughScore must be ≤4.
    coldScrollStopEvidence and watchThroughEvidence must be written BEFORE their scores, quote timestamps from your log, list each factor as Yes/Partial/No, and end with "→ band X because …". Never contradict your own timeline (e.g., do not call an opening "static" if your log shows a cut ≤3s).
 9. Quote onScreenText exactly when visible. Consolidate distinct overlays.
 10. META-CRITIQUE: if on-screen text belongs to a reference/competitor clip being shown while the creator speaks over it, still quote it in onScreenText but explain in separationNotes that it is REFERENCE AD COPY — not the advertiser's sell. primaryMessaging = only the creator's spoken critique/pitch/CTA.
@@ -222,6 +223,13 @@ function parseAnalysisJson(raw: string, finishReason?: string): VideoAnalysisRes
 const READING_BURDEN_PATTERN =
   /\b(read|reading|text[- ]heavy|dense text|wall of text|scroll(ing)? (text|report)|pause to read|stop(s)? to read|require[sd]? (active )?reading)\b/i;
 
+/** First timestamp in a drop-off note ("~0:32–0:37 hold" → 32). Unknown → Infinity (treated as not-opening). */
+export function dropOffStartSec(moment: string): number {
+  const m = moment.match(/(\d{1,2}):(\d{2})/) ?? moment.match(/(?:^|[^\d])(\d{1,3}(?:\.\d+)?)\s*s\b/);
+  if (!m) return Number.POSITIVE_INFINITY;
+  return m.length >= 3 && m[2] !== undefined && moment.includes(":") ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]);
+}
+
 /** Exported for unit testing — enforces internal consistency on raw Gemini output. */
 export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisResult {
   let coldScrollStopScore = clampScore(analysis.coldScrollStopScore);
@@ -234,7 +242,12 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
   // returns table-stakes 5-6 scores, which then fail to cap bad ads downstream.
   if (dropCount >= 2) {
     if (watchThroughScore != null) watchThroughScore = Math.min(watchThroughScore, 6);
-    if (coldScrollStopScore != null) coldScrollStopScore = Math.min(coldScrollStopScore, 5);
+    // Only drop-offs inside the opening (≤3s) say anything about scroll-stop.
+    // Back-half drop-offs (e.g. a 0:32 hold) must not cap the hook score.
+    const openingDrops = dropOffMoments?.filter((m) => dropOffStartSec(m) <= 3).length ?? 0;
+    if (openingDrops >= 1 && coldScrollStopScore != null) {
+      coldScrollStopScore = Math.min(coldScrollStopScore, 5);
+    }
   } else if (dropCount === 1) {
     if (watchThroughScore != null) watchThroughScore = Math.min(watchThroughScore, 7);
   }

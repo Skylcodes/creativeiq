@@ -156,8 +156,11 @@ export function calibrateScoresFromVisualEvidence(
     let retentionCap = clamp(Math.round(coldN * 4 + watchN * 6), 0, 100);
 
     const dropCount = signals?.dropOffMoments?.filter(Boolean).length ?? 0;
-    if (dropCount >= 2) retentionCap = Math.min(retentionCap, 55);
-    if (dropCount >= 3) retentionCap = Math.min(retentionCap, 40);
+    // Drop-offs are already reflected in Gemini's (normalized) watch score; only
+    // apply an extra ceiling when the watcher itself rated watch-through weak,
+    // otherwise one set of drop-offs gets penalised twice (e.g. 8/8 → 5/6 → 40).
+    if (dropCount >= 2 && watchN <= 4) retentionCap = Math.min(retentionCap, 55);
+    if (dropCount >= 3 && watchN <= 4) retentionCap = Math.min(retentionCap, 40);
 
     if (shouldCapToVisualEvidence(scrollStopScore, scrollCap, coldN)) {
       scrollStopScore = Math.min(scrollStopScore, scrollCap);

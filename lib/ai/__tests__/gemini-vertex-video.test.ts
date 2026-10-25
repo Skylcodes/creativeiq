@@ -3,6 +3,7 @@ import {
   formatGeminiVisualContextForGrading,
   geminiAnalysisNeedsRetry,
   normalizeAnalysis,
+  dropOffStartSec,
   buildRetentionScoringContract,
   GEMINI_VIDEO_SEED,
   GEMINI_VIDEO_TEMPERATURE,
@@ -39,7 +40,26 @@ describe("normalizeAnalysis", () => {
       })
     );
     expect(result.watchThroughScore).toBeLessThanOrEqual(6);
+    // Mid-video drop-offs say nothing about the hook — opening score is kept.
+    expect(result.coldScrollStopScore).toBe(8);
+  });
+
+  it("caps the opening score only when a drop-off is inside the first 3s", () => {
+    const result = normalizeAnalysis(
+      baseAnalysis({
+        coldScrollStopScore: 8,
+        watchThroughScore: 8,
+        dropOffMoments: ["~0:02 logo card, no reason to stay", "~0:20 repetitive beat"],
+      })
+    );
     expect(result.coldScrollStopScore).toBeLessThanOrEqual(5);
+  });
+
+  it("parses drop-off start times", () => {
+    expect(dropOffStartSec("~0:32–0:37 static hold")).toBe(32);
+    expect(dropOffStartSec("~1:05 repeat")).toBe(65);
+    expect(dropOffStartSec("2.5s blank frame")).toBe(2.5);
+    expect(dropOffStartSec("middle drags")).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("caps watchThroughScore to 5 when a drop-off cites reading burden — reproduces the real bad-ad case", () => {

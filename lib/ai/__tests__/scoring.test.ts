@@ -155,14 +155,26 @@ describe("anchorRetentionScore", () => {
     expect(anchorRetentionScore(72, undefined)).toBe(72);
   });
 
-  it("applies stricter cap when multiple drop-off moments are listed", () => {
+  it("applies stricter cap when multiple drop-offs AND the watcher rated watch-through weak", () => {
     expect(
       anchorRetentionScore(80, {
         coldScrollStopScore: 5,
-        watchThroughScore: 6,
+        watchThroughScore: 4,
         dropOffMoments: ["~0:04", "~0:12", "~0:20"],
       })
     ).toBeLessThanOrEqual(40);
+  });
+
+  it("does not double-penalise drop-offs already reflected in watch-through (caffeine 43s regression: was 40)", () => {
+    // PR #6 preview: Gemini listed 3 mid/late holds, normalize capped 8/8 → 5/6,
+    // then the drop-off ceiling forced 40 on top of the 56 signal mapping.
+    expect(
+      anchorRetentionScore(54, {
+        coldScrollStopScore: 5,
+        watchThroughScore: 6,
+        dropOffMoments: ["~0:12–0:17 hold", "~0:32–0:37 hold", "~0:37–0:42 hold"],
+      })
+    ).toBe(54);
   });
 
   it("closes the 7/7 dead zone — pulls a far-too-low model score up toward the contract target", () => {
