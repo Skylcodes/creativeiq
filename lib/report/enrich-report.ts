@@ -229,15 +229,52 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / (a.size + b.size - inter);
 }
 
-/** Two actions are duplicates if their action lines, or action+problem, overlap heavily. */
+const SYNONYMS: Record<string, string> = {
+  caption: "text", overlay: "text", subtitle: "text", onscreen: "text", copy: "text", headline: "text",
+  opener: "hook", opening: "hook", intro: "hook", first: "hook",
+  cta: "cta", call: "cta", button: "cta",
+  testimonial: "proof", review: "proof", social: "proof", rating: "proof",
+  shorten: "cut", trim: "cut", remove: "cut", drop: "cut", delete: "cut", tighten: "cut",
+  price: "offer", discount: "offer", deal: "offer",
+  explain: "clarify", clarify: "clarify", clear: "clarify",
+  cutt: "cut", second: "duration", sec: "duration", length: "duration", runtime: "duration", long: "duration",
+  video: "", clip: "", scene: "", shot: "", viewer: "", user: "", under: "",
+};
+function canon(text: string | undefined): Set<string> {
+  const out = new Set<string>();
+  const normalized = (text ?? "").replace(/~?\b\d{1,3}\s*s(ec(ond)?s?)?\b/gi, " duration ");
+  for (const w of tokens(normalized)) {
+    if (/^\d+$/.test(w)) continue;
+    const c = SYNONYMS[w] ?? w;
+    if (c) out.add(c);
+  }
+  return out;
+}
+function overlap(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / Math.min(a.size, b.size);
+}
+function timestamps(text: string): Set<string> {
+  return new Set((text.match(/\b\d{1,2}:\d{2}\b/g) ?? []).map((t) => t.replace(/^0(\d:)/, "$1")));
+}
+
+/**
+ * Semantic-ish duplicate check (no model call): synonym-canonicalised tokens,
+ * Jaccard and containment, plus "same timestamp + same verb/object" collisions.
+ */
 export function actionsAreDuplicates(a: PriorityAction, b: PriorityAction): boolean {
-  const actionSim = jaccard(tokens(a.action), tokens(b.action));
-  if (actionSim >= 0.5) return true;
-  const full = jaccard(
-    tokens(`${a.action} ${a.currentProblem ?? ""} ${a.strategicFix ?? ""}`),
-    tokens(`${b.action} ${b.currentProblem ?? ""} ${b.strategicFix ?? ""}`)
-  );
-  return full >= 0.45;
+  const aAct = canon(a.action);
+  const bAct = canon(b.action);
+  if (jaccard(aAct, bAct) >= 0.4 || overlap(aAct, bAct) >= 0.7) return true;
+  const aFull = canon(`${a.action} ${a.currentProblem ?? ""} ${a.strategicFix ?? ""}`);
+  const bFull = canon(`${b.action} ${b.currentProblem ?? ""} ${b.strategicFix ?? ""}`);
+  if (jaccard(aFull, bFull) >= 0.35) return true;
+  const aTs = timestamps(`${a.action} ${a.currentProblem ?? ""}`);
+  const bTs = timestamps(`${b.action} ${b.currentProblem ?? ""}`);
+  const sharedTs = [...aTs].some((t) => bTs.has(t));
+  return sharedTs && overlap(aAct, bAct) >= 0.4;
 }
 
 function hydratePriorityActions(

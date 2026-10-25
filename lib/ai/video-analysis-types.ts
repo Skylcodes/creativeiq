@@ -18,6 +18,8 @@ export type VideoAnalysisResult = {
   dropOffMoments?: string[];
   /** Ranked defects (worst first) — drives deterministic caps in normalizeAnalysis. */
   defects?: VideoDefect[];
+  /** Structured hook tally (F1–F6) — used to bound coldScrollStopScore deterministically. */
+  hookFactors?: HookFactors;
   /** 0–10: could a sound-off viewer explain what is sold and why within ~5s? */
   soundOffComprehensionScore?: number;
   /** When/how the product is shown */
@@ -28,6 +30,18 @@ export type VideoAnalysisResult = {
   emotionalCharacteristics?: string[];
   /** Final sequence: last frame, CTA, offer, spoken closing */
   endingDescription?: string;
+};
+
+export type HookFactorValue = "yes" | "partial" | "no";
+export type HookFactors = {
+  firstFrameSalience?: HookFactorValue;
+  visualChangeBy1_5s?: HookFactorValue;
+  humanConnection?: HookFactorValue;
+  soundOffClarity?: HookFactorValue;
+  specificTension?: HookFactorValue;
+  nativeFeel?: HookFactorValue;
+  /** Count of hook negatives observed (logo first, dark/blurry first second, illegible text, bait). */
+  negatives?: number;
 };
 
 export type VideoDefectType =

@@ -13,6 +13,8 @@ import {
   GEMINI_VIDEO_THINKING_BUDGET,
   shouldRetryGemini,
   applyDefectCaps,
+  hookTallyBand,
+  applyHookTallyCap,
 } from "@/lib/ai/gemini-vertex-video";
 import { VIDEO_ANALYSIS_JSON_SCHEMA, type VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
@@ -200,4 +202,18 @@ describe("defect audit caps (sp-ad-1 / bm_7365 must score low)", () => {
       applyDefectCaps({ cold: 8, watch: 8 }, [{ type: "pacing", severity: "minor", evidence: "x" }], 8)
     ).toEqual({ cold: 8, watch: 8 });
   });
+});
+
+describe("hook tally (bm_7365)", () => {
+  const bm7365 = {
+    firstFrameSalience: "no", visualChangeBy1_5s: "yes", humanConnection: "partial",
+    soundOffClarity: "yes", specificTension: "no", nativeFeel: "partial", negatives: 0,
+  } as const;
+  it("generic beauty-shot opener tallies to a 5", () => expect(hookTallyBand(bm7365)).toBe(5));
+  it("an 8 from the model is bounded by its own tally", () => expect(applyHookTallyCap(8, bm7365)).toBe(6));
+  it("strong hook keeps its score", () => {
+    const strong = { firstFrameSalience: "yes", visualChangeBy1_5s: "yes", humanConnection: "yes", soundOffClarity: "yes", specificTension: "yes", nativeFeel: "partial", negatives: 0 } as const;
+    expect(applyHookTallyCap(8, strong)).toBe(8);
+  });
+  it("missing tally changes nothing", () => expect(applyHookTallyCap(7, undefined)).toBe(7));
 });

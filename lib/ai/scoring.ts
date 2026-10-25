@@ -193,7 +193,10 @@ export function calibrateScoresFromVisualEvidence(
     // watcher's defect-capped signals. The scoring model's own retention number
     // is ignored here: it was dragging retention down for off-brand / landing-
     // page mismatches, which belong in conversion and the overall score only.
-    retentionScore = retentionCap;
+    // Hook gate: viewers who never stop cannot be retained, so a weak opening
+    // bounds retention regardless of how watchable the rest is.
+    const hookGate = coldN <= 4 ? 50 : coldN === 5 ? 62 : coldN === 6 ? 69 : 100;
+    retentionScore = Math.min(retentionCap, hookGate);
   } else if (weakVisual) {
     scrollStopScore = Math.min(scrollStopScore, 30);
     watchThroughScore = Math.min(watchThroughScore, 30);
@@ -756,11 +759,30 @@ const OFF_TOPIC_DEFECT = /\b(brand|landing page|landing-page|mismatch|off[- ]bra
 const POSITIVE_HOLD =
   /\b(hold(s)? (well|attention|viewers)|will stay|keep(s)? (most )?(viewers )?watching|most (viewers|people) (stay|will|keep|watch)|highly likely|strong(ly)? (hold|retention)|earn(s)? (genuine )?watch time|lands cleanly)\b/i;
 
-export function retentionBandLead(score: number): string {
+const LEAD_BY_DEFECT: Record<string, [string, string]> = {
+  hook: ["Most viewers scroll past in the first two seconds.", "The opening loses a lot of viewers in the first two seconds."],
+  comprehension: ["Most viewers leave because it isn't clear what is being sold or why.", "Many viewers drop because the message takes too long to land."],
+  reading_burden: ["Most viewers leave once the ad asks them to stop and read.", "Many viewers drop when the ad turns into reading."],
+  pacing: ["Most viewers drift away during the slow stretches.", "Many viewers drift during the slower stretches."],
+  length: ["Most viewers leave long before the payoff — the ad runs far longer than its content.", "Many viewers drop before the payoff because it runs long."],
+  watchability: ["Most viewers won't sit through it — it is hard to watch.", "Many viewers drop because it is hard to follow."],
+  payoff: ["Most viewers leave without a payoff that matches the hook.", "Many viewers drop because the payoff doesn't match the hook."],
+};
+
+/**
+ * Band opener that agrees with what follows: led by the worst watchability
+ * defect when there is one, otherwise a neutral band statement.
+ */
+export function retentionBandLead(score: number, topDefect?: VideoDefect): string {
   if (score >= 85) return "Most viewers who see this will stop and watch it through.";
-  if (score >= 75) return "A solid share of viewers will stop, but a noticeable portion drop before the payoff.";
-  if (score >= 60) return "Many viewers will scroll past or drop before the payoff.";
-  return "Most viewers will leave before the payoff.";
+  if (score >= 75) {
+    return topDefect && topDefect.severity !== "minor"
+      ? "A solid share of viewers will stop and stay, but some drop at the point below."
+      : "A solid share of viewers will stop and stay; a smaller portion drop before the payoff.";
+  }
+  const pair = topDefect ? LEAD_BY_DEFECT[topDefect.type] : undefined;
+  if (score >= 60) return pair?.[1] ?? "Many viewers will scroll past or drop before the payoff.";
+  return pair?.[0] ?? "Most viewers will leave before the payoff.";
 }
 
 function defectSentence(d: VideoDefect): string {
@@ -793,8 +815,10 @@ export function composeRetentionRationale(
     .filter((x) => !OFF_TOPIC_DEFECT.test(x))
     .filter((x) => s >= 75 || !POSITIVE_HOLD.test(x));
 
-  const parts = [`Retention: ${s}/100. ${retentionBandLead(s)}`];
-  if (reasons.length) parts.push(`Main reasons viewers drop: ${reasons.join(" ")}`);
+  const parts = [`Retention: ${s}/100. ${retentionBandLead(s, shown[0])}`];
+  if (reasons.length) {
+    parts.push(`${s >= 75 ? "Where viewers drop" : "Main reasons viewers drop"}: ${reasons.join(" ")}`);
+  }
   const extra = modelSentences.slice(0, reasons.length ? 2 : 3).join(" ");
   if (extra) parts.push(extra);
   return parts.join(" ").replace(/\s{2,}/g, " ").trim();

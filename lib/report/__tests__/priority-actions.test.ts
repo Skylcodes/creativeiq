@@ -11,6 +11,31 @@ const pa = (action: string, currentProblem = "") => ({
   expectedImpact: "",
 });
 
+describe("priority action dedupe (0006 stronger)", () => {
+  it("merges synonym rewrites", () => {
+    expect(actionsAreDuplicates(
+      pa("Add a caption in the opening that names the product"),
+      pa("Put on-screen text in the first 2 seconds naming the product")
+    )).toBe(true);
+    expect(actionsAreDuplicates(
+      pa("Shorten the video to under 25 seconds"),
+      pa("Trim the ad to ~20s by cutting the middle")
+    )).toBe(true);
+  });
+  it("merges two fixes for the same timestamped moment", () => {
+    expect(actionsAreDuplicates(
+      pa("Replace the report scroll at 0:36", "dense report at 0:36"),
+      pa("Show one highlighted insight instead of scrolling the report", "slow scroll at 0:36")
+    )).toBe(true);
+  });
+  it("still keeps unrelated actions apart", () => {
+    expect(actionsAreDuplicates(
+      pa("Add a single CTA: Start free trial"),
+      pa("Add a customer review count above the fold")
+    )).toBe(false);
+  });
+});
+
 describe("priority action dedupe", () => {
   it("caps at 5", () => expect(MAX_PRIORITY_ACTIONS).toBe(5));
   it("flags near-duplicate wording", () => {

@@ -5,6 +5,7 @@ import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
   type VideoDefect,
+  type HookFactors,
 } from "@/lib/ai/video-analysis-types";
 import { mapGeminiToRetention } from "@/lib/ai/retention-map";
 
@@ -115,6 +116,7 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     "emotionalCharacteristics",
     "endingDescription",
     "dropOffMoments",
+    "hookFactors",
     "defects",
     "soundOffComprehensionScore",
     "coldScrollStopEvidence",
@@ -179,6 +181,20 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
       },
     },
     soundOffComprehensionScore: { type: Type.INTEGER },
+    hookFactors: {
+      type: Type.OBJECT,
+      description: "Your F1–F6 hook tally from rule 6, one value each, plus the count of hook negatives.",
+      properties: {
+        firstFrameSalience: { type: Type.STRING, enum: ["yes", "partial", "no"] },
+        visualChangeBy1_5s: { type: Type.STRING, enum: ["yes", "partial", "no"] },
+        humanConnection: { type: Type.STRING, enum: ["yes", "partial", "no"] },
+        soundOffClarity: { type: Type.STRING, enum: ["yes", "partial", "no"] },
+        specificTension: { type: Type.STRING, enum: ["yes", "partial", "no"] },
+        nativeFeel: { type: Type.STRING, enum: ["yes", "partial", "no"] },
+        negatives: { type: Type.INTEGER },
+      },
+      required: ["firstFrameSalience", "visualChangeBy1_5s", "humanConnection", "soundOffClarity", "specificTension", "nativeFeel", "negatives"],
+    },
     productVisibility: { type: Type.STRING },
     visualStyle: { type: Type.STRING },
     emotionalCharacteristics: {
@@ -188,6 +204,9 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     endingDescription: { type: Type.STRING },
   },
   required: [
+    "hookFactors",
+    "defects",
+    "soundOffComprehensionScore",
     "coldScrollStopScore",
     "coldScrollStopEvidence",
     "watchThroughScore",
@@ -278,6 +297,26 @@ export function dropOffStartSec(moment: string): number {
   return m.length >= 3 && m[2] !== undefined && moment.includes(":") ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]);
 }
 
+/** F1–F6 tally (yes=1, partial=0.5) minus negatives → the anchor band from rule 6. */
+export function hookTallyBand(f: HookFactors | undefined): number | undefined {
+  if (!f) return undefined;
+  const keys = ["firstFrameSalience", "visualChangeBy1_5s", "humanConnection", "soundOffClarity", "specificTension", "nativeFeel"] as const;
+  const vals = keys.map((k) => f[k]);
+  if (vals.every((v) => v == null)) return undefined;
+  const tally = vals.reduce((n, v) => n + (v === "yes" ? 1 : v === "partial" ? 0.5 : 0), 0);
+  // Anchors: ≤1 → 2, 2 → 4, 3 → 5, 4 → 6, 5 → 7, 6 → 9 (interpolated for halves).
+  const band = tally <= 1 ? 2 : tally <= 2 ? 2 + (tally - 1) * 2 : tally <= 4 ? 4 + (tally - 2) : tally <= 5 ? 6 + (tally - 4) : 7 + (tally - 5) * 2;
+  const neg = Math.min(2, Math.max(0, Math.round(f.negatives ?? 0)));
+  return Math.max(0, Math.min(10, Math.round(band - neg)));
+}
+
+/** The model's cold score may not exceed its own hook tally by more than 1. */
+export function applyHookTallyCap(cold: number | undefined, f: HookFactors | undefined): number | undefined {
+  const band = hookTallyBand(f);
+  if (cold == null || band == null) return cold;
+  return Math.min(cold, band + 1);
+}
+
 const SEVERITY_RANK = { minor: 1, major: 2, critical: 3 } as const;
 
 /**
@@ -350,6 +389,7 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
   if (hasReadingBurdenDropOff && watchThroughScore != null) {
     watchThroughScore = Math.min(watchThroughScore, 5);
   }
+  coldScrollStopScore = applyHookTallyCap(coldScrollStopScore, analysis.hookFactors);
   const capped = applyDefectCaps(
     { cold: coldScrollStopScore, watch: watchThroughScore },
     analysis.defects,
@@ -374,6 +414,7 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
     dropOffMoments,
     defects: analysis.defects?.filter((d) => d && d.type && d.severity),
     soundOffComprehensionScore: clampScore(analysis.soundOffComprehensionScore),
+    hookFactors: analysis.hookFactors,
     productVisibility: analysis.productVisibility?.trim(),
     visualStyle: analysis.visualStyle?.trim(),
     emotionalCharacteristics: analysis.emotionalCharacteristics?.filter(Boolean),

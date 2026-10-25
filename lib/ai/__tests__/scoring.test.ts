@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   alignRetentionRationale,
   composeRetentionRationale,
+  retentionBandLead,
   mapGeminiToRetention,
   stripInternalJargon,
   anchorRetentionScore,
@@ -695,7 +696,7 @@ describe("composeRetentionRationale (feedback matches score)", () => {
       spAd1Defects,
       "The opening 30 seconds hold well and most viewers will stay. The neon microphone is eye-catching."
     );
-    expect(text.startsWith("Retention: 48/100. Most viewers will leave before the payoff.")).toBe(true);
+    expect(text.startsWith("Retention: 48/100. Most viewers leave once the ad asks them to stop and read.")).toBe(true);
     expect(text.indexOf("dense text report")).toBeLessThan(text.indexOf("static app UI"));
     expect(text).not.toMatch(/hold well|will stay/i);
     expect(text).not.toMatch(/landing page|brand/i);
@@ -716,5 +717,33 @@ describe("composeRetentionRationale (feedback matches score)", () => {
   it("never states a score other than the stored one", () => {
     expect(composeRetentionRationale(62, [], "Retention: 76/100. Pacing is fine.")).toMatch(/^Retention: 62\/100\./);
     expect(composeRetentionRationale(62, [], "Retention: 76/100. Pacing is fine.")).not.toMatch(/76/);
+  });
+});
+
+describe("0006: defect-sensitive retention without brand drag", () => {
+  it("bm_7365 weak hook (Gemini 8/8 but hook tally caps cold at 6) → retention < 70", () => {
+    const r = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 40, watchThroughScore: 40, retentionScore: 84 },
+      { coldScrollStopScore: 6, watchThroughScore: 8 }
+    );
+    expect(r.retentionScore).toBeLessThan(70);
+  });
+  it("caffeine (7/8) stays in 75–84", () => {
+    const r = anchorRetentionScore(60, { coldScrollStopScore: 7, watchThroughScore: 8 });
+    expect(r).toBeGreaterThanOrEqual(75);
+    expect(r).toBeLessThan(85);
+  });
+  it("sp-ad-1 (defect-capped 5/4) < 60", () => {
+    expect(anchorRetentionScore(76, { coldScrollStopScore: 5, watchThroughScore: 4 })).toBeLessThan(60);
+  });
+  it("brand mismatch cannot lower retention: scoring model's low number is ignored", () => {
+    expect(anchorRetentionScore(42, { coldScrollStopScore: 7, watchThroughScore: 8 })).toBe(79);
+  });
+  it("opener matches the worst defect and band", () => {
+    const hook = { type: "hook" as const, severity: "major" as const, evidence: "generic beauty shot" };
+    expect(retentionBandLead(66, hook)).toMatch(/opening loses/);
+    expect(retentionBandLead(48, hook)).toMatch(/scroll past in the first two seconds/);
+    expect(retentionBandLead(79, hook)).toMatch(/some drop at the point below/);
+    expect(composeRetentionRationale(79, [hook], "")).toMatch(/Where viewers drop:/);
   });
 });
