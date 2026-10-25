@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alignRetentionRationale,
+  composeRetentionRationale,
   mapGeminiToRetention,
   stripInternalJargon,
   anchorRetentionScore,
@@ -48,7 +49,7 @@ describe("calibrateScoresFromVisualEvidence", () => {
     );
     expect(result.scrollStopScore).toBe(30);
     expect(result.watchThroughScore).toBe(35);
-    expect(result.retentionScore).toBeLessThanOrEqual(67);
+    expect(result.retentionScore).toBeLessThanOrEqual(74); // 9/6 after the 2+ drop-off watch cap
   });
 
   it("does not cap model scores that already align with strong Gemini signals (8+)", () => {
@@ -58,7 +59,8 @@ describe("calibrateScoresFromVisualEvidence", () => {
     );
     expect(result.scrollStopScore).toBe(38);
     expect(result.watchThroughScore).toBe(36);
-    expect(result.retentionScore).toBe(78);
+    // Retention is the watcher's deterministic watchability score.
+    expect(result.retentionScore).toBe(84);
   });
 
   it("applies conservative caps when only frame sampling was available", () => {
@@ -104,7 +106,7 @@ describe("calibrateScoresFromVisualEvidence", () => {
         dropOffMoments: ["~0:04", "~0:12", "~0:20"],
       }
     );
-    expect(result.retentionScore).toBeLessThanOrEqual(55);
+    expect(result.retentionScore).toBeLessThanOrEqual(74); // 9/6 after the 2+ drop-off watch cap
   });
 
   it("still discriminates a genuinely bad ad from a genuinely good ad after symmetric calibration", () => {
@@ -143,13 +145,13 @@ describe("anchorRetentionScore", () => {
     // Gap is within the 12-point tolerance buffer — no forced adjustment.
     expect(
       anchorRetentionScore(76, { coldScrollStopScore: 8, watchThroughScore: 8 })
-    ).toBe(76);
+    ).toBe(84);
   });
 
   it("does not raise retention when Gemini signals are only average (below 7/10)", () => {
     expect(
       anchorRetentionScore(35, { coldScrollStopScore: 6, watchThroughScore: 6 })
-    ).toBe(35);
+    ).toBe(60);
   });
 
   it("leaves score unchanged when no visual signals exist", () => {
@@ -175,7 +177,7 @@ describe("anchorRetentionScore", () => {
         watchThroughScore: 6,
         dropOffMoments: ["~0:12–0:17 hold", "~0:32–0:37 hold", "~0:37–0:42 hold"],
       })
-    ).toBe(54);
+    ).toBe(55);
   });
 
   it("no longer floors a 7/7 model score (floor removed so weak ads can score low)", () => {
@@ -188,15 +190,15 @@ describe("anchorRetentionScore", () => {
       coldScrollStopScore: 7,
       watchThroughScore: 7,
     });
-    // Floor removed (score-spread redesign): a lower model score is allowed to stand.
-    expect(result).toBe(50);
+    // Retention now comes from the watcher's signals, not the scoring model's number.
+    expect(result).toBe(72);
   });
 
   it("does not touch a 7/8 retention score that is already close to its contract target", () => {
     // Mapping for 7/8 is 79; model's 76 is within tolerance — must pass through.
     expect(
       anchorRetentionScore(76, { coldScrollStopScore: 7, watchThroughScore: 8 })
-    ).toBe(76);
+    ).toBe(79);
   });
 });
 
@@ -676,5 +678,43 @@ describe("worker logs", () => {
     expect(formatWorkerRetentionLog("an-1", 85, 76)).toBe(
       "[worker] retention an-1 old=85 new=76 applied=76"
     );
+  });
+});
+
+describe("composeRetentionRationale (feedback matches score)", () => {
+  const spAd1Defects = [
+    { type: "pacing" as const, severity: "major" as const, timestamp: "~0:12–0:30", evidence: "long stretches of static app UI with nothing new" },
+    { type: "reading_burden" as const, severity: "critical" as const, timestamp: "~0:36", evidence: "slow scroll through a dense text report" },
+    { type: "length" as const, severity: "major" as const, evidence: "48s runtime for a single idea" },
+    { type: "watchability" as const, severity: "minor" as const, evidence: "landing page mismatch with the brand" },
+  ];
+
+  it("sp-ad-1 (48): leads with 'most leave', worst defect first, drops contradicting praise", () => {
+    const text = composeRetentionRationale(
+      48,
+      spAd1Defects,
+      "The opening 30 seconds hold well and most viewers will stay. The neon microphone is eye-catching."
+    );
+    expect(text.startsWith("Retention: 48/100. Most viewers will leave before the payoff.")).toBe(true);
+    expect(text.indexOf("dense text report")).toBeLessThan(text.indexOf("static app UI"));
+    expect(text).not.toMatch(/hold well|will stay/i);
+    expect(text).not.toMatch(/landing page|brand/i);
+    expect(text).toMatch(/neon microphone/);
+  });
+
+  it("high scores keep positive model text and skip minor nits", () => {
+    const text = composeRetentionRationale(
+      88,
+      [{ type: "pacing", severity: "minor", evidence: "a 2s lull at 0:14" }],
+      "Fast cuts keep most viewers watching to the offer."
+    );
+    expect(text).toMatch(/Most viewers who see this will stop/);
+    expect(text).toMatch(/Fast cuts keep most viewers watching/);
+    expect(text).not.toMatch(/lull/);
+  });
+
+  it("never states a score other than the stored one", () => {
+    expect(composeRetentionRationale(62, [], "Retention: 76/100. Pacing is fine.")).toMatch(/^Retention: 62\/100\./);
+    expect(composeRetentionRationale(62, [], "Retention: 76/100. Pacing is fine.")).not.toMatch(/76/);
   });
 });

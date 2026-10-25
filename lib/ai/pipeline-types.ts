@@ -30,6 +30,8 @@ export type VisualIntelligence = {
   /** Gemini raw 0-10 watch-through signal — video only, supporting evidence for Job 4. */
   watchThroughScore?: number;
   dropOffMoments?: string[];
+  /** Gemini ranked defects (worst first) — video only. */
+  defects?: import("@/lib/ai/video-analysis-types").VideoDefect[];
   /** Non-fatal degradation notes (e.g. "video unavailable", "Gemini not configured"). */
   sourceNotes: string[];
   videoContext?: VideoCreativeContext;

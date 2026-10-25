@@ -3,6 +3,7 @@ import "server-only";
 import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
 import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
 import { mapGeminiToRetention } from "@/lib/ai/retention-map";
+import type { VideoDefect } from "@/lib/ai/video-analysis-types";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
   type ScoringRaw,
@@ -98,6 +99,7 @@ export type VisualRetentionSignals = {
   coldScrollStopScore?: number;
   watchThroughScore?: number;
   dropOffMoments?: string[];
+  defects?: VideoDefect[];
   visualAnalysisMode?: "gemini_vertex" | "timeline_sampling" | "thumbnail_fallback";
 };
 
@@ -163,7 +165,9 @@ export function calibrateScoresFromVisualEvidence(
 
   if (hasGemini) {
     const coldN = clamp(cold ?? 5, 0, 10);
-    const watchN = clamp(watch ?? 5, 0, 10);
+    const dropsForWatch = signals?.dropOffMoments?.filter(Boolean).length ?? 0;
+    // Defensive: mirror normalizeAnalysis if raw (un-normalized) signals arrive.
+    const watchN = Math.min(clamp(watch ?? 5, 0, 10), dropsForWatch >= 2 ? 6 : 10);
     const scrollCap = geminiHalfScaleCap(coldN);
     const watchCap = geminiHalfScaleCap(watchN);
     let retentionCap = clamp(mapGeminiToRetention(coldN, watchN), 0, 100);
@@ -185,21 +189,11 @@ export function calibrateScoresFromVisualEvidence(
     } else if (shouldRaiseToVisualEvidence(watchThroughScore, watchCap, coldN, watchN)) {
       watchThroughScore = Math.max(watchThroughScore, watchCap);
     }
-    // Retention must track Gemini watch signals — never let marketing-quality
-    // inflation exceed what the video watcher reported.
-    if (coldN <= 6 || watchN <= 6 || dropCount >= 1) {
-      retentionScore = Math.min(retentionScore, retentionCap);
-    } else if (
-      retentionScore > retentionCap + 8 ||
-      (coldN <= 4 && retentionScore > retentionCap) ||
-      (watchN <= 4 && retentionScore > retentionCap)
-    ) {
-      retentionScore = Math.min(retentionScore, retentionCap);
-    } else if (coldN >= 8 && watchN >= 8 && retentionScore < retentionCap - 10) {
-      retentionScore = Math.max(retentionScore, retentionCap);
-    }
-    // No floor for 7/7–8/7 evidence: if the scoring model saw problems Gemini
-    // under-weighted, a lower retention is allowed to stand.
+    // Retention = watchability on its own terms, taken from the full-video
+    // watcher's defect-capped signals. The scoring model's own retention number
+    // is ignored here: it was dragging retention down for off-brand / landing-
+    // page mismatches, which belong in conversion and the overall score only.
+    retentionScore = retentionCap;
   } else if (weakVisual) {
     scrollStopScore = Math.min(scrollStopScore, 30);
     watchThroughScore = Math.min(watchThroughScore, 30);
@@ -753,6 +747,59 @@ export function alignRetentionRationale(
   return clean ? `${lead} ${clean}` : lead;
 }
 
+const SEVERITY_ORDER = { critical: 3, major: 2, minor: 1 } as const;
+
+/** Defects that are about brand/landing-page fit, not watchability — excluded from retention. */
+const OFF_TOPIC_DEFECT = /\b(brand|landing page|landing-page|mismatch|off[- ]brand|wrong product|funnel|page)\b/i;
+
+/** Positive "viewers stay" phrasing that must not appear next to a weak retention score. */
+const POSITIVE_HOLD =
+  /\b(hold(s)? (well|attention|viewers)|will stay|keep(s)? (most )?(viewers )?watching|most (viewers|people) (stay|will|keep|watch)|highly likely|strong(ly)? (hold|retention)|earn(s)? (genuine )?watch time|lands cleanly)\b/i;
+
+export function retentionBandLead(score: number): string {
+  if (score >= 85) return "Most viewers who see this will stop and watch it through.";
+  if (score >= 75) return "A solid share of viewers will stop, but a noticeable portion drop before the payoff.";
+  if (score >= 60) return "Many viewers will scroll past or drop before the payoff.";
+  return "Most viewers will leave before the payoff.";
+}
+
+function defectSentence(d: VideoDefect): string {
+  const evidence = stripInternalJargon(d.evidence).replace(/[.\s]+$/, "");
+  const ts = d.timestamp?.trim() ? ` (${d.timestamp.trim()})` : "";
+  return evidence ? `${evidence.charAt(0).toUpperCase()}${evidence.slice(1)}${ts}.` : "";
+}
+
+/**
+ * User-facing retention write-up built FROM the final score and the watcher's
+ * ranked defects: leads with band-appropriate tone, then the main drop reasons
+ * worst-first, then only model sentences whose tone agrees with the score.
+ */
+export function composeRetentionRationale(
+  score: number,
+  defects: VideoDefect[] | undefined,
+  modelText: string | undefined
+): string {
+  const s = Math.round(clamp(score, 0, 100));
+  const ranked = (defects ?? [])
+    .filter((d) => d?.evidence && !OFF_TOPIC_DEFECT.test(d.evidence))
+    .sort((a, b) => (SEVERITY_ORDER[b.severity] ?? 0) - (SEVERITY_ORDER[a.severity] ?? 0));
+  const shown = s >= 85 ? ranked.filter((d) => d.severity !== "minor") : ranked;
+  const reasons = shown.slice(0, 3).map(defectSentence).filter(Boolean);
+
+  const modelClean = alignRetentionRationale(modelText, s).replace(/^Retention: \d+\/100\.\s*/, "");
+  const modelSentences = modelClean
+    .split(/(?<=[.!?])\s+/)
+    .filter((x) => x.trim())
+    .filter((x) => !OFF_TOPIC_DEFECT.test(x))
+    .filter((x) => s >= 75 || !POSITIVE_HOLD.test(x));
+
+  const parts = [`Retention: ${s}/100. ${retentionBandLead(s)}`];
+  if (reasons.length) parts.push(`Main reasons viewers drop: ${reasons.join(" ")}`);
+  const extra = modelSentences.slice(0, reasons.length ? 2 : 3).join(" ");
+  if (extra) parts.push(extra);
+  return parts.join(" ").replace(/\s{2,}/g, " ").trim();
+}
+
 export function needsCompetitiveInsightsRetry(insights?: string[]): boolean {
   return !insights?.some((s) => typeof s === "string" && s.trim().length > 0);
 }
@@ -868,9 +915,10 @@ export async function runScoringSynthesis(
     scrollStopScore: calibrated.scrollStopScore,
     watchThroughScore: calibrated.watchThroughScore,
     retentionScore: calibrated.retentionScore,
-    retentionRationale: alignRetentionRationale(
-      validated.retentionRationale,
-      calibrated.retentionScore
+    retentionRationale: composeRetentionRationale(
+      calibrated.retentionScore,
+      input.visualRetentionSignals?.defects,
+      validated.retentionRationale
     ),
     creativeStrengthScore,
     landingPageTotal,

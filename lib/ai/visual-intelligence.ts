@@ -38,6 +38,7 @@ export async function buildVisualIntelligence(
       coldScrollStopScore: videoCtx.geminiAnalysis?.coldScrollStopScore,
       watchThroughScore: videoCtx.geminiAnalysis?.watchThroughScore,
       dropOffMoments: videoCtx.geminiAnalysis?.dropOffMoments,
+      defects: videoCtx.geminiAnalysis?.defects,
       sourceNotes: videoCtx.processingNotes,
       videoContext: videoCtx,
     };

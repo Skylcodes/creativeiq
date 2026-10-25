@@ -209,6 +209,37 @@ function hydrateAgentFindings(
   return result;
 }
 
+export const MAX_PRIORITY_ACTIONS = 5;
+
+const STOP = new Set("a an the and or to of in on for with your this that it is are be by at from as into ad ads add make more less use their its".split(" "));
+function tokens(text: string | undefined): Set<string> {
+  return new Set(
+    (text ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .split(/\s+/)
+      .map((w) => w.replace(/(ing|ed|es|s)$/, ""))
+      .filter((w) => w.length > 2 && !STOP.has(w))
+  );
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+
+/** Two actions are duplicates if their action lines, or action+problem, overlap heavily. */
+export function actionsAreDuplicates(a: PriorityAction, b: PriorityAction): boolean {
+  const actionSim = jaccard(tokens(a.action), tokens(b.action));
+  if (actionSim >= 0.5) return true;
+  const full = jaccard(
+    tokens(`${a.action} ${a.currentProblem ?? ""} ${a.strategicFix ?? ""}`),
+    tokens(`${b.action} ${b.currentProblem ?? ""} ${b.strategicFix ?? ""}`)
+  );
+  return full >= 0.45;
+}
+
 function hydratePriorityActions(
   actions: PriorityAction[],
   topBlockers: ConversionBlocker[],
@@ -224,19 +255,23 @@ function hydratePriorityActions(
       strategicFix: a.strategicFix ?? a.action,
     }));
 
+  const deduped: PriorityAction[] = [];
+  for (const a of result) if (!deduped.some((d) => actionsAreDuplicates(d, a))) deduped.push(a);
+  result.length = 0;
+  result.push(...deduped);
   const seen = new Set(result.map((a) => a.action.toLowerCase().slice(0, 60)));
 
   for (const blocker of topBlockers) {
-    if (result.length >= 8) break;
+    if (result.length >= MAX_PRIORITY_ACTIONS) break;
     const action = blockerToAction(blocker);
     const key = action.action.toLowerCase().slice(0, 60);
-    if (seen.has(key)) continue;
+    if (seen.has(key) || result.some((r) => actionsAreDuplicates(r, action))) continue;
     seen.add(key);
     result.push(action);
   }
 
   if (options?.skipLpHydration || (options?.conversionTotal ?? 0) >= 72) {
-    return result.slice(0, 8);
+    return result.slice(0, MAX_PRIORITY_ACTIONS);
   }
 
   const sortedCategories = [...categories].sort(
@@ -244,16 +279,16 @@ function hydratePriorityActions(
   );
 
   for (const cat of sortedCategories) {
-    if (result.length >= 8) break;
+    if (result.length >= MAX_PRIORITY_ACTIONS) break;
     const action = categoryToAction(cat);
     if (!action) continue;
     const key = action.action.toLowerCase().slice(0, 60);
-    if (seen.has(key)) continue;
+    if (seen.has(key) || result.some((r) => actionsAreDuplicates(r, action))) continue;
     seen.add(key);
     result.push(action);
   }
 
-  return result.slice(0, 8);
+  return result.slice(0, MAX_PRIORITY_ACTIONS);
 }
 
 export type HydratedFunnelFields = HydratableFields & {

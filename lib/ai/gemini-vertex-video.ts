@@ -75,6 +75,7 @@ VISUAL ACCURACY RULES (critical — grading depends on this):
    ANCHORS: 0–2 loses almost everyone before the product; 3–4 long dead stretches/repetition before the payoff; 5 holds but drags in the middle or the payoff is weak; 6 consistent beats, one soft section; 7–8 something new every 2–3s AND the hook's promise is paid off by the product/proof; 9–10 people would rewatch, rare.
    Hook-payoff coherence: if the hook's promise is not delivered by the product/body (bait-and-switch), cap at 5.
    CONCEPT VS. EXECUTION: score the lived moment-to-moment viewing experience, not the cleverness of the format. Dense text the viewer must stop to read, flat/robotic delivery, a software-demo aesthetic, and 3s+ stretches with nothing new are negative signals.
+7a. Judge watchability ON ITS OWN TERMS. Do not penalise a video for which brand it is, what product it sells, or whether it matches any website — that is graded elsewhere. Never list brand/product/landing-page fit as a defect.
 7b. DEFECT AUDIT (do this BEFORE either score; one call, no extra passes). List every defect in "defects", ranked worst first. Types:
    hook (weak/generic first 2s), comprehension (a sound-off viewer cannot tell what is sold and why within ~5s — jargon, tiny/fast text, unexplained UI, unclear product), pacing (slow; 3s+ with nothing new; slow scrolls/zooms over static screens), length (runtime is long for the amount of content — e.g. 40s+ for a single idea, or the payoff arrives after 20s), reading_burden (viewer must stop and read dense text/UI/reports), watchability (hard to look at or follow: screen-recording/dashboard aesthetic, low energy, cluttered frames), payoff (hook promise not delivered or no clear CTA).
    Severity: minor = a few viewers leave; major = a large share of viewers leave or are confused; critical = most cold viewers would not watch or would not understand it.
@@ -289,7 +290,9 @@ export function applyDefectCaps(
   soundOffComprehension?: number
 ): { cold?: number; watch?: number } {
   let { cold, watch } = scores;
-  const list = (defects ?? []).filter((d) => d && SEVERITY_RANK[d.severity]);
+  const list = (defects ?? []).filter(
+    (d) => d && SEVERITY_RANK[d.severity] && !/\b(brand|landing page|mismatch|off[- ]brand|wrong product)\b/i.test(d.evidence ?? "")
+  );
   const atLeast = (type: VideoDefect["type"] | null, sev: keyof typeof SEVERITY_RANK) =>
     list.filter((d) => (type == null || d.type === type) && SEVERITY_RANK[d.severity] >= SEVERITY_RANK[sev]).length;
   const minCap = (v: number | undefined, cap: number) => (v == null ? v : Math.min(v, cap));
