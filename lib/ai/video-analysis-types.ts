@@ -16,6 +16,10 @@ export type VideoAnalysisResult = {
   firstThreeSeconds?: string;
   /** Where a cold viewer would swipe away, with timestamps */
   dropOffMoments?: string[];
+  /** Ranked defects (worst first) — drives deterministic caps in normalizeAnalysis. */
+  defects?: VideoDefect[];
+  /** 0–10: could a sound-off viewer explain what is sold and why within ~5s? */
+  soundOffComprehensionScore?: number;
   /** When/how the product is shown */
   productVisibility?: string;
   /** Execution style classification: raw UGC, polished UGC, talking head, product demo, cinematic, motion graphics, mixed, other */
@@ -24,6 +28,22 @@ export type VideoAnalysisResult = {
   emotionalCharacteristics?: string[];
   /** Final sequence: last frame, CTA, offer, spoken closing */
   endingDescription?: string;
+};
+
+export type VideoDefectType =
+  | "hook"
+  | "comprehension"
+  | "pacing"
+  | "length"
+  | "reading_burden"
+  | "watchability"
+  | "payoff";
+
+export type VideoDefect = {
+  type: VideoDefectType;
+  severity: "minor" | "major" | "critical";
+  timestamp?: string;
+  evidence: string;
 };
 
 export type VisualAnalysisMode =

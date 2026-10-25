@@ -12,6 +12,7 @@ import {
   GEMINI_VIDEO_MAX_OUTPUT_TOKENS,
   GEMINI_VIDEO_THINKING_BUDGET,
   shouldRetryGemini,
+  applyDefectCaps,
 } from "@/lib/ai/gemini-vertex-video";
 import { VIDEO_ANALYSIS_JSON_SCHEMA, type VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
@@ -165,5 +166,38 @@ describe("Gemini time/token budget (sp-ad-1 timeout regression)", () => {
   });
   it("leaves output headroom after bounded thinking", () => {
     expect(GEMINI_VIDEO_MAX_OUTPUT_TOKENS - GEMINI_VIDEO_THINKING_BUDGET).toBeGreaterThanOrEqual(12_000);
+  });
+});
+
+describe("defect audit caps (sp-ad-1 / bm_7365 must score low)", () => {
+  it("sp-ad-1: slow 48s screen recording with a must-read report cannot keep 7/8", () => {
+    const r = normalizeAnalysis(
+      baseAnalysis({
+        coldScrollStopScore: 7,
+        watchThroughScore: 8,
+        soundOffComprehensionScore: 3,
+        defects: [
+          { type: "reading_burden", severity: "critical", timestamp: "~0:36", evidence: "slow scroll through dense report" },
+          { type: "length", severity: "major", evidence: "48s for one idea" },
+          { type: "pacing", severity: "major", evidence: "long holds on static UI" },
+          { type: "comprehension", severity: "major", evidence: "unclear what is sold sound-off" },
+        ],
+      })
+    );
+    expect(r.coldScrollStopScore).toBeLessThanOrEqual(4);
+    expect(r.watchThroughScore).toBeLessThanOrEqual(4);
+  });
+
+  it("bm_7365: generic beauty-shot hook is capped", () => {
+    const r = applyDefectCaps({ cold: 7, watch: 8 }, [
+      { type: "hook", severity: "major", evidence: "generic caption, no face, no tension" },
+    ]);
+    expect(r.cold).toBeLessThanOrEqual(5);
+  });
+
+  it("minor defects do not move a clean ad", () => {
+    expect(
+      applyDefectCaps({ cold: 8, watch: 8 }, [{ type: "pacing", severity: "minor", evidence: "x" }], 8)
+    ).toEqual({ cold: 8, watch: 8 });
   });
 });

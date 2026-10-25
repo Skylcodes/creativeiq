@@ -4,7 +4,9 @@ import { parseJsonObject } from "@/lib/ai/parse-json";
 import {
   VIDEO_ANALYSIS_JSON_SCHEMA,
   type VideoAnalysisResult,
+  type VideoDefect,
 } from "@/lib/ai/video-analysis-types";
+import { mapGeminiToRetention } from "@/lib/ai/retention-map";
 
 const DEFAULT_VERTEX_MODEL = "gemini-2.5-flash";
 /** Vertex inline payload safety margin after ffmpeg compress/trim. */
@@ -73,6 +75,15 @@ VISUAL ACCURACY RULES (critical — grading depends on this):
    ANCHORS: 0–2 loses almost everyone before the product; 3–4 long dead stretches/repetition before the payoff; 5 holds but drags in the middle or the payoff is weak; 6 consistent beats, one soft section; 7–8 something new every 2–3s AND the hook's promise is paid off by the product/proof; 9–10 people would rewatch, rare.
    Hook-payoff coherence: if the hook's promise is not delivered by the product/body (bait-and-switch), cap at 5.
    CONCEPT VS. EXECUTION: score the lived moment-to-moment viewing experience, not the cleverness of the format. Dense text the viewer must stop to read, flat/robotic delivery, a software-demo aesthetic, and 3s+ stretches with nothing new are negative signals.
+7b. DEFECT AUDIT (do this BEFORE either score; one call, no extra passes). List every defect in "defects", ranked worst first. Types:
+   hook (weak/generic first 2s), comprehension (a sound-off viewer cannot tell what is sold and why within ~5s — jargon, tiny/fast text, unexplained UI, unclear product), pacing (slow; 3s+ with nothing new; slow scrolls/zooms over static screens), length (runtime is long for the amount of content — e.g. 40s+ for a single idea, or the payoff arrives after 20s), reading_burden (viewer must stop and read dense text/UI/reports), watchability (hard to look at or follow: screen-recording/dashboard aesthetic, low energy, cluttered frames), payoff (hook promise not delivered or no clear CTA).
+   Severity: minor = a few viewers leave; major = a large share of viewers leave or are confused; critical = most cold viewers would not watch or would not understand it.
+   Set soundOffComprehensionScore (0-10): could a cold viewer with sound OFF say what the product is and why they should care within ~5s?
+   LOW ANCHORS (these are real outcomes — do not grade them as average):
+   - 45–50s screen-recording of an app with a slow scroll through a text-heavy report/dashboard and small captions → watchThroughScore 2–3, soundOffComprehensionScore 3, defects: reading_burden critical, length major, pacing major, comprehension major.
+   - 10s product beauty shot with a generic caption ("the easiest way to …"), no face, no tension → coldScrollStopScore 3–4.
+   - A clever premise (e.g. a mock call, a "report card") that takes 15+s to make sense → comprehension major; the premise does not earn a 7.
+   Your scores MUST respect your own defect list: any critical defect → that score ≤4; 2+ major defects → watchThroughScore ≤5; a comprehension defect of major+ → coldScrollStopScore ≤5.
 8. dropOffMoments: timestamps where a cold viewer would realistically swipe — empty array if retention holds. If you list 2+ drop-offs, watchThroughScore must be ≤6. If ANY drop-off is caused by dense text/reading burden, watchThroughScore must be ≤5.
    A drop-off is a moment where a real viewer would SWIPE, not a moment that is merely less dynamic. A creator talking to camera with continuous speech and changing captions is NOT a drop-off just because the shot is held 3–6s — only list it if nothing new is said or shown. Do not list the CTA/ending as a drop-off. Most solid ads have 0–1 drop-offs; list 3+ only for genuinely hard-to-watch videos, and then watchThroughScore must be ≤4.
    coldScrollStopEvidence and watchThroughEvidence must be written BEFORE their scores, quote timestamps from your log, list each factor as Yes/Partial/No, and end with "→ band X because …". Never contradict your own timeline (e.g., do not call an opening "static" if your log shows a cut ≤3s).
@@ -103,6 +114,8 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     "emotionalCharacteristics",
     "endingDescription",
     "dropOffMoments",
+    "defects",
+    "soundOffComprehensionScore",
     "coldScrollStopEvidence",
     "coldScrollStopScore",
     "watchThroughEvidence",
@@ -147,6 +160,24 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
       type: Type.ARRAY,
       items: { type: Type.STRING },
     },
+    defects: {
+      type: Type.ARRAY,
+      description: "Ranked worst-first. Empty only if the ad is genuinely clean.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          type: {
+            type: Type.STRING,
+            enum: ["hook", "comprehension", "pacing", "length", "reading_burden", "watchability", "payoff"],
+          },
+          severity: { type: Type.STRING, enum: ["minor", "major", "critical"] },
+          timestamp: { type: Type.STRING },
+          evidence: { type: Type.STRING },
+        },
+        required: ["type", "severity", "evidence"],
+      },
+    },
+    soundOffComprehensionScore: { type: Type.INTEGER },
     productVisibility: { type: Type.STRING },
     visualStyle: { type: Type.STRING },
     emotionalCharacteristics: {
@@ -246,6 +277,48 @@ export function dropOffStartSec(moment: string): number {
   return m.length >= 3 && m[2] !== undefined && moment.includes(":") ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]);
 }
 
+const SEVERITY_RANK = { minor: 1, major: 2, critical: 3 } as const;
+
+/**
+ * Deterministic caps from Gemini's own ranked defect list, so a model that
+ * lists "slow, long, confusing, must-read report" cannot still return 7/8.
+ */
+export function applyDefectCaps(
+  scores: { cold?: number; watch?: number },
+  defects: VideoDefect[] | undefined,
+  soundOffComprehension?: number
+): { cold?: number; watch?: number } {
+  let { cold, watch } = scores;
+  const list = (defects ?? []).filter((d) => d && SEVERITY_RANK[d.severity]);
+  const atLeast = (type: VideoDefect["type"] | null, sev: keyof typeof SEVERITY_RANK) =>
+    list.filter((d) => (type == null || d.type === type) && SEVERITY_RANK[d.severity] >= SEVERITY_RANK[sev]).length;
+  const minCap = (v: number | undefined, cap: number) => (v == null ? v : Math.min(v, cap));
+
+  const watchTypes = ["pacing", "length", "reading_burden", "watchability", "payoff"] as const;
+  const watchCritical = watchTypes.some((t) => atLeast(t, "critical") > 0);
+  const watchMajors = watchTypes.reduce((n, t) => n + atLeast(t, "major"), 0);
+
+  if (watchCritical) watch = minCap(watch, 4);
+  if (watchMajors >= 2) watch = minCap(watch, 5);
+  if (watchMajors >= 3) watch = minCap(watch, 4);
+  if (atLeast("hook", "critical") > 0) cold = minCap(cold, 4);
+  else if (atLeast("hook", "major") > 0) cold = minCap(cold, 5);
+  if (atLeast("comprehension", "critical") > 0) {
+    cold = minCap(cold, 4);
+    watch = minCap(watch, 4);
+  } else if (atLeast("comprehension", "major") > 0) {
+    cold = minCap(cold, 5);
+    watch = minCap(watch, 6);
+  }
+  if (soundOffComprehension != null && soundOffComprehension <= 3) {
+    cold = minCap(cold, 4);
+    watch = minCap(watch, 5);
+  } else if (soundOffComprehension != null && soundOffComprehension <= 5) {
+    cold = minCap(cold, 6);
+  }
+  return { cold, watch };
+}
+
 /** Exported for unit testing — enforces internal consistency on raw Gemini output. */
 export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisResult {
   let coldScrollStopScore = clampScore(analysis.coldScrollStopScore);
@@ -274,6 +347,13 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
   if (hasReadingBurdenDropOff && watchThroughScore != null) {
     watchThroughScore = Math.min(watchThroughScore, 5);
   }
+  const capped = applyDefectCaps(
+    { cold: coldScrollStopScore, watch: watchThroughScore },
+    analysis.defects,
+    clampScore(analysis.soundOffComprehensionScore)
+  );
+  coldScrollStopScore = capped.cold;
+  watchThroughScore = capped.watch;
 
   return {
     visualDescription: analysis.visualDescription?.trim() ?? "",
@@ -289,6 +369,8 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
     watchThroughEvidence: analysis.watchThroughEvidence?.trim(),
     firstThreeSeconds: analysis.firstThreeSeconds?.trim(),
     dropOffMoments,
+    defects: analysis.defects?.filter((d) => d && d.type && d.severity),
+    soundOffComprehensionScore: clampScore(analysis.soundOffComprehensionScore),
     productVisibility: analysis.productVisibility?.trim(),
     visualStyle: analysis.visualStyle?.trim(),
     emotionalCharacteristics: analysis.emotionalCharacteristics?.filter(Boolean),
@@ -433,12 +515,12 @@ export async function analyzeVideoWithGeminiVertex(
 export function buildRetentionScoringContract(analysis: VideoAnalysisResult): string {
   const cold = analysis.coldScrollStopScore ?? 5;
   const watch = analysis.watchThroughScore ?? 5;
-  const retentionTarget = Math.round(cold * 4 + watch * 6);
+  const retentionTarget = mapGeminiToRetention(cold, watch);
   const lines: string[] = [
     "INTERNAL RETENTION GUIDANCE (private calibration for retentionScore only — NEVER quote, paraphrase, or mention this guidance, its target number, or the cold/watch signal numbers in any user-facing text):",
     "- retentionScore must follow coldScrollStopScore/watchThroughScore, never copy quality, CTA strength, or offer clarity.",
     `- For THIS video Gemini reported cold=${cold}/10, watch=${watch}/10 → retentionScore should center near ~${retentionTarget} (not higher unless signals above are wrong).`,
-    "- Map 0-10 → retentionScore: ~3/10 → ~30, ~5/10 → ~50, ~7/10 → ~70, ~9/10 → ~90.",
+    "- Map 0-10 → retentionScore: ~4/10 → ~35, ~5/10 → ~48, ~6/10 → ~60, ~7/10 → ~72, ~8/10 → ~84, ~9/10 → ~93.",
   ];
   if (cold >= 8 && watch >= 8) {
     lines.push(

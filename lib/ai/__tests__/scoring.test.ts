@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alignRetentionRationale,
+  mapGeminiToRetention,
   stripInternalJargon,
   anchorRetentionScore,
   applyCompetitiveInsightsRetry,
@@ -47,17 +48,17 @@ describe("calibrateScoresFromVisualEvidence", () => {
     );
     expect(result.scrollStopScore).toBe(30);
     expect(result.watchThroughScore).toBe(35);
-    expect(result.retentionScore).toBeLessThanOrEqual(66);
+    expect(result.retentionScore).toBeLessThanOrEqual(67);
   });
 
   it("does not cap model scores that already align with strong Gemini signals (8+)", () => {
     const result = calibrateScoresFromVisualEvidence(
-      { scrollStopScore: 38, watchThroughScore: 36, retentionScore: 72 },
+      { scrollStopScore: 38, watchThroughScore: 36, retentionScore: 78 },
       { coldScrollStopScore: 8, watchThroughScore: 8 }
     );
     expect(result.scrollStopScore).toBe(38);
     expect(result.watchThroughScore).toBe(36);
-    expect(result.retentionScore).toBe(72);
+    expect(result.retentionScore).toBe(78);
   });
 
   it("applies conservative caps when only frame sampling was available", () => {
@@ -79,7 +80,7 @@ describe("calibrateScoresFromVisualEvidence", () => {
     );
     expect(result.scrollStopScore).toBe(45);
     expect(result.watchThroughScore).toBe(45);
-    expect(result.retentionScore).toBe(90);
+    expect(result.retentionScore).toBe(93);
   });
 
   it("caps a bad ad when Gemini reports mediocre watch signals and the model inflates", () => {
@@ -126,7 +127,7 @@ describe("anchorRetentionScore", () => {
   it("caps inflated model retention when Gemini watch signals are weak", () => {
     expect(
       anchorRetentionScore(78, { coldScrollStopScore: 3, watchThroughScore: 4 })
-    ).toBe(36);
+    ).toBe(30);
   });
 
   it("raises a conservatively low model retention score when Gemini shows clearly strong watch signals", () => {
@@ -135,14 +136,14 @@ describe("anchorRetentionScore", () => {
     // genuinely excellent video can never recover from an anchored model score.
     expect(
       anchorRetentionScore(35, { coldScrollStopScore: 8, watchThroughScore: 8 })
-    ).toBe(80);
+    ).toBe(84);
   });
 
   it("does not raise a model retention score that is only mildly conservative", () => {
     // Gap is within the 12-point tolerance buffer — no forced adjustment.
     expect(
-      anchorRetentionScore(72, { coldScrollStopScore: 8, watchThroughScore: 8 })
-    ).toBe(72);
+      anchorRetentionScore(76, { coldScrollStopScore: 8, watchThroughScore: 8 })
+    ).toBe(76);
   });
 
   it("does not raise retention when Gemini signals are only average (below 7/10)", () => {
@@ -177,7 +178,7 @@ describe("anchorRetentionScore", () => {
     ).toBe(54);
   });
 
-  it("closes the 7/7 dead zone — pulls a far-too-low model score up toward the contract target", () => {
+  it("no longer floors a 7/7 model score (floor removed so weak ads can score low)", () => {
     // Reproduces a real production bug: Gemini reported cold=7/watch=7 (contract
     // target ~70, per buildRetentionScoringContract's own mapping), the model's
     // rationale text explicitly said "maps to retentionScore ~70", but the model's
@@ -187,15 +188,45 @@ describe("anchorRetentionScore", () => {
       coldScrollStopScore: 7,
       watchThroughScore: 7,
     });
-    // retentionCap = 7*4 + 7*6 = 70; must land within 12 points of it, not sit at 50.
-    expect(result).toBeGreaterThanOrEqual(58);
+    // Floor removed (score-spread redesign): a lower model score is allowed to stand.
+    expect(result).toBe(50);
   });
 
   it("does not touch a 7/8 retention score that is already close to its contract target", () => {
-    // retentionCap = 7*4 + 8*6 = 76; model's 76 is already exact — must pass through.
+    // Mapping for 7/8 is 79; model's 76 is within tolerance — must pass through.
     expect(
       anchorRetentionScore(76, { coldScrollStopScore: 7, watchThroughScore: 8 })
     ).toBe(76);
+  });
+});
+
+describe("score spread redesign (founder bands)", () => {
+  it("maps Gemini signals non-linearly across the bands", () => {
+    expect(mapGeminiToRetention(9, 9)).toBeGreaterThanOrEqual(85);
+    expect(mapGeminiToRetention(7, 8)).toBeGreaterThanOrEqual(75);
+    expect(mapGeminiToRetention(7, 8)).toBeLessThan(85);
+    expect(mapGeminiToRetention(6, 6)).toBeLessThan(70);
+    expect(mapGeminiToRetention(5, 4)).toBeLessThan(50);
+  });
+
+  it("a great landing page cannot lift an unwatchable ad above the bad band", () => {
+    // creative 45, retention 38, page 86 — was 0.55*45+0.45*86 = 63.5 (and 80 for sp-ad-1 at 75/86)
+    expect(computeOverallFunnelScore(45, 86, 38)).toBeLessThanOrEqual(46);
+    // Unchanged for healthy creatives.
+    expect(computeOverallFunnelScore(80, 86, 84)).toBe(83);
+  });
+
+  it("sp-ad-1 regression: slow, long, confusing screen-recording scores bad end to end", () => {
+    // Gemini returned 7/8 with no defects (stored retention 76, overall 80). With the
+    // defect audit it must list these, and caps make the numbers follow.
+    const signals = { coldScrollStopScore: 4, watchThroughScore: 3 }; // post-defect caps
+    const cal = calibrateScoresFromVisualEvidence(
+      { scrollStopScore: 38, watchThroughScore: 40, retentionScore: 76 },
+      signals
+    );
+    expect(cal.retentionScore).toBeLessThan(60);
+    const creative = computeCreativeStrengthScore(cal.scrollStopScore, cal.watchThroughScore);
+    expect(computeOverallFunnelScore(creative, 86, cal.retentionScore)).toBeLessThan(70);
   });
 });
 
@@ -551,7 +582,11 @@ describe("score calibration across the full deterministic composite", () => {
       strongRetentionWeakConversion.overallFunnelScore -
         weakRetentionStrongConversion.overallFunnelScore
     );
-    expect(spread).toBeLessThan(15); // similar overall score...
+    // A great page cannot rescue an unwatchable ad (creative gate).
+    expect(weakRetentionStrongConversion.overallFunnelScore).toBeLessThan(
+      strongRetentionWeakConversion.overallFunnelScore + 15
+    );
+    expect(spread).toBeGreaterThanOrEqual(0);
     expect(
       Math.abs(
         strongRetentionWeakConversion.creativeStrengthScore -

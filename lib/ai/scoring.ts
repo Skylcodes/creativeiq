@@ -2,6 +2,7 @@ import "server-only";
 
 import { callClaudeJSON, CLAUDE_MODEL } from "@/lib/ai/client";
 import { SCORING_SYSTEM } from "@/lib/ai/pipeline-prompts";
+import { mapGeminiToRetention } from "@/lib/ai/retention-map";
 import {
   LANDING_PAGE_CATEGORY_DEFS,
   type ScoringRaw,
@@ -51,10 +52,22 @@ export function computeLandingPageTotal(categories: ConversionCategory[]): numbe
 /** Overall Funnel Score = (Creative Strength × 0.55) + (Landing Page × 0.45). */
 export function computeOverallFunnelScore(
   creativeStrengthScore: number,
-  landingPageTotal: number
+  landingPageTotal: number,
+  retentionScore?: number
 ): number {
-  return clamp(creativeStrengthScore * 0.55 + landingPageTotal * 0.45, 0, 100);
+  const blended = creativeStrengthScore * 0.55 + landingPageTotal * 0.45;
+  // A strong landing page cannot rescue an ad nobody watches: the page only
+  // converts traffic the creative actually delivers. When the creative or its
+  // retention is weak, the overall is capped just above the weaker of the two.
+  const creativeGate = Math.min(
+    creativeStrengthScore,
+    retentionScore ?? creativeStrengthScore
+  );
+  const capped = creativeGate < 70 ? Math.min(blended, creativeGate + 8) : blended;
+  return clamp(capped, 0, 100);
 }
+
+export { mapGeminiToRetention } from "@/lib/ai/retention-map";
 
 export function computeVerdict(overallFunnelScore: number, rationale: string): Verdict {
   const label: VerdictLabel =
@@ -153,7 +166,7 @@ export function calibrateScoresFromVisualEvidence(
     const watchN = clamp(watch ?? 5, 0, 10);
     const scrollCap = geminiHalfScaleCap(coldN);
     const watchCap = geminiHalfScaleCap(watchN);
-    let retentionCap = clamp(Math.round(coldN * 4 + watchN * 6), 0, 100);
+    let retentionCap = clamp(mapGeminiToRetention(coldN, watchN), 0, 100);
 
     const dropCount = signals?.dropOffMoments?.filter(Boolean).length ?? 0;
     // Drop-offs are already reflected in Gemini's (normalized) watch score; only
@@ -184,15 +197,9 @@ export function calibrateScoresFromVisualEvidence(
       retentionScore = Math.min(retentionScore, retentionCap);
     } else if (coldN >= 8 && watchN >= 8 && retentionScore < retentionCap - 10) {
       retentionScore = Math.max(retentionScore, retentionCap);
-    } else if (retentionScore < retentionCap - 12) {
-      // Decent-but-not-exceptional evidence (7/7, 7/8, 8/7 — the ≥8/≥8 fast-raise
-      // above already handles the strongest case). Without this, a video with a
-      // 7/7 mapping to ~70 could sit at a model-chosen 50 with zero correction —
-      // a dead zone between the ≤6 cap branch and the ≥8/≥8 raise branch that let
-      // the model's rationale text ("maps to ~70") diverge from its own stored
-      // number with nothing to reconcile them.
-      retentionScore = retentionCap - 12;
     }
+    // No floor for 7/7–8/7 evidence: if the scoring model saw problems Gemini
+    // under-weighted, a lower retention is allowed to stand.
   } else if (weakVisual) {
     scrollStopScore = Math.min(scrollStopScore, 30);
     watchThroughScore = Math.min(watchThroughScore, 30);
@@ -848,7 +855,11 @@ export async function runScoringSynthesis(
     calibrated.watchThroughScore
   );
   const landingPageTotal = computeLandingPageTotal(validated.landingPageCategories);
-  const overallFunnelScore = computeOverallFunnelScore(creativeStrengthScore, landingPageTotal);
+  const overallFunnelScore = computeOverallFunnelScore(
+    creativeStrengthScore,
+    landingPageTotal,
+    input.visualRetentionSignals ? calibrated.retentionScore : undefined
+  );
   const verdict = computeVerdict(overallFunnelScore, validated.verdictRationale);
 
   return {
