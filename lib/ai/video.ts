@@ -1113,23 +1113,6 @@ export function buildVideoBrief(
     lines.push(`"${ctx.backgroundAudioNote}"`);
   }
 
-  lines.push("");
-  if (ctx.visualAnalysisMode === "gemini_vertex") {
-    lines.push(
-      `VISUAL CONTEXT (full video — Gemini Vertex${ctx.videoDurationSec ? `, ~${Math.round(ctx.videoDurationSec)}s` : ""}):`
-    );
-  } else {
-    lines.push(
-      `VISUAL CONTEXT (${ctx.frameCount} evenly spaced frame${ctx.frameCount !== 1 ? "s" : ""}${ctx.videoDurationSec ? ` across ~${Math.round(ctx.videoDurationSec)}s` : ""}):`
-    );
-  }
-  lines.push(ctx.visualDescription);
-
-  if (ctx.geminiAnalysis?.firstThreeSeconds) {
-    lines.push("");
-    lines.push("FIRST THREE SECONDS:", ctx.geminiAnalysis.firstThreeSeconds);
-  }
-
   if (
     ctx.geminiAnalysis?.coldScrollStopScore != null ||
     ctx.geminiAnalysis?.coldScrollStopEvidence
@@ -1154,6 +1137,23 @@ export function buildVideoBrief(
     if (ctx.geminiAnalysis.watchThroughEvidence) {
       lines.push(ctx.geminiAnalysis.watchThroughEvidence);
     }
+  }
+
+  lines.push("");
+  if (ctx.visualAnalysisMode === "gemini_vertex") {
+    lines.push(
+      `VISUAL CONTEXT (full video — Gemini Vertex${ctx.videoDurationSec ? `, ~${Math.round(ctx.videoDurationSec)}s` : ""}):`
+    );
+  } else {
+    lines.push(
+      `VISUAL CONTEXT (${ctx.frameCount} evenly spaced frame${ctx.frameCount !== 1 ? "s" : ""}${ctx.videoDurationSec ? ` across ~${Math.round(ctx.videoDurationSec)}s` : ""}):`
+    );
+  }
+  lines.push(ctx.visualDescription);
+
+  if (ctx.geminiAnalysis?.firstThreeSeconds) {
+    lines.push("");
+    lines.push("FIRST THREE SECONDS:", ctx.geminiAnalysis.firstThreeSeconds);
   }
 
   if (ctx.geminiAnalysis?.dropOffMoments?.length) {

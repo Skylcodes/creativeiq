@@ -127,7 +127,7 @@ Must cite exact ad + page elements in the verdict — no generic "alignment coul
 const LANDING_PAGE_SCORING_BLOCK = `LANDING PAGE CONVERSION SCORING — exactly these 7 categories, weights fixed (sum = 100):
 ${LANDING_PAGE_CATEGORY_DEFS.map((d) => `- ${d.key} (${d.label}, max ${d.maxScore})`).join("\n")}
 
-Every category score must pass the IMPACT-TEST / SEVERITY RULE and FUNNEL-WIDE INFORMATION RULE before a deduction is applied — a category is not docked points just because something could theoretically be added; it's docked because a real viewer would be genuinely confused, unconvinced, or blocked. Each "improvement" field must follow the MARKETING-ONLY RECOMMENDATIONS RULE — a messaging/positioning/copy/sequencing change using assets that already exist, never a product build. Check across categories for the NO DOUBLE-PENALTY RULE — one root cause (e.g. unclear positioning) should not silently cost points in three different categories.
+Every category score must pass the IMPACT-TEST / SEVERITY RULE and FUNNEL-WIDE INFORMATION RULE before a deduction is applied — a category is not docked points just because something could theoretically be added; it's docked because a real viewer would be genuinely confused, unconvinced, or blocked. Each "verdict" and "improvement" is ONE sentence. Each "improvement" field must follow the MARKETING-ONLY RECOMMENDATIONS RULE — a messaging/positioning/copy/sequencing change using assets that already exist, never a product build. Check across categories for the NO DOUBLE-PENALTY RULE — one root cause (e.g. unclear positioning) should not silently cost points in three different categories.
 
 ${MESSAGE_MATCH_SCORING_BLOCK}
 
@@ -144,7 +144,8 @@ Do NOT inflate retention for: hook exists on paper, CTA present, persuasive scri
 Penalize when VISUAL INTELLIGENCE shows: static opening, slow pacing, no pattern interrupt, long holds without new info, listed drop-off moments, or coldScrollStopScore/watchThroughScore below 6/10.
 
 Weaknesses are not the only thing that can be concrete. Reward with equal specificity when VISUAL INTELLIGENCE actually shows: an unusual or visually arresting opening beat, immediate motion/action/change in the first 1-3 seconds, a genuine pattern interrupt, an open question or reveal that creates "what happens next" curiosity, a demonstration/transformation the viewer wants to see finish, or tight pacing with no dead holds and coldScrollStopScore/watchThroughScore at 7+. A hook that is merely present on paper but executes as a static, generic, or predictable shot is NOT the same as one that actually stops a thumb — score what the footage actually does, not the category it belongs to. Do not withhold a high retentionScore out of caution when the visual evidence for it is this concrete and this strong; a genuinely excellent creative should score 85+ here with no artificial deduction to seem balanced or moderate. Zero retention weaknesses is a valid, complete result when the evidence supports it — do not manufacture one.
-High retention (75+) requires evidence a feed viewer would keep watching — cite specific visual/timing beats from VISUAL INTELLIGENCE in retentionRationale. Low retention likewise requires the same specificity — cite the exact beat that would make a viewer scroll away, not a generic "could be more engaging."`;
+High retention (75+) requires evidence a feed viewer would keep watching — cite specific visual/timing beats from VISUAL INTELLIGENCE in retentionRationale. Low retention likewise requires the same specificity — cite the exact beat that would make a viewer scroll away, not a generic "could be more engaging."
+USER-FACING LANGUAGE (retentionRationale and every other text field are shown to the advertiser): write in plain marketing language about what a viewer sees and does. State the score plainly (e.g. "Retention: 74/100 — most viewers stop for the myth-bust opener but some drift during the ingredient list."). NEVER mention internal mechanics: no "scoring contract", "guidance", "maps to", "centers near", "calibration", "rubric", "band", "fitted model", "Gemini", "VISUAL INTELLIGENCE", "cold/watch", "x/10 signals", or field names like retentionScore, coldScrollStopScore, watchThroughScore, scrollStopScore.`;
 
 const CREATIVE_FORMAT_CLASSIFICATION = `CREATIVE FORMAT CLASSIFICATION (mandatory first step — identify internally before any scoring):
 From VISUAL INTELLIGENCE, classify this ad into exactly ONE primary format. All hook, clarity, CTA, and deduction judgments filter through that format's criteria — a finding valid for Direct Response is not automatically valid for UGC.
@@ -183,25 +184,25 @@ ${RETENTION_ENGAGEMENT_BLOCK}
 
 ${LANDING_PAGE_SCORING_BLOCK}
 
-TOP FINDINGS — max 3 (max 2 when scrollStopScore + watchThroughScore ≥ 80 per GOOD AD PROTECTION RULE), ordered by real-world expected impact (biggest first). Only include issues that pass the CONVERSION IMPACT GATE and clear at least MODERATE on the IMPACT-TEST / SEVERITY RULE — no theoretical improvements, stylistic preferences, negligible/minor optimizations, or "merely different" observations. Zero findings ([]) is valid and often correct for a strong ad — do not pad to fill the quota. Classify severity honestly (critical/high/medium in the JSON schema below) — severity must reflect real impact, not fill a quota. Every fix must be a marketing/messaging change per the MARKETING-ONLY RECOMMENDATIONS RULE — never prescribe a product change.
+TOP FINDINGS — max 3 (max 2 when scrollStopScore + watchThroughScore ≥ 80 per GOOD AD PROTECTION RULE), ordered by real-world expected impact (biggest first). ONE sentence per field (title, detail, currentProblem, whyItMatters, strategicFix, expectedImpact). Only include issues that pass the CONVERSION IMPACT GATE and clear at least MODERATE on the IMPACT-TEST / SEVERITY RULE — no theoretical improvements, stylistic preferences, negligible/minor optimizations, or "merely different" observations. Zero findings ([]) is valid and often correct for a strong ad — do not pad to fill the quota. Classify severity honestly (critical/high/medium in the JSON schema below) — severity must reflect real impact, not fill a quota. Every fix must be a marketing/messaging change per the MARKETING-ONLY RECOMMENDATIONS RULE — never prescribe a product change.
 
-PRIORITY ACTIONS — max 3 (max 2 when scrollStopScore + watchThroughScore ≥ 80), ordered by real-world expected impact (biggest first). Each must pass the CONVERSION IMPACT GATE. Each must: (1) identify exactly what to change, (2) quote/reference the exact element, (3) explain why it matters for THIS ad, (4) be immediately executable as a marketing change (copy/positioning/CTA/sequencing/asset usage) — never a product/feature build per the MARKETING-ONLY RECOMMENDATIONS RULE. "Improve the hook" is invalid. "Replace the opening line '...' with a problem-specific opening that establishes X for cold viewers" is valid. "Add a voice demo to the landing page" is invalid (product change); "Add a caption on the existing demo clarifying it responds by voice" is valid only if that clip already exists in the funnel.
+PRIORITY ACTIONS — max 3 (max 2 when scrollStopScore + watchThroughScore ≥ 80), ordered by real-world expected impact (biggest first). ONE sentence per field (action, currentProblem, whyItMatters, strategicFix, expectedImpact). Each must pass the CONVERSION IMPACT GATE. Each must: (1) identify exactly what to change, (2) quote/reference the exact element, (3) explain why it matters for THIS ad, (4) be immediately executable as a marketing change (copy/positioning/CTA/sequencing/asset usage) — never a product/feature build per the MARKETING-ONLY RECOMMENDATIONS RULE. "Improve the hook" is invalid. "Replace the opening line '...' with a problem-specific opening that establishes X for cold viewers" is valid. "Add a voice demo to the landing page" is invalid (product change); "Add a caption on the existing demo clarifying it responds by voice" is valid only if that clip already exists in the funnel.
 
 TOP PRIORITY SLOT — priorityActions[0] is the single biggest reason the AD CREATIVE fails to convert. Judge only the creative: hook, script, offer in the ad, in-ad CTA, pacing, what is shown. Do not put a landing-page fix in this slot, even if the page is weaker. Rank by conversion leak size only. Effort does not matter — a harder creative fix outranks an easier one if it costs more conversions. Set this first action's impact to "high" whenever a real creative leak exists. Later actions can be smaller creative fixes or page fixes. If the creative has no meaningful conversion leak, do not invent one.
 
-ANGLE RECOMMENDATIONS — exactly 3 ranked alternatives, each with a specific hook, format, rationale, and connection to the competitive landscape (when market intelligence is available). No generic angles.
+ANGLE RECOMMENDATIONS — exactly 3 ranked alternatives. Each has rank, angle, a ONE-sentence rationale, angleTags, targetAudience, and competitorLandscape. Do NOT output whyItWorks, psychologicalTrigger, or awarenessStage — those repeat the angle/rationale. No generic angles.
 
-HOOK VARIANTS — 3-5 alternatives. Each must sound like a real ad on this platform, be specific to this product/audience, and include a production note.
+HOOK VARIANTS — 3-5 alternatives. Each must sound like a real ad on this platform, be specific to this product/audience, and include a ONE-sentence rationale (the hook explanation).
 
 SCRIPT REWRITE — ${SCRIPT_REWRITE_EXPERTISE}
 Incorporate the most important identified weaknesses from this specific evaluation — do not write generic copy.
 ${SCRIPT_REWRITE_SCOPE_RULES}
 
-ICP SIMULATION — exactly 3 personas: highly aware, problem aware, skeptical cold. Each first-person, phase-labeled (bracketed phase names), specific to this ad, with at least 60% of the narrative on the ad experience itself rather than the landing page. Never fabricate demographic facts not supported by the brand profile.
+ICP SIMULATION — exactly 3 personas: highly aware, problem aware, skeptical cold. Each first-person, phase-labeled (bracketed phase names), specific to this ad, ≈80 words each, with at least 60% of the narrative on the ad experience itself rather than the landing page. Never fabricate demographic facts not supported by the brand profile.
 
 VERDICT RATIONALE — max 25 words, one sentence, specific to this exact ad. Explain the primary reason a real budget decision would land where it does. Do not compute LAUNCH/TEST/REWORK labels yourself — application code derives the label from your scores. Just give the honest one-sentence reason.
 
-COMPETITIVE INSIGHTS — 0-5 short market-grounded notes when market intelligence was available; omit or leave empty if it was not (never invent competitive claims).
+COMPETITIVE INSIGHTS — REQUIRED. 2-4 short market-grounded notes when market intelligence was available. If it was not, return exactly one note that says market intelligence was unavailable. Never omit the field or return an empty array. Never invent competitor facts.
 
 AGENT FINDINGS — exactly 2 entries, agentId "skeptical_buyer" (the Real Viewer transcript) and "direct_response" (the Performance Expert transcript), each with a summary and 3+ keyFindings drawn from their actual transcripts (quote specifics from THIS ad, not generic marketing commentary).
 
@@ -221,15 +222,15 @@ Return ONLY JSON (critical fields first — never omit headline or verdictRation
   "verdictRationale": "REQUIRED — max 25 words, one sentence, specific to this ad",
   "scrollStopEvidence": "specific opening evidence",
   "watchThroughEvidence": "specific pacing/payoff evidence",
-  "retentionRationale": "why retention differs from or matches creative strength",
+  "retentionRationale": "plain-language, user-facing: state the retention score out of 100 and the specific viewing moments that earn or lose it — no internal terms or field names",
   "landingPageCategories": [
-    { "key": "message_match", "label": "Message Match", "score": number, "maxScore": 20, "verdict": string (quote ad + page), "improvement": string },
-    { "key": "above_fold_clarity", "label": "Above-Fold Clarity", "score": number, "maxScore": 15, "verdict": string, "improvement": string },
-    { "key": "social_proof", "label": "Social Proof", "score": number, "maxScore": 8, "verdict": string, "improvement": string },
-    { "key": "offer_clarity", "label": "Offer Clarity", "score": number, "maxScore": 15, "verdict": string, "improvement": string },
-    { "key": "objection_handling", "label": "Objection Handling", "score": number, "maxScore": 17, "verdict": string, "improvement": string },
-    { "key": "visual_ux", "label": "Visual / UX Quality", "score": number, "maxScore": 10, "verdict": string, "improvement": string },
-    { "key": "funnel_continuity", "label": "Funnel Continuity", "score": number, "maxScore": 15, "verdict": string, "improvement": string }
+    { "key": "message_match", "label": "Message Match", "score": number, "maxScore": 20, "verdict": "ONE sentence quoting ad + page", "improvement": "ONE sentence" },
+    { "key": "above_fold_clarity", "label": "Above-Fold Clarity", "score": number, "maxScore": 15, "verdict": "ONE sentence", "improvement": "ONE sentence" },
+    { "key": "social_proof", "label": "Social Proof", "score": number, "maxScore": 8, "verdict": "ONE sentence", "improvement": "ONE sentence" },
+    { "key": "offer_clarity", "label": "Offer Clarity", "score": number, "maxScore": 15, "verdict": "ONE sentence", "improvement": "ONE sentence" },
+    { "key": "objection_handling", "label": "Objection Handling", "score": number, "maxScore": 17, "verdict": "ONE sentence", "improvement": "ONE sentence" },
+    { "key": "visual_ux", "label": "Visual / UX Quality", "score": number, "maxScore": 10, "verdict": "ONE sentence", "improvement": "ONE sentence" },
+    { "key": "funnel_continuity", "label": "Funnel Continuity", "score": number, "maxScore": 15, "verdict": "ONE sentence", "improvement": "ONE sentence" }
   ],
   "angleTags": ["choose from: Pain-Agitation-Solution, Social Proof, Founder Story, Us vs Them, Transformation, Fear/Risk"],
   "agentFindings": [
@@ -238,11 +239,11 @@ Return ONLY JSON (critical fields first — never omit headline or verdictRation
   ],
   "topFindings": [{ "title": string, "detail": string, "severity": "critical"|"high"|"medium", "currentProblem": string, "whyItMatters": string, "strategicFix": string, "expectedImpact": string }],
   "priorityActions": [{ "action": string, "impact": "high"|"medium"|"low", "effort": "low"|"medium"|"high", "currentProblem": string, "whyItMatters": string, "strategicFix": string, "expectedImpact": string }],
-  "angleRecommendations": [{ "rank": number, "angle": string, "rationale": string, "angleTags": [string], "targetAudience": string, "psychologicalTrigger": string, "awarenessStage": string, "whyItWorks": string, "competitorLandscape": string }],
-  "hookVariants": [{ "rank": number, "hook": string, "rationale": string, "predictedPerformance": "high"|"medium"|"experimental" }],
+  "angleRecommendations": [{ "rank": number, "angle": string, "rationale": "ONE sentence", "angleTags": [string], "targetAudience": string, "competitorLandscape": string }],
+  "hookVariants": [{ "rank": number, "hook": string, "rationale": "ONE sentence", "predictedPerformance": "high"|"medium"|"experimental" }],
   "scriptRewrite": "80+ word spoken script ending with a single 'Production note:' line",
   "icpSimulation": { "personas": [{ "id": string, "title": string, "likelihood": "High"|"Medium"|"Low", "summary": string, "narrative": string }] },
   "competitiveInsights": [string]
 }
 
-topFindings, priorityActions can be empty arrays. headline and verdictRationale are REQUIRED non-empty strings. Valid JSON only.`;
+topFindings, priorityActions can be empty arrays. headline, verdictRationale, and competitiveInsights are REQUIRED. competitiveInsights must be a non-empty string array. Valid JSON only.`;

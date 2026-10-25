@@ -156,8 +156,11 @@ export function calibrateScoresFromVisualEvidence(
     let retentionCap = clamp(Math.round(coldN * 4 + watchN * 6), 0, 100);
 
     const dropCount = signals?.dropOffMoments?.filter(Boolean).length ?? 0;
-    if (dropCount >= 2) retentionCap = Math.min(retentionCap, 55);
-    if (dropCount >= 3) retentionCap = Math.min(retentionCap, 40);
+    // Drop-offs are already reflected in Gemini's (normalized) watch score; only
+    // apply an extra ceiling when the watcher itself rated watch-through weak,
+    // otherwise one set of drop-offs gets penalised twice (e.g. 8/8 → 5/6 → 40).
+    if (dropCount >= 2 && watchN <= 4) retentionCap = Math.min(retentionCap, 55);
+    if (dropCount >= 3 && watchN <= 4) retentionCap = Math.min(retentionCap, 40);
 
     if (shouldCapToVisualEvidence(scrollStopScore, scrollCap, coldN)) {
       scrollStopScore = Math.min(scrollStopScore, scrollCap);
@@ -704,7 +707,77 @@ export type ScoringSynthesisInput = {
   fallbacks?: ValidateScoringFallbacks;
   /** When present (video creatives), caps inflated retentionScore using Job 1 Gemini signals. */
   visualRetentionSignals?: VisualRetentionSignals;
+  analysisId?: string;
 };
+
+/** Internal prompt/pipeline jargon that must never reach user-facing report text. */
+const INTERNAL_JARGON_PATTERN =
+  /\b(scoring contract|retention scoring contract|internal retention guidance|contract|maps? to|mapped target|centers? (?:near|at|on)|calibrat\w*|rubric|fitted(?: v3)? model|v3|pred2s|est2s|gemini|visual intelligence|cold\s*=|watch\s*=|retentionScore|coldScrollStop\w*|watchThrough\w*|scrollStopScore|strategicScore|creativeStrengthScore|\d+\s*\/\s*10\b)/i;
+
+/**
+ * Removes sentences that leak internal scoring mechanics (prompt contracts,
+ * signal numbers, field names) from user-facing text. Returns "" if nothing
+ * clean remains.
+ */
+export function stripInternalJargon(text: string | undefined): string {
+  const t = text?.trim() ?? "";
+  if (!t) return "";
+  const sentences = t.split(/(?<=[.!?])\s+/);
+  return sentences
+    .map((s) => s.trim())
+    .filter((s) => s && !INTERNAL_JARGON_PATTERN.test(s))
+    .join(" ")
+    .trim();
+}
+
+export function alignRetentionRationale(
+  rationale: string | undefined,
+  appliedScore: number
+): string {
+  const score = Math.round(clamp(appliedScore, 0, 100));
+  const clean = stripInternalJargon(rationale)
+    // Drop any other score-looking number so text can never contradict the stored score.
+    .replace(/\b(?:retention(?: score)?(?: of| is|:)?\s*)~?\d{1,3}(?:\s*\/\s*100)?\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .replace(/^[\s—–:,.-]+/, "")
+    .replace(/^./, (c) => c.toUpperCase());
+  const lead = `Retention: ${score}/100.`;
+  return clean ? `${lead} ${clean}` : lead;
+}
+
+export function needsCompetitiveInsightsRetry(insights?: string[]): boolean {
+  return !insights?.some((s) => typeof s === "string" && s.trim().length > 0);
+}
+
+export const FALLBACK_COMPETITIVE_INSIGHT =
+  "Market intelligence was unavailable; no competitive claims invented.";
+
+export function applyCompetitiveInsightsRetry(
+  current: string[] | undefined,
+  retry: string[] | undefined
+): string[] {
+  const unique = [...(current ?? []), ...(retry ?? [])]
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .map((s) => s.trim())
+    .filter((s, i, arr) => arr.indexOf(s) === i);
+  return unique.length ? unique : [FALLBACK_COMPETITIVE_INSIGHT];
+}
+
+export function formatWorkerGeminiLog(
+  analysisId: string,
+  signals: { coldScrollStopScore?: number; watchThroughScore?: number }
+): string {
+  return `[worker] gemini ${analysisId} cold=${signals.coldScrollStopScore ?? "n/a"} watch=${signals.watchThroughScore ?? "n/a"}`;
+}
+
+export function formatWorkerRetentionLog(
+  analysisId: string,
+  oldScore: number,
+  applied: number
+): string {
+  return `[worker] retention ${analysisId} old=${oldScore} new=${applied} applied=${applied}`;
+}
 
 /**
  * JOB 4 — single scoring/synthesis call. Produces every numeric grading
@@ -719,13 +792,39 @@ export async function runScoringSynthesis(
     system: SCORING_SYSTEM,
     cachedContext: input.cachedContext,
     prompt: input.prompt,
-    maxTokens: 8192,
+    maxTokens: 6144,
     temperature: 0.2,
     model: CLAUDE_MODEL,
     grading: true,
   });
 
   const validated = validateScoringRaw(raw, input.fallbacks);
+
+  let competitiveInsights = validated.competitiveInsights;
+  if (needsCompetitiveInsightsRetry(competitiveInsights)) {
+    try {
+      const retry = await callClaudeJSON<{ competitiveInsights?: unknown }>({
+        system:
+          "Return ONLY JSON. competitiveInsights must be 2-4 short market-grounded notes. If market intelligence is missing, return one note saying so. Never return an empty array.",
+        cachedContext: input.cachedContext,
+        prompt: `${input.prompt}\n\nYour previous JSON omitted or emptied competitiveInsights. Return ONLY {"competitiveInsights":[...]} now.`,
+        maxTokens: 800,
+        temperature: 0.2,
+        model: CLAUDE_MODEL,
+        grading: true,
+      });
+      competitiveInsights = applyCompetitiveInsightsRetry(
+        competitiveInsights,
+        Array.isArray(retry.competitiveInsights)
+          ? retry.competitiveInsights.filter((s): s is string => typeof s === "string")
+          : undefined
+      );
+    } catch {
+      competitiveInsights = applyCompetitiveInsightsRetry(competitiveInsights, undefined);
+    }
+  } else {
+    competitiveInsights = applyCompetitiveInsightsRetry(competitiveInsights, undefined);
+  }
 
   const calibrated = calibrateScoresFromVisualEvidence(
     {
@@ -734,6 +833,14 @@ export async function runScoringSynthesis(
       retentionScore: validated.retentionScore,
     },
     input.visualRetentionSignals
+  );
+
+  console.log(
+    formatWorkerRetentionLog(
+      input.analysisId ?? "unknown",
+      validated.retentionScore,
+      calibrated.retentionScore
+    )
   );
 
   const creativeStrengthScore = computeCreativeStrengthScore(
@@ -746,9 +853,14 @@ export async function runScoringSynthesis(
 
   return {
     ...validated,
+    competitiveInsights,
     scrollStopScore: calibrated.scrollStopScore,
     watchThroughScore: calibrated.watchThroughScore,
     retentionScore: calibrated.retentionScore,
+    retentionRationale: alignRetentionRationale(
+      validated.retentionRationale,
+      calibrated.retentionScore
+    ),
     creativeStrengthScore,
     landingPageTotal,
     overallFunnelScore,

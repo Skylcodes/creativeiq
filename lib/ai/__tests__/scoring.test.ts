@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignRetentionRationale,
+  stripInternalJargon,
   anchorRetentionScore,
+  applyCompetitiveInsightsRetry,
   calibrateScoresFromVisualEvidence,
   computeCreativeStrengthScore,
   computeLandingPageTotal,
   computeOverallFunnelScore,
   computeVerdict,
+  formatWorkerGeminiLog,
+  formatWorkerRetentionLog,
+  needsCompetitiveInsightsRetry,
   normalizeAgentFindings,
   normalizeLandingPageCategories,
   resolveHeadline,
@@ -149,14 +155,26 @@ describe("anchorRetentionScore", () => {
     expect(anchorRetentionScore(72, undefined)).toBe(72);
   });
 
-  it("applies stricter cap when multiple drop-off moments are listed", () => {
+  it("applies stricter cap when multiple drop-offs AND the watcher rated watch-through weak", () => {
     expect(
       anchorRetentionScore(80, {
         coldScrollStopScore: 5,
-        watchThroughScore: 6,
+        watchThroughScore: 4,
         dropOffMoments: ["~0:04", "~0:12", "~0:20"],
       })
     ).toBeLessThanOrEqual(40);
+  });
+
+  it("does not double-penalise drop-offs already reflected in watch-through (caffeine 43s regression: was 40)", () => {
+    // PR #6 preview: Gemini listed 3 mid/late holds, normalize capped 8/8 → 5/6,
+    // then the drop-off ceiling forced 40 on top of the 56 signal mapping.
+    expect(
+      anchorRetentionScore(54, {
+        coldScrollStopScore: 5,
+        watchThroughScore: 6,
+        dropOffMoments: ["~0:12–0:17 hold", "~0:32–0:37 hold", "~0:37–0:42 hold"],
+      })
+    ).toBe(54);
   });
 
   it("closes the 7/7 dead zone — pulls a far-too-low model score up toward the contract target", () => {
@@ -549,5 +567,79 @@ describe("score calibration across the full deterministic composite", () => {
     ];
     const [excellent, poor] = scenarios;
     expect(excellent - poor).toBeGreaterThan(25);
+  });
+});
+
+describe("alignRetentionRationale", () => {
+  it("removes leaked internal wording and states the stored score in plain language", () => {
+    const out = alignRetentionRationale(
+      "Gemini cold=7/10, watch=8/10 maps to ~76. The myth-bust opener earns the pause. Score centers at 76 per the retention scoring contract — not inflated.",
+      72
+    );
+    expect(out).toBe("Retention: 72/100. The myth-bust opener earns the pause.");
+  });
+
+  it("strips field names and fitted-model jargon", () => {
+    const out = alignRetentionRationale(
+      "maps to 83 per the fitted v3 model. retentionScore reflects pred2s of 0.45. Fast cuts keep viewers watching to the offer.",
+      83
+    );
+    expect(out).toBe("Retention: 83/100. Fast cuts keep viewers watching to the offer.");
+  });
+
+  it("never lets a different score number survive next to the stored one", () => {
+    expect(
+      alignRetentionRationale("Retention: 76/100 — the hook lands and pacing holds.", 70)
+    ).toBe("Retention: 70/100. The hook lands and pacing holds.");
+  });
+
+  it("synthesizes a plain write-up when the model omitted retentionRationale", () => {
+    expect(alignRetentionRationale(undefined, 64)).toBe("Retention: 64/100.");
+  });
+});
+
+describe("stripInternalJargon", () => {
+  it("keeps clean marketing sentences untouched", () => {
+    expect(stripInternalJargon("The opener stops the scroll. The CTA is split.")).toBe(
+      "The opener stops the scroll. The CTA is split."
+    );
+  });
+  it.each([
+    "per the scoring contract",
+    "this maps to 70",
+    "centers near 76",
+    "coldScrollStopScore is 7",
+    "Gemini rated it 7/10",
+  ])("drops leaky sentence: %s", (leak) => {
+    expect(stripInternalJargon(`Good pacing. ${leak}.`)).toBe("Good pacing.");
+  });
+});
+
+describe("competitiveInsights retry gate", () => {
+  it("retries when the field is missing or empty", () => {
+    expect(needsCompetitiveInsightsRetry(undefined)).toBe(true);
+    expect(needsCompetitiveInsightsRetry([])).toBe(true);
+    expect(needsCompetitiveInsightsRetry(["   "])).toBe(true);
+    expect(needsCompetitiveInsightsRetry(["Competitors lead with price."])).toBe(false);
+  });
+
+  it("uses the retry payload, then a required fallback so the section is never empty", () => {
+    expect(applyCompetitiveInsightsRetry(undefined, ["Niche is saturated on UGC."])).toEqual([
+      "Niche is saturated on UGC.",
+    ]);
+    const fallback = applyCompetitiveInsightsRetry([], undefined);
+    expect(fallback.length).toBeGreaterThan(0);
+    expect(fallback[0]).toMatch(/market intelligence/i);
+  });
+});
+
+describe("worker logs", () => {
+  it("emits gemini cold/watch and retention old/new/applied", () => {
+    expect(formatWorkerGeminiLog("an-1", { coldScrollStopScore: 7, watchThroughScore: 8 })).toBe(
+      "[worker] gemini an-1 cold=7 watch=8"
+    );
+    expect(formatWorkerRetentionLog("an-1", 85, 76)).toBe(
+      "[worker] retention an-1 old=85 new=76 applied=76"
+    );
   });
 });

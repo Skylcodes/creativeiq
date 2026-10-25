@@ -135,6 +135,14 @@ function blockerToAction(blocker: ConversionBlocker): PriorityAction {
   };
 }
 
+/** Plain-language reason — never expose raw rubric points like "(0/20)". */
+export function landingCategoryWhy(label: string, pct: number): string {
+  const area = label.trim().toLowerCase() || "this area";
+  if (pct < 0.25) return `The landing page's ${area} is a major weak spot — visitors from this ad are likely to bounce here.`;
+  if (pct < 0.5) return `The landing page's ${area} is weak and is costing conversions from this ad's traffic.`;
+  return `The landing page's ${area} is decent but has room to convert more of this ad's traffic.`;
+}
+
 function categoryToAction(cat: ConversionCategory): PriorityAction | null {
   const improvement = cat.improvement?.trim();
   if (!improvement || improvement.length < 15) return null;
@@ -147,7 +155,7 @@ function categoryToAction(cat: ConversionCategory): PriorityAction | null {
     impact: pct < 0.5 ? "high" : "medium",
     effort: "medium",
     currentProblem: cat.verdict?.trim(),
-    whyItMatters: `Landing page ${cat.label.toLowerCase()} is underperforming (${cat.score}/${cat.maxScore}).`,
+    whyItMatters: landingCategoryWhy(cat.label, pct),
     strategicFix: improvement,
     expectedImpact: "Improves post-click conversion for traffic this ad sends.",
   };

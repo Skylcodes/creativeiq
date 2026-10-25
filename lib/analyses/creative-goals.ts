@@ -69,7 +69,7 @@ export function getCreativeGoalLabel(goal: CreativeGoal): string {
 export function getCreativeGoalScoreContext(goal: CreativeGoal): string {
   switch (goal) {
     case "drive_purchases":
-      return "This score reflects how well this creative drives direct purchases — conversion-first calibration.";
+      return "This score reflects how well this creative drives direct purchases.";
     case "generate_leads":
       return "This score reflects how well this creative generates leads — not direct purchase conversion.";
     case "build_brand_awareness":
@@ -81,7 +81,7 @@ export function getCreativeGoalScoreContext(goal: CreativeGoal): string {
     case "retarget_warm":
       return "This score reflects how well this creative re-engages warm audiences — not cold-traffic conversion.";
     default:
-      return "This score is calibrated to your selected creative goal.";
+      return "This score reflects your selected creative goal.";
   }
 }
 

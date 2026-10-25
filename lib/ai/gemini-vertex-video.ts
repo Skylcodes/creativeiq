@@ -12,6 +12,10 @@ const MAX_INLINE_VIDEO_BYTES = 18 * 1024 * 1024;
 
 let cachedClient: GoogleGenAI | null = null;
 
+/** Fixed decoding seed so repeat analyses of the same video score the same. */
+export const GEMINI_VIDEO_SEED = 1234;
+export const GEMINI_VIDEO_TEMPERATURE = 0;
+
 const GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS = `You analyze short-form video advertisements for a creative intelligence platform.
 
 You are watching the FULL attached video (visual + audio continuous timeline) — NOT a thumbnail and NOT sparse frames.
@@ -33,25 +37,34 @@ VISUAL ACCURACY RULES (critical — grading depends on this):
 2. If the same text/visual recurs across moments, call it RECURRING/PERSISTENT — never "only once" or "brief flash" unless it truly appears once.
 3. visualTimeline must be chronological with approximate timestamps (~0:00, ~0:04, …) covering opening → mid → close.
 4. onScreenTextPersistence must state which quoted text persists vs changes, with time ranges.
-5. firstThreeSeconds must describe the actual opening beat a cold feed viewer sees/hears.
-6. coldScrollStopScore (0-10) — CALIBRATED. Most ads are 3–6. A talking head, on-screen text, or a visible product is TABLE STAKES (5–6), not a 7.
-   0–2 POOR: almost everyone keeps scrolling (logo open, dead first frame, no reason to stop)
-   3–4 WEAK: some pause, most thumbs keep moving — boring, slow, static, repetitive, or hard to watch belongs HERE, not 5-6
-   5–6 AVERAGE: functional open, forgettable; mixed stop rate
-   7–8 GOOD: a cold stranger would actually stop — pattern interrupt, tension, or visual stakes in 0–1s. Must cite the exact interrupt.
-   9–10 EXCEPTIONAL: immediate "wait what" — rare. Do not give 9 because the video is "nice."
-   If the opening is boring, slow, static, predictable, or you would personally scroll away, score 2–4 — do NOT default to 5-6 just because a person or product is visible.
-   Evidence must name the exact visual/audio interrupt. Do NOT score 7+ for unused-style reasons, and do NOT suppress a 7+ that is earned.
-7. watchThroughScore (0-10) — same calibration. 7+ only if most viewers would reach the payoff. "Could use more cuts" is NOT a low score unless they would actually drop.
-   Boring holds, repetition, dead time, or lack of curiosity → 2–4. Do NOT give 5-6 to a video that is genuinely difficult to sit through.
-   Empty dropOffMoments + 5/10 is a contradiction — if they stay, score like they stay; if you list drop-offs, the score cannot be 8+.
-   CONCEPT VS. EXECUTION — the most common scoring mistake: a video can have a clever premise (a reveal, a twist, a "report card," a before/after) while still failing to actually hold attention when watched. Having an interesting IDEA is not the same as being interesting to WATCH. Score the lived, moment-to-moment viewing experience, not the cleverness of the format. Concretely treat these as NEGATIVE signals that pull the score down, even in an otherwise well-structured video:
-   - Dense on-screen text/UI the viewer must actively stop and read (a scrolling report, a wall of captions, a list of bullet points) — reading is friction, not engagement. If a viewer would need to pause to read it, that is a drop-off risk, not a payoff.
-   - Flat, monotone, robotic, or low-energy vocal delivery (including AI-generated or scripted-sounding voiceover) — energy and tone drive watch-through as much as content does.
-   - A screen-recording/tutorial/dashboard-demo aesthetic that resembles software documentation more than short-form entertainment — familiarity with the format does not equal enjoyment of it.
-   - Long unbroken stretches (3+ seconds) where nothing new happens on screen even if audio is still talking.
-   A video can legitimately score 7+ ONLY if, after weighing these friction points, a real cold viewer would still watch through — not merely because it has a beginning/middle/end structure.
-8. dropOffMoments: timestamps where a cold viewer would realistically swipe — empty array if retention holds. Do not invent drop-offs for theoretical polish. If you list 2+ drop-offs, watchThroughScore must be ≤6. If ANY dropOffMoment is caused by dense text/reading burden (a viewer has to stop and read instead of watch), watchThroughScore must be ≤5 — reading-burden drop-offs are a harder stop than generic pacing complaints because the viewer disengages from the video entirely to read.
+5. firstThreeSeconds — EVIDENCE FIRST. Write a timestamped log BEFORE any score, one line per beat, covering exactly 0.0–3.0s:
+   "0.0s FIRST FRAME: <who/what is on screen, framing, face visible? eye contact with lens? motion? contrast/brightness vs a typical feed post>"
+   "0.0–1.0s: <cuts, movement, first spoken words verbatim, on-screen text verbatim + size/legibility on a phone with sound OFF>"
+   "1.0–3.0s: <same>"
+   Only state what is visible/audible. If unsure whether something happens, say "unclear" — never call an opening "static" without checking for cuts, zooms, camera movement, or full-screen text changes.
+6. coldScrollStopScore (0-10) = how many cold, sound-off-by-default TikTok/Reels viewers stop in the first ~2s (the platform 2-second-view moment). Score it by tallying these OBSERVABLE hook factors from your log (each Yes/Partial/No, cite the timestamp in coldScrollStopEvidence):
+   F1 First-frame salience: the 0.0s frame is visually distinct from ordinary feed content (high contrast, unusual object/scene, motion already happening, bold text) — not a logo, black frame, or generic room.
+   F2 Visual change by ≤1.5s: a cut, zoom, reveal, full-screen text card, or action starts.
+   F3 Human connection: a face visible by ≤2s, ideally looking into the lens / addressing "you".
+   F4 Sound-off clarity: on-screen text in ≤1s that states the hook, large and legible on a phone.
+   F5 Specific tension: the first line/text is a specific, contrarian, curiosity, or problem claim aimed at a recognisable audience (not "hey guys", not a generic benefit, not the brand name).
+   F6 Native feel: looks like creator content, not a produced commercial (no logo-first open, no stock footage, no corporate VO in 0–2s).
+   Negatives (each pulls down 1–2): logo/brand card first; first 1s dark, blurry, or empty; text too small or over a busy background; obvious typo or low-quality artifact in the hook text; hook unrelated to the product (bait).
+   ANCHORS (pick the band from the tally, then adjust ±1 for execution quality):
+   0–2 Fails: 0–1 factors; logo/dead/black first frame; nothing to stop for.
+   3–4 Weak: 2 factors; generic opener ("hey guys", product beauty shot) or the interesting beat arrives after 3s.
+   5 Mediocre: 3 factors but one weakly executed; the viewer understands the topic but has no specific reason to stay.
+   6 OK/solid: 3–4 factors, with a clear specific claim AND a visual change by ≤1.5s, but at least one material miss (no eye contact, illegible sound-off text, ordinary first frame).
+   7–8 Good/Great: 5+ factors incl. F1 and F5, executed cleanly — the 0.0s frame itself would make a scroller pause, and the claim is specific to a felt problem.
+   9–10 Exceptional: all 6 factors, instantly legible with sound off, a genuine "wait, what?" first frame. Rare (<5% of ads).
+   Consistency rule: the score MUST be derivable from your factor tally. Two videos with the same tally get the same band.
+7. watchThroughScore (0-10) = of viewers who stopped, how many reach the product/offer and the CTA. Evidence first: list timestamps of the product reveal, offer, and CTA, the longest stretch with no new visual or information, and any reading-burden or energy drop. Judge relative to length: ≤15s needs one clear payoff; 15–30s needs a new beat every ~2–3s; 30–60s needs an escalating arc (problem → mechanism/proof → offer) with no dead stretch >3s; >60s needs that plus story or tension.
+   ANCHORS: 0–2 loses almost everyone before the product; 3–4 long dead stretches/repetition before the payoff; 5 holds but drags in the middle or the payoff is weak; 6 consistent beats, one soft section; 7–8 something new every 2–3s AND the hook's promise is paid off by the product/proof; 9–10 people would rewatch, rare.
+   Hook-payoff coherence: if the hook's promise is not delivered by the product/body (bait-and-switch), cap at 5.
+   CONCEPT VS. EXECUTION: score the lived moment-to-moment viewing experience, not the cleverness of the format. Dense text the viewer must stop to read, flat/robotic delivery, a software-demo aesthetic, and 3s+ stretches with nothing new are negative signals.
+8. dropOffMoments: timestamps where a cold viewer would realistically swipe — empty array if retention holds. If you list 2+ drop-offs, watchThroughScore must be ≤6. If ANY drop-off is caused by dense text/reading burden, watchThroughScore must be ≤5.
+   A drop-off is a moment where a real viewer would SWIPE, not a moment that is merely less dynamic. A creator talking to camera with continuous speech and changing captions is NOT a drop-off just because the shot is held 3–6s — only list it if nothing new is said or shown. Do not list the CTA/ending as a drop-off. Most solid ads have 0–1 drop-offs; list 3+ only for genuinely hard-to-watch videos, and then watchThroughScore must be ≤4.
+   coldScrollStopEvidence and watchThroughEvidence must be written BEFORE their scores, quote timestamps from your log, list each factor as Yes/Partial/No, and end with "→ band X because …". Never contradict your own timeline (e.g., do not call an opening "static" if your log shows a cut ≤3s).
 9. Quote onScreenText exactly when visible. Consolidate distinct overlays.
 10. META-CRITIQUE: if on-screen text belongs to a reference/competitor clip being shown while the creator speaks over it, still quote it in onScreenText but explain in separationNotes that it is REFERENCE AD COPY — not the advertiser's sell. primaryMessaging = only the creator's spoken critique/pitch/CTA.
 
@@ -62,10 +75,33 @@ SEPARATION RULES:
 
 ${VIDEO_ANALYSIS_JSON_SCHEMA}`;
 
-/** Vertex structured-output schema — prevents malformed JSON in long string fields. */
+/** Vertex structured-output schema — observations/evidence first, scores last (score is derived from listed evidence). Missing scores trigger one retry. */
 const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
   type: Type.OBJECT,
+  propertyOrdering: [
+    "visualTimeline",
+    "firstThreeSeconds",
+    "onScreenText",
+    "onScreenTextPersistence",
+    "primaryMessaging",
+    "backgroundAudioNote",
+    "separationNotes",
+    "visualDescription",
+    "productVisibility",
+    "visualStyle",
+    "emotionalCharacteristics",
+    "endingDescription",
+    "dropOffMoments",
+    "coldScrollStopEvidence",
+    "coldScrollStopScore",
+    "watchThroughEvidence",
+    "watchThroughScore",
+  ],
   properties: {
+    coldScrollStopScore: { type: Type.INTEGER },
+    coldScrollStopEvidence: { type: Type.STRING },
+    watchThroughScore: { type: Type.INTEGER },
+    watchThroughEvidence: { type: Type.STRING },
     visualDescription: {
       type: Type.STRING,
       description:
@@ -90,10 +126,6 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     },
     onScreenTextPersistence: { type: Type.STRING },
     separationNotes: { type: Type.STRING },
-    coldScrollStopScore: { type: Type.INTEGER },
-    coldScrollStopEvidence: { type: Type.STRING },
-    watchThroughScore: { type: Type.INTEGER },
-    watchThroughEvidence: { type: Type.STRING },
     firstThreeSeconds: { type: Type.STRING },
     dropOffMoments: {
       type: Type.ARRAY,
@@ -108,17 +140,21 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     endingDescription: { type: Type.STRING },
   },
   required: [
-    "visualDescription",
-    "primaryMessaging",
-    "backgroundAudioNote",
-    "onScreenText",
     "coldScrollStopScore",
     "coldScrollStopEvidence",
     "watchThroughScore",
     "watchThroughEvidence",
+    "visualDescription",
+    "primaryMessaging",
+    "backgroundAudioNote",
+    "onScreenText",
     "firstThreeSeconds",
   ],
 };
+
+export function geminiAnalysisNeedsRetry(analysis: VideoAnalysisResult): boolean {
+  return analysis.coldScrollStopScore == null || analysis.watchThroughScore == null;
+}
 
 function readEnvInt(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name]?.trim();
@@ -187,6 +223,13 @@ function parseAnalysisJson(raw: string, finishReason?: string): VideoAnalysisRes
 const READING_BURDEN_PATTERN =
   /\b(read|reading|text[- ]heavy|dense text|wall of text|scroll(ing)? (text|report)|pause to read|stop(s)? to read|require[sd]? (active )?reading)\b/i;
 
+/** First timestamp in a drop-off note ("~0:32–0:37 hold" → 32). Unknown → Infinity (treated as not-opening). */
+export function dropOffStartSec(moment: string): number {
+  const m = moment.match(/(\d{1,2}):(\d{2})/) ?? moment.match(/(?:^|[^\d])(\d{1,3}(?:\.\d+)?)\s*s\b/);
+  if (!m) return Number.POSITIVE_INFINITY;
+  return m.length >= 3 && m[2] !== undefined && moment.includes(":") ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]);
+}
+
 /** Exported for unit testing — enforces internal consistency on raw Gemini output. */
 export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisResult {
   let coldScrollStopScore = clampScore(analysis.coldScrollStopScore);
@@ -199,7 +242,12 @@ export function normalizeAnalysis(analysis: VideoAnalysisResult): VideoAnalysisR
   // returns table-stakes 5-6 scores, which then fail to cap bad ads downstream.
   if (dropCount >= 2) {
     if (watchThroughScore != null) watchThroughScore = Math.min(watchThroughScore, 6);
-    if (coldScrollStopScore != null) coldScrollStopScore = Math.min(coldScrollStopScore, 5);
+    // Only drop-offs inside the opening (≤3s) say anything about scroll-stop.
+    // Back-half drop-offs (e.g. a 0:32 hold) must not cap the hook score.
+    const openingDrops = dropOffMoments?.filter((m) => dropOffStartSec(m) <= 3).length ?? 0;
+    if (openingDrops >= 1 && coldScrollStopScore != null) {
+      coldScrollStopScore = Math.min(coldScrollStopScore, 5);
+    }
   } else if (dropCount === 1) {
     if (watchThroughScore != null) watchThroughScore = Math.min(watchThroughScore, 7);
   }
@@ -284,39 +332,61 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: base64Video,
+  const callOnce = () =>
+    ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType,
+                data: base64Video,
+              },
             },
-          },
-          { text: promptParts.join("\n") },
-        ],
+            { text: promptParts.join("\n") },
+          ],
+        },
+      ],
+      config: {
+        // Deterministic decoding: same video → same rubric tally. One call per analysis.
+        temperature: GEMINI_VIDEO_TEMPERATURE,
+        topP: 1,
+        seed: GEMINI_VIDEO_SEED,
+        maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
+        responseMimeType: "application/json",
+        responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
       },
-    ],
-    config: {
-      temperature: 0.1,
-      maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
-      responseMimeType: "application/json",
-      responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
-    },
-  });
+    });
 
-  const rawText = response.text?.trim();
-  if (!rawText) {
-    throw new Error("Gemini Vertex returned an empty video analysis response.");
+  // Gemini occasionally returns valid JSON that omits the two score fields even
+  // though they are `required`. Downstream would silently default them, so retry once.
+  let analysis: VideoAnalysisResult | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
+    try {
+      const response = await callOnce();
+      const rawText = response.text?.trim();
+      if (!rawText) {
+        throw new Error("Gemini Vertex returned an empty video analysis response.");
+      }
+      const finishReason = response.candidates?.[0]?.finishReason;
+      const parsed = normalizeAnalysis(parseAnalysisJson(rawText, finishReason));
+      if (geminiAnalysisNeedsRetry(parsed)) {
+        throw new Error("Gemini video analysis omitted coldScrollStopScore/watchThroughScore.");
+      }
+      analysis = parsed;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (!analysis) {
+    throw lastError instanceof Error ? lastError : new Error("Gemini video analysis failed.");
   }
 
-  const finishReason = response.candidates?.[0]?.finishReason;
-
   return {
-    analysis: normalizeAnalysis(parseAnalysisJson(rawText, finishReason)),
+    analysis,
     compressedBytes: buffer.byteLength,
     model,
   };
@@ -334,7 +404,7 @@ export function buildRetentionScoringContract(analysis: VideoAnalysisResult): st
   const watch = analysis.watchThroughScore ?? 5;
   const retentionTarget = Math.round(cold * 4 + watch * 6);
   const lines: string[] = [
-    "RETENTION SCORING CONTRACT (retentionScore only — derived from THIS video's Gemini watch signals above):",
+    "INTERNAL RETENTION GUIDANCE (private calibration for retentionScore only — NEVER quote, paraphrase, or mention this guidance, its target number, or the cold/watch signal numbers in any user-facing text):",
     "- retentionScore must follow coldScrollStopScore/watchThroughScore, never copy quality, CTA strength, or offer clarity.",
     `- For THIS video Gemini reported cold=${cold}/10, watch=${watch}/10 → retentionScore should center near ~${retentionTarget} (not higher unless signals above are wrong).`,
     "- Map 0-10 → retentionScore: ~3/10 → ~30, ~5/10 → ~50, ~7/10 → ~70, ~9/10 → ~90.",
@@ -382,12 +452,6 @@ export function formatGeminiVisualContextForGrading(
     );
   }
 
-  lines.push("", "VISUAL DESCRIPTION:", analysis.visualDescription || "(none)");
-
-  if (analysis.firstThreeSeconds) {
-    lines.push("", "FIRST THREE SECONDS:", analysis.firstThreeSeconds);
-  }
-
   if (analysis.coldScrollStopScore != null || analysis.coldScrollStopEvidence) {
     lines.push(
       "",
@@ -402,6 +466,12 @@ export function formatGeminiVisualContextForGrading(
       `WATCH-THROUGH QUALITY (0-10): ${analysis.watchThroughScore ?? "n/a"}`,
       analysis.watchThroughEvidence ?? ""
     );
+  }
+
+  lines.push("", "VISUAL DESCRIPTION:", analysis.visualDescription || "(none)");
+
+  if (analysis.firstThreeSeconds) {
+    lines.push("", "FIRST THREE SECONDS:", analysis.firstThreeSeconds);
   }
 
   if (analysis.dropOffMoments?.length) {

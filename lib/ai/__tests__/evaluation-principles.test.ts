@@ -40,4 +40,24 @@ describe("evaluation principles single source of truth", () => {
     expect(pipeline).toContain("getCreativeGoalEvaluationBlock");
     expect(pipeline).toContain("creativeGoalEvaluationBlock");
   });
+
+  it("logs gemini + retention and has no v3 scoring flag", () => {
+    const pipeline = read("pipeline.ts");
+    const scoring = read("scoring.ts");
+    expect(pipeline).toContain("formatWorkerGeminiLog");
+    expect(scoring).toContain("formatWorkerRetentionLog");
+    expect(scoring).toContain("[worker] retention");
+    expect(scoring).toContain("maxTokens: 6144");
+    expect(pipeline + scoring).not.toMatch(/RETENTION_CALIBRATION|isRetentionV3Enabled|openingFeatures/);
+  });
+
+  it("requires competitiveInsights and tightens Sonnet length limits", () => {
+    const prompts = read("pipeline-prompts.ts");
+    expect(prompts).toMatch(/COMPETITIVE INSIGHTS — REQUIRED/);
+    expect(prompts).toMatch(/ONE sentence per field/);
+    expect(prompts).toMatch(/≈80 words/);
+    expect(prompts).not.toContain('"whyItWorks"');
+    expect(prompts).not.toContain('"psychologicalTrigger"');
+    expect(prompts).not.toContain('"awarenessStage"');
+  });
 });
