@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alignRetentionRationale,
+  stripInternalJargon,
   anchorRetentionScore,
   applyCompetitiveInsightsRetry,
   calibrateScoresFromVisualEvidence,
@@ -558,23 +559,47 @@ describe("score calibration across the full deterministic composite", () => {
 });
 
 describe("alignRetentionRationale", () => {
-  it("rewrites a 'maps to ~76' write-up to the final stored cap score", () => {
-    expect(
-      alignRetentionRationale(
-        "Gemini 7/8 maps to ~76; the opening holds a cold viewer.",
-        72
-      )
-    ).toBe("Gemini 7/8 maps to 72; the opening holds a cold viewer.");
+  it("removes leaked internal wording and states the stored score in plain language", () => {
+    const out = alignRetentionRationale(
+      "Gemini cold=7/10, watch=8/10 maps to ~76. The myth-bust opener earns the pause. Score centers at 76 per the retention scoring contract — not inflated.",
+      72
+    );
+    expect(out).toBe("Retention: 72/100. The myth-bust opener earns the pause.");
   });
 
-  it("appends the stored score when the write-up has no score number", () => {
-    expect(alignRetentionRationale("Opening holds attention.", 76)).toBe(
-      "Opening holds attention. Applied retention score 76."
+  it("strips field names and fitted-model jargon", () => {
+    const out = alignRetentionRationale(
+      "maps to 83 per the fitted v3 model. retentionScore reflects pred2s of 0.45. Fast cuts keep viewers watching to the offer.",
+      83
+    );
+    expect(out).toBe("Retention: 83/100. Fast cuts keep viewers watching to the offer.");
+  });
+
+  it("never lets a different score number survive next to the stored one", () => {
+    expect(
+      alignRetentionRationale("Retention: 76/100 — the hook lands and pacing holds.", 70)
+    ).toBe("Retention: 70/100. The hook lands and pacing holds.");
+  });
+
+  it("synthesizes a plain write-up when the model omitted retentionRationale", () => {
+    expect(alignRetentionRationale(undefined, 64)).toBe("Retention: 64/100.");
+  });
+});
+
+describe("stripInternalJargon", () => {
+  it("keeps clean marketing sentences untouched", () => {
+    expect(stripInternalJargon("The opener stops the scroll. The CTA is split.")).toBe(
+      "The opener stops the scroll. The CTA is split."
     );
   });
-
-  it("synthesizes a write-up when the model omitted retentionRationale", () => {
-    expect(alignRetentionRationale(undefined, 64)).toBe("Applied retention score 64.");
+  it.each([
+    "per the scoring contract",
+    "this maps to 70",
+    "centers near 76",
+    "coldScrollStopScore is 7",
+    "Gemini rated it 7/10",
+  ])("drops leaky sentence: %s", (leak) => {
+    expect(stripInternalJargon(`Good pacing. ${leak}.`)).toBe("Good pacing.");
   });
 });
 

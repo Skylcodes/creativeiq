@@ -707,18 +707,40 @@ export type ScoringSynthesisInput = {
   analysisId?: string;
 };
 
+/** Internal prompt/pipeline jargon that must never reach user-facing report text. */
+const INTERNAL_JARGON_PATTERN =
+  /\b(scoring contract|retention scoring contract|internal retention guidance|contract|maps? to|mapped target|centers? (?:near|at|on)|calibrat\w*|rubric|fitted(?: v3)? model|v3|pred2s|est2s|gemini|visual intelligence|cold\s*=|watch\s*=|retentionScore|coldScrollStop\w*|watchThrough\w*|scrollStopScore|strategicScore|creativeStrengthScore|\d+\s*\/\s*10\b)/i;
+
+/**
+ * Removes sentences that leak internal scoring mechanics (prompt contracts,
+ * signal numbers, field names) from user-facing text. Returns "" if nothing
+ * clean remains.
+ */
+export function stripInternalJargon(text: string | undefined): string {
+  const t = text?.trim() ?? "";
+  if (!t) return "";
+  const sentences = t.split(/(?<=[.!?])\s+/);
+  return sentences
+    .map((s) => s.trim())
+    .filter((s) => s && !INTERNAL_JARGON_PATTERN.test(s))
+    .join(" ")
+    .trim();
+}
+
 export function alignRetentionRationale(
   rationale: string | undefined,
   appliedScore: number
 ): string {
-  const score = clamp(appliedScore, 0, 100);
-  const text = rationale?.trim() ?? "";
-  if (!text) return `Applied retention score ${score}.`;
-  if (/maps to (?:retentionScore )?-?~?\d+/i.test(text)) {
-    return text.replace(/maps to (?:retentionScore )?-?~?\d+/gi, `maps to ${score}`);
-  }
-  if (text.includes(String(score))) return text;
-  return `${text} Applied retention score ${score}.`;
+  const score = Math.round(clamp(appliedScore, 0, 100));
+  const clean = stripInternalJargon(rationale)
+    // Drop any other score-looking number so text can never contradict the stored score.
+    .replace(/\b(?:retention(?: score)?(?: of| is|:)?\s*)~?\d{1,3}(?:\s*\/\s*100)?\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .replace(/^[\s—–:,.-]+/, "")
+    .replace(/^./, (c) => c.toUpperCase());
+  const lead = `Retention: ${score}/100.`;
+  return clean ? `${lead} ${clean}` : lead;
 }
 
 export function needsCompetitiveInsightsRetry(insights?: string[]): boolean {

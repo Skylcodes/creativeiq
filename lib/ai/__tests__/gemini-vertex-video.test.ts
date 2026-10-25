@@ -3,6 +3,9 @@ import {
   formatGeminiVisualContextForGrading,
   geminiAnalysisNeedsRetry,
   normalizeAnalysis,
+  buildRetentionScoringContract,
+  GEMINI_VIDEO_SEED,
+  GEMINI_VIDEO_TEMPERATURE,
 } from "@/lib/ai/gemini-vertex-video";
 import { VIDEO_ANALYSIS_JSON_SCHEMA, type VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
@@ -111,5 +114,17 @@ describe("Gemini score placement", () => {
     expect(text.indexOf("COLD SCROLL-STOP")).toBeLessThan(text.indexOf("VISUAL DESCRIPTION"));
     expect(text.indexOf("WATCH-THROUGH QUALITY")).toBeLessThan(text.indexOf("VISUAL DESCRIPTION"));
     expect(text).not.toMatch(/openingFeatures|OPENING FEATURES/i);
+  });
+});
+
+describe("Gemini determinism + leak guards", () => {
+  it("uses deterministic decoding (temperature 0, fixed seed)", () => {
+    expect(GEMINI_VIDEO_TEMPERATURE).toBe(0);
+    expect(Number.isInteger(GEMINI_VIDEO_SEED)).toBe(true);
+  });
+  it("labels retention guidance as internal and forbids quoting it", () => {
+    const text = buildRetentionScoringContract(baseAnalysis({ coldScrollStopScore: 7, watchThroughScore: 8 }));
+    expect(text).not.toMatch(/SCORING CONTRACT/);
+    expect(text).toMatch(/NEVER quote/);
   });
 });
