@@ -7,6 +7,11 @@ import {
   buildRetentionScoringContract,
   GEMINI_VIDEO_SEED,
   GEMINI_VIDEO_TEMPERATURE,
+  GEMINI_VIDEO_ATTEMPT_TIMEOUT_MS,
+  GEMINI_VIDEO_TOTAL_BUDGET_MS,
+  GEMINI_VIDEO_MAX_OUTPUT_TOKENS,
+  GEMINI_VIDEO_THINKING_BUDGET,
+  shouldRetryGemini,
 } from "@/lib/ai/gemini-vertex-video";
 import { VIDEO_ANALYSIS_JSON_SCHEMA, type VideoAnalysisResult } from "@/lib/ai/video-analysis-types";
 
@@ -146,5 +151,19 @@ describe("Gemini determinism + leak guards", () => {
     const text = buildRetentionScoringContract(baseAnalysis({ coldScrollStopScore: 7, watchThroughScore: 8 }));
     expect(text).not.toMatch(/SCORING CONTRACT/);
     expect(text).toMatch(/NEVER quote/);
+  });
+});
+
+describe("Gemini time/token budget (sp-ad-1 timeout regression)", () => {
+  it("bounds each attempt and the total so scoring still fits under the 270s abort", () => {
+    expect(GEMINI_VIDEO_ATTEMPT_TIMEOUT_MS).toBeLessThanOrEqual(75_000);
+    expect(GEMINI_VIDEO_TOTAL_BUDGET_MS).toBeLessThanOrEqual(90_000);
+  });
+  it("skips the retry when the first attempt was slow", () => {
+    expect(shouldRetryGemini(20_000)).toBe(true);
+    expect(shouldRetryGemini(60_000)).toBe(false);
+  });
+  it("leaves output headroom after bounded thinking", () => {
+    expect(GEMINI_VIDEO_MAX_OUTPUT_TOKENS - GEMINI_VIDEO_THINKING_BUDGET).toBeGreaterThanOrEqual(12_000);
   });
 });

@@ -15,6 +15,17 @@ let cachedClient: GoogleGenAI | null = null;
 /** Fixed decoding seed so repeat analyses of the same video score the same. */
 export const GEMINI_VIDEO_SEED = 1234;
 export const GEMINI_VIDEO_TEMPERATURE = 0;
+export const GEMINI_VIDEO_THINKING_BUDGET = 1024;
+export const GEMINI_VIDEO_MAX_OUTPUT_TOKENS = 16384;
+/** Per-attempt ceiling; worker self-aborts at 270s and still needs ~150s for scoring. */
+export const GEMINI_VIDEO_ATTEMPT_TIMEOUT_MS = 75_000;
+/** Total Gemini budget across attempts. */
+export const GEMINI_VIDEO_TOTAL_BUDGET_MS = 90_000;
+
+/** Only retry if a fresh attempt could plausibly finish within the total budget. */
+export function shouldRetryGemini(elapsedMs: number): boolean {
+  return elapsedMs < GEMINI_VIDEO_TOTAL_BUDGET_MS - 45_000;
+}
 
 const GEMINI_VIDEO_ANALYSIS_INSTRUCTIONS = `You analyze short-form video advertisements for a creative intelligence platform.
 
@@ -110,7 +121,8 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
     visualTimeline: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Chronological beats with approximate timestamps.",
+      description:
+        "Chronological beats with approximate timestamps — at most 12 beats; group rapid captions into one beat.",
     },
     primaryMessaging: {
       type: Type.STRING,
@@ -124,7 +136,11 @@ const VIDEO_ANALYSIS_RESPONSE_SCHEMA: Schema = {
       type: Type.STRING,
       description: "Quoted on-screen copy consolidated.",
     },
-    onScreenTextPersistence: { type: Type.STRING },
+    onScreenTextPersistence: {
+      type: Type.STRING,
+      description:
+        "Max ~80 words. Summarise persistent vs changing text; for word-by-word captions say so once — do not list every word.",
+    },
     separationNotes: { type: Type.STRING },
     firstThreeSeconds: { type: Type.STRING },
     dropOffMoments: {
@@ -332,7 +348,7 @@ export async function analyzeVideoWithGeminiVertex(
   }
 
   const ai = getVertexGenAI();
-  const callOnce = () =>
+  const callOnce = (attempt: number) =>
     ai.models.generateContent({
       model,
       contents: [
@@ -353,8 +369,19 @@ export async function analyzeVideoWithGeminiVertex(
         // Deterministic decoding: same video → same rubric tally. One call per analysis.
         temperature: GEMINI_VIDEO_TEMPERATURE,
         topP: 1,
-        seed: GEMINI_VIDEO_SEED,
-        maxOutputTokens: readEnvInt("GOOGLE_VERTEX_VIDEO_MAX_TOKENS", 8192, 1024, 8192),
+        // A retry with the same seed at temperature 0 reproduces the same failure.
+        seed: GEMINI_VIDEO_SEED + attempt,
+        // Thinking tokens share maxOutputTokens; long caption-heavy videos were
+        // truncating before the (last-ordered) score fields. Bound thinking and
+        // give the JSON real headroom.
+        thinkingConfig: { thinkingBudget: GEMINI_VIDEO_THINKING_BUDGET },
+        maxOutputTokens: readEnvInt(
+          "GOOGLE_VERTEX_VIDEO_MAX_TOKENS",
+          GEMINI_VIDEO_MAX_OUTPUT_TOKENS,
+          1024,
+          32768
+        ),
+        abortSignal: AbortSignal.timeout(GEMINI_VIDEO_ATTEMPT_TIMEOUT_MS),
         responseMimeType: "application/json",
         responseSchema: VIDEO_ANALYSIS_RESPONSE_SCHEMA,
       },
@@ -364,9 +391,13 @@ export async function analyzeVideoWithGeminiVertex(
   // though they are `required`. Downstream would silently default them, so retry once.
   let analysis: VideoAnalysisResult | undefined;
   let lastError: unknown;
+  const startedAt = Date.now();
   for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
+    // Never start a retry that cannot finish inside the worker's time budget —
+    // the frame-sampling fallback is better than a timed-out analysis.
+    if (attempt > 0 && !shouldRetryGemini(Date.now() - startedAt)) break;
     try {
-      const response = await callOnce();
+      const response = await callOnce(attempt);
       const rawText = response.text?.trim();
       if (!rawText) {
         throw new Error("Gemini Vertex returned an empty video analysis response.");
